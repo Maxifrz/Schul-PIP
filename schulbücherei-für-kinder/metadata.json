@@ -1,6 +1,0 @@
-{
-  "name": "Schulbücherei für Kinder",
-  "description": "Eine bunte, spielerische Online-Plattform für eine Schulbücherei mit Neuigkeiten, Veranstaltungskalender, Buch-Katalog, virtuellem Bibliotheksausweis, Quiz und Merkzettel.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
