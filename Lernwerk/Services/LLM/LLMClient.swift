@@ -24,7 +24,7 @@ enum LLMPurpose: Equatable {
     /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
     var timeout: TimeInterval {
         switch self {
-        case .tutor: return 120
+        case .tutor: return 75
         case .flashcard: return 90
         case .studyPlan: return 600
         }
@@ -101,6 +101,7 @@ enum LLMError: LocalizedError, Equatable {
     case unreadablePDF(String)
     case scannedPDF(title: String, pages: Int)
     case timeout(seconds: Int)
+    case overloaded(status: Int)
 
     var errorDescription: String? {
         switch self {
@@ -126,10 +127,26 @@ enum LLMError: LocalizedError, Equatable {
             return "Das Material ist zu umfangreich für eine Anfrage. Wähl weniger Dateien aus."
         case let .unreadablePDF(title):
             return "„\(title)“ lässt sich nicht als PDF öffnen."
+        case let .overloaded(status):
+            return "Der Server des Anbieters war überlastet (\(status)), auch ein Ausweich-Modell hat nicht geantwortet. Versuch es in ein paar Minuten nochmal oder wähl in den Einstellungen ein anderes Modell."
         case let .timeout(seconds):
             return "Keine Antwort nach \(seconds) Sekunden. Das kostenlose Modell ist vermutlich gerade überlastet. Versuch es nochmal oder wähl in den Einstellungen ein anderes Modell."
         case let .scannedPDF(title, pages):
             return "„\(title)“ hat \(pages) eingescannte Seiten, die auch die Texterkennung auf dem iPad nicht lesen konnte. Mit diesem Modell kann die App höchstens \(PlanGenerator.maxScannedPageImages) solcher Seiten als Bild schicken. Stell den Lernplan in den Einstellungen auf OpenRouter oder die Claude API um."
+        }
+    }
+}
+
+extension LLMError {
+    /// Errors caused by the hosted model rather than the request; another model may still answer.
+    var isModelUnavailable: Bool {
+        switch self {
+        case .timeout, .overloaded:
+            return true
+        case let .http(status, _):
+            return status == 404
+        default:
+            return false
         }
     }
 }

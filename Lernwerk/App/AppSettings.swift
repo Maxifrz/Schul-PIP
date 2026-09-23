@@ -86,11 +86,13 @@ final class AppSettings: ObservableObject {
         case .anthropic:
             return ClaudeClient(apiKey: key, model: model)
         case .nvidia, .openRouter:
+            let fallback = chosen.provider.fallbackModelIDs.first { $0 != model }
             return OpenAICompatibleClient(
                 provider: chosen.provider,
                 apiKey: key,
                 model: model,
-                sendsImages: chosen.sendsImages
+                sendsImages: chosen.sendsImages,
+                fallbackModels: fallback.map { [$0] } ?? []
             )
         }
     }
