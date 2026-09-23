@@ -9,7 +9,7 @@ Built as a personal study tool for Abitur preparation and as a portfolio project
 | | |
 |---|---|
 | **PDF + Pencil** | PDFKit renders the material, a PencilKit canvas per page stores pen, highlighter and eraser strokes. |
-| **Context help** | Drag a rectangle around a passage. The app sends the region as an image (including your handwriting), the text under it, the surrounding page, the matching study-plan topic and your weakest flashcards. |
+| **Context help** | Drag a rectangle around a passage. The app runs on-device OCR (Apple Vision) on it, which also reads your handwriting, and sends the recognized text, the region as an image, the text layer under it, the surrounding page, the matching study-plan topic and your weakest flashcards. |
 | **Hint ladder** | Question → hint → full explanation. The student decides when to escalate; "Sag's mir einfach" is the escape hatch. |
 | **Study plan** | The AI reads the PDFs, splits them into topics with prerequisites and page references; a local scheduler orders and spreads them until the exam date and can reschedule after missed days. |
 | **Spaced repetition** | Every finished help session is turned into a flashcard and scheduled with SM-2. |
@@ -35,7 +35,7 @@ Lernwerk/
 │   ├── Tutor/      HintLevel, TutorPrompt, TutorSession, Flashcard
 │   ├── Plan/       PlanGenerator (PDF → topics), PlanScheduler (topological order + day packing)
 │   ├── Review/     SpacedRepetition (SM-2)
-│   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore
+│   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore, TextRecognizer (Apple Vision OCR)
 │   └── Demo/       sample PDF and DemoLLMClient
 └── Views/          Library, Document (PDF canvas, marking overlay), Tutor, Plan, Review, Settings
 ```
@@ -46,7 +46,8 @@ Design decisions:
 - **Three providers, one protocol.** `LLMClient` hides whether a request goes to NVIDIA NIM, OpenRouter or the Claude API. Help panel and study plan can use different providers, and every client declares its `LLMCapabilities` (images yes/no, how PDFs get in).
 - **Raw HTTP instead of SDKs.** `ClaudeClient` speaks the Messages API, `OpenAICompatibleClient` the Chat Completions format that OpenRouter and NIM share. Request encoding and response parsing are unit-tested.
 - **JSON from any model.** Claude gets an enforced schema (`output_config.format`). OpenRouter rejects schema requests for models that lack support, so the OpenAI-compatible path puts the schema into the system prompt, parses tolerantly (code fences, reasoning tags, numbers as strings) and retries once with the invalid answer in context.
-- **The cheapest way into a PDF.** Claude reads PDFs natively. For the other providers the app extracts the text itself with PDFKit, labelled with page markers so topics keep exact page numbers. Scanned pages go to OpenRouter's OCR, or, on NIM, are sent as page images to vision models.
+- **The cheapest way into a PDF.** Claude reads PDFs natively. For the other providers the app extracts the text itself with PDFKit, labelled with page markers so topics keep exact page numbers. Scanned pages are read on the device with Apple Vision first; only pages that stay unreadable go to OpenRouter's OCR or, on NIM, are sent as page images to vision models.
+- **On-device OCR before the cloud.** Apple Vision is free, offline and reads handwriting, so text-only models can help with handwritten notes too. OCR mangles formulas, so vision models still get the image and are told to trust it over the recognized text.
 - **The model decides content, the app decides time.** The model extracts topics and prerequisites; ordering and scheduling are deterministic Swift code with tests.
 
 ## Building without a Mac
@@ -67,7 +68,7 @@ On a private repository, macOS runner minutes count ten times against the free A
 | Cost | Free developer account | 24 free models; paid models need credits | Pay per use |
 | Limits | about 40 requests/minute | free models: 20/minute, 50/day, 1,000/day after a one-time 10 $ top-up | account tier |
 | Images | vision models (Kimi K3, Gemma 4, GLM 5.3 Flash) | vision models | yes |
-| PDFs | text extracted by the app, scanned pages as images (max. 12) | text extracted by the app, scanned PDFs via OCR (needs credits) | native |
+| PDFs | text layer and on-device OCR; unreadable scanned pages as images (max. 12) | text layer and on-device OCR; unreadable scans via OpenRouter OCR (needs credits) | native |
 
 Any model ID from the provider's catalogue can be entered in the settings; the suggestions are only a starting point, because free models come and go. If a model cannot read images, switch off "Bilder mitschicken". A Claude Pro subscription does not include API access; with OpenRouter credits, Claude models are available there as well.
 
@@ -88,13 +89,13 @@ xcodegen generate
 xcodebuild test -project Lernwerk.xcodeproj -scheme Lernwerk -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-Covered: SM-2 scheduling, prerequisite ordering and day packing, request encoding and response parsing for both API formats (refusals, truncation, rate limits, missing credits, reasoning tags), tolerant JSON extraction with retry, local PDF extraction and scanned-page detection, image compression for NIM, prompt construction, demo content.
+Covered: SM-2 scheduling, prerequisite ordering and day packing, request encoding and response parsing for both API formats (refusals, truncation, rate limits, missing credits, reasoning tags), tolerant JSON extraction with retry, local PDF extraction and scanned-page detection, on-device OCR (real Vision run plus the fallback order), image compression for NIM, prompt construction, demo content.
 
 ## Known limitations
 
 - In pen mode a finger draws instead of scrolling; switch back to reading mode to scroll.
 - No iCloud sync; data stays on the device.
-- Math is rendered as Unicode text, not LaTeX.
+- Math is rendered as Unicode text, not LaTeX, and on-device OCR often misreads formulas.
 - Study-plan generation is capped at about 22 MB of PDF or 400,000 characters of extracted text per request.
 - The quality of the Socratic tutor depends on the model; small free models give the answer away more often.
 

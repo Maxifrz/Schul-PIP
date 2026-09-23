@@ -19,10 +19,13 @@ enum PDFMaterialReader {
             .map { $0.offset + 1 }
     }
 
-    static func labeledText(materialIndex: Int, title: String, pages: [String]) -> String {
+    static func labeledText(materialIndex: Int, title: String, pages: [String], recognizedPages: Set<Int> = []) -> String {
         var lines = ["=== Material \(materialIndex): \(title) ==="]
         for (offset, text) in pages.enumerated() {
-            lines.append("--- Page \(offset + 1) ---")
+            let pageNumber = offset + 1
+            lines.append(recognizedPages.contains(pageNumber)
+                ? "--- Page \(pageNumber) (recognized from scan, may contain OCR errors) ---"
+                : "--- Page \(pageNumber) ---")
             lines.append(text.count < minimumTextLength ? "(scanned page without text layer)" : text)
         }
         return lines.joined(separator: "\n")

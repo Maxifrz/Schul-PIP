@@ -15,7 +15,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Lernhilfe & Karteikarten")
                 } footer: {
-                    Text("Empfohlen: NVIDIA NIM, gratis. Das Modell sollte Bilder verstehen, damit es auch deine Handschrift im markierten Bereich lesen kann.")
+                    Text("Empfohlen: NVIDIA NIM, gratis. Text und Handschrift im markierten Bereich erkennt das iPad selbst. Formeln liest die Texterkennung oft falsch – dafür hilft ein Modell, das Bilder versteht.")
                 }
 
                 Section {
@@ -27,7 +27,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Lernplan")
                 } footer: {
-                    Text("Empfohlen: OpenRouter. PDFs mit Text liest die App selbst aus. Eingescannte PDFs wandelt OpenRouter per Texterkennung um – das braucht Guthaben (ca. 2 $ pro 1.000 Seiten). Mit NVIDIA gehen höchstens \(PlanGenerator.maxScannedPageImages) eingescannte Seiten, als Bilder.")
+                    Text("Empfohlen: OpenRouter. Die App liest PDFs selbst aus, eingescannte Seiten per Texterkennung auf dem iPad (offline). Nur was dabei unlesbar bleibt, geht an die Texterkennung von OpenRouter (braucht Guthaben, ca. 2 $ pro 1.000 Seiten) oder bei NVIDIA als Bild (höchstens \(PlanGenerator.maxScannedPageImages) Seiten).")
                 }
 
                 Section {

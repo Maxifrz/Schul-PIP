@@ -63,6 +63,8 @@ final class PlanContentTests: XCTestCase {
         }
     }
 
+    private let noOCR: (PDFDocument, Int) -> String = { _, _ in "" }
+
     func testDetectsScannedPages() throws {
         let document = try XCTUnwrap(PDFDocument(data: mixedPDF.pdf))
         XCTAssertEqual(PDFMaterialReader.scannedPages(in: PDFMaterialReader.pageTexts(of: document)), [2])
@@ -71,7 +73,8 @@ final class PlanContentTests: XCTestCase {
     func testScannedPagesGoToOpenRouterOCR() throws {
         let content = try PlanGenerator.content(
             for: [mixedPDF],
-            capabilities: LLMCapabilities(acceptsImages: false, documentHandling: .providerOCR)
+            capabilities: LLMCapabilities(acceptsImages: false, documentHandling: .providerOCR),
+            recognizeText: noOCR
         )
         XCTAssertEqual(count(content, where: isPDF), 1)
     }
@@ -79,7 +82,8 @@ final class PlanContentTests: XCTestCase {
     func testScannedPagesBecomeImagesForVisionModels() throws {
         let content = try PlanGenerator.content(
             for: [mixedPDF],
-            capabilities: LLMCapabilities(acceptsImages: true, documentHandling: .textOnly)
+            capabilities: LLMCapabilities(acceptsImages: true, documentHandling: .textOnly),
+            recognizeText: noOCR
         )
         XCTAssertEqual(count(content, where: isImage), 1)
         XCTAssertTrue(texts(content).contains("Material 0, page 2 (scanned):"))
@@ -88,10 +92,44 @@ final class PlanContentTests: XCTestCase {
     func testScannedPagesFailClearlyWithoutVision() {
         XCTAssertThrowsError(try PlanGenerator.content(
             for: [mixedPDF],
-            capabilities: LLMCapabilities(acceptsImages: false, documentHandling: .textOnly)
+            capabilities: LLMCapabilities(acceptsImages: false, documentHandling: .textOnly),
+            recognizeText: noOCR
         )) { error in
             XCTAssertEqual(error as? LLMError, .scannedPDF(title: "Scan", pages: 1))
         }
+    }
+
+    func testScannedPagesAreReadOnDeviceFirst() throws {
+        let recognized = "Handschriftliche Notiz: Stammfunktion von 2x ist x² + C"
+        for handling in [DocumentHandling.textOnly, .providerOCR] {
+            let content = try PlanGenerator.content(
+                for: [mixedPDF],
+                capabilities: LLMCapabilities(acceptsImages: false, documentHandling: handling),
+                recognizeText: { _, page in page == 2 ? recognized : "" }
+            )
+            XCTAssertEqual(count(content, where: isPDF), 0)
+            XCTAssertEqual(count(content, where: isImage), 0)
+            let material = texts(content).first ?? ""
+            XCTAssertTrue(material.contains("--- Page 2 (recognized from scan, may contain OCR errors) ---"))
+            XCTAssertTrue(material.contains(recognized))
+            XCTAssertTrue(material.contains("--- Page 1 ---"))
+        }
+    }
+
+    func testVisionRecognizesRenderedText() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 900, height: 300), format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 900, height: 300))
+            NSAttributedString(
+                string: "Kettenregel Ableitung",
+                attributes: [.font: UIFont.systemFont(ofSize: 64), .foregroundColor: UIColor.black]
+            ).draw(at: CGPoint(x: 40, y: 100))
+        }
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let text = TextRecognizer.text(in: cgImage)
+        XCTAssertTrue(text.localizedCaseInsensitiveContains("Kettenregel"), "Recognized: \(text)")
     }
 
     func testImageCompressorMeetsNVIDIALimit() throws {

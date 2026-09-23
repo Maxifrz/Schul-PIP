@@ -81,8 +81,13 @@ struct PlanGenerator {
         return response.topics
     }
 
-    /// Picks the cheapest way each provider can read the material: native PDF, local text, provider OCR or page images.
-    static func content(for inputs: [Input], capabilities: LLMCapabilities) throws -> [LLMContent] {
+    /// Picks the cheapest way each provider can read the material: native PDF, local text (from the text layer or
+    /// on-device OCR), provider OCR or page images.
+    static func content(
+        for inputs: [Input],
+        capabilities: LLMCapabilities,
+        recognizeText: (PDFDocument, Int) -> String = TextRecognizer.text(of:pageNumber:)
+    ) throws -> [LLMContent] {
         var content: [LLMContent] = []
         var pdfBytes = 0
         var textCharacters = 0
@@ -99,7 +104,15 @@ struct PlanGenerator {
             guard let document = PDFDocument(data: input.pdf) else {
                 throw LLMError.unreadablePDF(input.title)
             }
-            let pages = PDFMaterialReader.pageTexts(of: document)
+            var pages = PDFMaterialReader.pageTexts(of: document)
+            var recognizedPages = Set<Int>()
+            for pageNumber in PDFMaterialReader.scannedPages(in: pages) {
+                let recognized = recognizeText(document, pageNumber).trimmingCharacters(in: .whitespacesAndNewlines)
+                if recognized.count >= PDFMaterialReader.minimumTextLength {
+                    pages[pageNumber - 1] = recognized
+                    recognizedPages.insert(pageNumber)
+                }
+            }
             let scanned = PDFMaterialReader.scannedPages(in: pages)
 
             if !scanned.isEmpty, capabilities.documentHandling == .providerOCR {
@@ -109,7 +122,12 @@ struct PlanGenerator {
                 continue
             }
 
-            let text = PDFMaterialReader.labeledText(materialIndex: index, title: input.title, pages: pages)
+            let text = PDFMaterialReader.labeledText(
+                materialIndex: index,
+                title: input.title,
+                pages: pages,
+                recognizedPages: recognizedPages
+            )
             textCharacters += text.count
             content.append(.text(text))
 

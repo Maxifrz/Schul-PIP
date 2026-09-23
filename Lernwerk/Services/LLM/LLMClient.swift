@@ -102,7 +102,7 @@ enum LLMError: LocalizedError, Equatable {
         case let .unreadablePDF(title):
             return "„\(title)“ lässt sich nicht als PDF öffnen."
         case let .scannedPDF(title, pages):
-            return "„\(title)“ hat \(pages) eingescannte Seiten ohne Text. Mit diesem Modell kann die App höchstens \(PlanGenerator.maxScannedPageImages) solcher Seiten als Bild schicken. Stell den Lernplan in den Einstellungen auf OpenRouter oder die Claude API um."
+            return "„\(title)“ hat \(pages) eingescannte Seiten, die auch die Texterkennung auf dem iPad nicht lesen konnte. Mit diesem Modell kann die App höchstens \(PlanGenerator.maxScannedPageImages) solcher Seiten als Bild schicken. Stell den Lernplan in den Einstellungen auf OpenRouter oder die Claude API um."
         }
     }
 }

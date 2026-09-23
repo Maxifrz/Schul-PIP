@@ -8,6 +8,8 @@ struct TutorContext {
     var topicTitle: String?
     var topicSummary: String?
     var weakSpots: [String]
+    /// On-device OCR of the marked region, which also catches the student's handwriting.
+    var recognizedText: String = ""
 }
 
 enum TutorPrompt {
@@ -16,8 +18,10 @@ enum TutorPrompt {
     static let system = """
     You are a Socratic tutor inside a study app used by a German upper-secondary student preparing for the Abitur.
     The student marked a region of their study material because they are stuck. You receive an image of the marked \
-    region, the text extracted from it, the surrounding page, and, when available, the current topic of their study \
-    plan and flashcards they struggled with before.
+    region, the text extracted from it, text recognized on the device (including the student's handwriting), the \
+    surrounding page, and, when available, the current topic of their study plan and flashcards they struggled with \
+    before. Recognized text can contain OCR errors, especially in formulas; when it disagrees with the image, trust \
+    the image.
 
     Every student message starts with a tag like [help level 2: hint]. Follow that level exactly:
     - Level 1 (question): Do not explain and do not solve. Ask exactly one guiding question that points the student \
@@ -44,12 +48,18 @@ enum TutorPrompt {
         parts.append("<material title=\"\(context.materialTitle)\" page=\"\(context.pageNumber)\"/>")
 
         let selected = context.selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if selected.isEmpty, hasImage {
-            parts.append("<marked_text>(no text layer - read the marked region from the image)</marked_text>")
-        } else if selected.isEmpty {
-            parts.append("<marked_text>(no text layer and no image available - ask the student to type out the part they are stuck on)</marked_text>")
-        } else {
+        let recognized = context.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !selected.isEmpty {
             parts.append("<marked_text>\n\(selected)\n</marked_text>")
+        } else if !recognized.isEmpty {
+            parts.append("<marked_text>(no text layer - see recognized_text)</marked_text>")
+        } else if hasImage {
+            parts.append("<marked_text>(no text layer - read the marked region from the image)</marked_text>")
+        } else {
+            parts.append("<marked_text>(no text layer and no image available - ask the student to type out the part they are stuck on)</marked_text>")
+        }
+        if !recognized.isEmpty, recognized != selected {
+            parts.append("<recognized_text source=\"on-device OCR\">\n\(recognized)\n</recognized_text>")
         }
 
         let page = context.pageText.trimmingCharacters(in: .whitespacesAndNewlines)

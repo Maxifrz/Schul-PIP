@@ -18,16 +18,23 @@ final class TutorSession: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
-    let context: TutorContext
+    private(set) var context: TutorContext
     let regionImage: Data?
 
     private let client: any LLMClient
+    private let recognizeText: (Data) async -> String
     private var history: [LLMMessage] = []
 
-    init(context: TutorContext, regionImage: Data?, client: any LLMClient) {
+    init(
+        context: TutorContext,
+        regionImage: Data?,
+        client: any LLMClient,
+        recognizeText: @escaping (Data) async -> String = TextRecognizer.recognize
+    ) {
         self.context = context
         self.regionImage = regionImage
         self.client = client
+        self.recognizeText = recognizeText
     }
 
     var hasHelped: Bool {
@@ -35,7 +42,12 @@ final class TutorSession: ObservableObject {
     }
 
     func start() async {
-        guard history.isEmpty else { return }
+        guard history.isEmpty, !isLoading else { return }
+        if context.recognizedText.isEmpty, let regionImage {
+            isLoading = true
+            context.recognizedText = await recognizeText(regionImage)
+            isLoading = false
+        }
         await send("Ich brauche Hilfe bei dem markierten Bereich.", showAsStudentTurn: false)
     }
 

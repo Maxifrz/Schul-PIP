@@ -38,6 +38,40 @@ final class TutorAndPlanTests: XCTestCase {
         XCTAssertTrue(block.contains("no image available"))
     }
 
+    func testContextIncludesOnDeviceRecognizedText() {
+        var tutorContext = context(selected: "")
+        tutorContext.recognizedText = "meine Notiz: u' = 3v²"
+        let block = TutorPrompt.contextBlock(tutorContext, hasImage: false)
+        XCTAssertTrue(block.contains("<recognized_text source=\"on-device OCR\">\nmeine Notiz: u' = 3v²\n</recognized_text>"))
+        XCTAssertFalse(block.contains("no image available"))
+    }
+
+    func testRecognizedTextEqualToTextLayerIsNotRepeated() {
+        var tutorContext = context(selected: "f(x) = (2x − 7)³")
+        tutorContext.recognizedText = "f(x) = (2x − 7)³"
+        XCTAssertFalse(TutorPrompt.contextBlock(tutorContext).contains("<recognized_text"))
+    }
+
+    @MainActor
+    func testTutorSessionRunsOCRBeforeTheFirstRequest() async {
+        let client = CapturingClient()
+        let session = TutorSession(
+            context: context(selected: ""),
+            regionImage: Data([1, 2, 3]),
+            client: client,
+            recognizeText: { _ in "Handschrift: v = 2x − 7" }
+        )
+        await session.start()
+
+        XCTAssertEqual(session.context.recognizedText, "Handschrift: v = 2x − 7")
+        let firstTexts = client.requests.first?.messages.first?.content.compactMap { (item: LLMContent) -> String? in
+            if case let .text(text) = item { return text }
+            return nil
+        } ?? []
+        XCTAssertTrue(firstTexts.contains { $0.contains("Handschrift: v = 2x − 7") })
+        XCTAssertEqual(session.turns.count, 1)
+    }
+
     func testContextClipsVeryLongPages() {
         let block = TutorPrompt.contextBlock(context(page: String(repeating: "a", count: 20_000)))
         XCTAssertLessThan(block.count, TutorPrompt.pageTextLimit + 500)
@@ -94,5 +128,15 @@ private enum PDFDocumentProbe {
     static func pageTexts(of data: Data) -> [String]? {
         guard let document = PDFDocument(data: data) else { return nil }
         return (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
+    }
+}
+
+private final class CapturingClient: LLMClient {
+    var capabilities = LLMCapabilities(acceptsImages: false, documentHandling: .textOnly)
+    private(set) var requests: [LLMRequest] = []
+
+    func complete(_ request: LLMRequest) async throws -> LLMResponse {
+        requests.append(request)
+        return LLMResponse(text: "Welche Funktion steckt innen?", stopReason: "stop", model: "capturing")
     }
 }
