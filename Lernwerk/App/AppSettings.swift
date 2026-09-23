@@ -64,6 +64,12 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    func modelLabel(for task: LLMTask) -> String {
+        if demoMode { return "Demo" }
+        let chosen = self.selection(for: task)
+        return chosen.provider.option(for: chosen.model)?.name ?? chosen.model
+    }
+
     func makeClient(for task: LLMTask) -> any LLMClient {
         if demoMode {
             return DemoLLMClient()

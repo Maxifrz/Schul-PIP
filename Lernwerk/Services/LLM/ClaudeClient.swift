@@ -17,7 +17,7 @@ struct ClaudeClient: LLMClient {
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
         var urlRequest = URLRequest(url: Self.endpoint)
         urlRequest.httpMethod = "POST"
-        urlRequest.timeoutInterval = 600
+        urlRequest.timeoutInterval = request.purpose.timeout
         urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
         urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         urlRequest.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
@@ -26,11 +26,8 @@ struct ClaudeClient: LLMClient {
         }
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: Self.body(for: request, model: model))
 
-        let (data, response) = try await session.data(for: urlRequest)
-        guard let http = response as? HTTPURLResponse else {
-            throw LLMError.invalidResponse
-        }
-        return try Self.parse(data: data, status: http.statusCode, expectsJSON: request.jsonSchema != nil)
+        let (data, status) = try await session.llmData(for: urlRequest)
+        return try Self.parse(data: data, status: status, expectsJSON: request.jsonSchema != nil)
     }
 
     static func body(for request: LLMRequest, model: String) -> [String: Any] {

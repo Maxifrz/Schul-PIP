@@ -16,10 +16,14 @@ final class TutorSession: ObservableObject {
     @Published private(set) var turns: [Turn] = []
     @Published private(set) var level: HintLevel = .question
     @Published private(set) var isLoading = false
+    /// What the panel shows while waiting, so a slow free model is visibly working rather than frozen.
+    @Published private(set) var waitingFor: String?
+    @Published private(set) var waitingSince: Date?
     @Published var errorMessage: String?
 
     private(set) var context: TutorContext
     let regionImage: Data?
+    let modelLabel: String
 
     private let client: any LLMClient
     private let recognizeText: (Data) async -> String
@@ -29,10 +33,12 @@ final class TutorSession: ObservableObject {
         context: TutorContext,
         regionImage: Data?,
         client: any LLMClient,
+        modelLabel: String = "KI",
         recognizeText: @escaping (Data) async -> String = TextRecognizer.recognize
     ) {
         self.context = context
         self.regionImage = regionImage
+        self.modelLabel = modelLabel
         self.client = client
         self.recognizeText = recognizeText
     }
@@ -48,9 +54,9 @@ final class TutorSession: ObservableObject {
     func start() async {
         guard history.isEmpty, !isLoading else { return }
         if context.recognizedText.isEmpty, let regionImage {
-            isLoading = true
+            beginWaiting("Lese den markierten Bereich")
             context.recognizedText = await recognizeText(regionImage)
-            isLoading = false
+            endWaiting()
         }
         await send("Ich brauche Hilfe bei dem markierten Bereich.", showAsStudentTurn: false)
     }
@@ -110,9 +116,9 @@ final class TutorSession: ObservableObject {
             turns.append(Turn(speaker: .student, text: text))
         }
 
-        isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        beginWaiting("Warte auf \(modelLabel)")
+        defer { endWaiting() }
 
         do {
             let request = LLMRequest(
@@ -132,5 +138,17 @@ final class TutorSession: ObservableObject {
             }
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func beginWaiting(_ label: String) {
+        isLoading = true
+        waitingFor = label
+        waitingSince = Date()
+    }
+
+    private func endWaiting() {
+        isLoading = false
+        waitingFor = nil
+        waitingSince = nil
     }
 }

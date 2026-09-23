@@ -36,6 +36,36 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertTrue(JSONSerialization.isValidJSONObject(body))
     }
 
+    func testTutorAndFlashcardsSkipLongReasoningButThePlanKeepsIt() {
+        let tutor = LLMRequest(
+            purpose: .tutor(.question),
+            system: "s",
+            messages: [LLMMessage(role: .user, content: [.text("x")])],
+            maxTokens: 100
+        )
+        let nim = OpenAICompatibleClient.body(for: tutor, model: "m", provider: .nvidia, sendsImages: false)
+        let kwargs = nim["chat_template_kwargs"] as? [String: Any]
+        XCTAssertEqual(kwargs?["enable_thinking"] as? Bool, false)
+        XCTAssertEqual(kwargs?["thinking"] as? Bool, false)
+        XCTAssertNil(nim["reasoning"])
+
+        let openRouter = OpenAICompatibleClient.body(for: tutor, model: "m", provider: .openRouter, sendsImages: false)
+        XCTAssertEqual((openRouter["reasoning"] as? [String: Any])?["effort"] as? String, "low")
+        XCTAssertNil(openRouter["chat_template_kwargs"])
+
+        var plan = tutor
+        plan.purpose = .studyPlan
+        XCTAssertNil(OpenAICompatibleClient.body(for: plan, model: "m", provider: .nvidia, sendsImages: false)["chat_template_kwargs"])
+        XCTAssertNil(OpenAICompatibleClient.body(for: plan, model: "m", provider: .openRouter, sendsImages: false)["reasoning"])
+    }
+
+    func testTimeoutsMatchWhatTheStudentWaitsFor() {
+        XCTAssertEqual(LLMPurpose.tutor(.hint).timeout, 120)
+        XCTAssertEqual(LLMPurpose.flashcard.timeout, 90)
+        XCTAssertEqual(LLMPurpose.studyPlan.timeout, 600)
+        XCTAssertTrue(LLMError.timeout(seconds: 120).errorDescription?.contains("120 Sekunden") ?? false)
+    }
+
     func testTextOnlyUserMessageIsAPlainString() {
         let body = OpenAICompatibleClient.body(
             for: request(content: [.text("a"), .text("b")]),

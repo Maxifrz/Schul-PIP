@@ -19,8 +19,7 @@ struct TutorPanel: View {
                                 .id(turn.id)
                         }
                         if session.isLoading {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
+                            WaitingIndicator(label: session.waitingFor, since: session.waitingSince)
                         }
                         if let error = session.errorMessage {
                             errorView(error)
@@ -137,6 +136,30 @@ struct TutorPanel: View {
         let text = draft
         draft = ""
         Task { await session.answer(text) }
+    }
+}
+
+private struct WaitingIndicator: View {
+    let label: String?
+    let since: Date?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            HStack(spacing: 10) {
+                ProgressView()
+                Text(text(at: timeline.date))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func text(at date: Date) -> String {
+        let seconds = since.map { max(0, Int(date.timeIntervalSince($0))) } ?? 0
+        let base = "\(label ?? "Warte") … \(seconds) s"
+        return seconds >= 30 ? base + " – kostenlose Modelle brauchen manchmal etwas länger" : base
     }
 }
 

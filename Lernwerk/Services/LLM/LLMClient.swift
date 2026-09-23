@@ -20,6 +20,15 @@ enum LLMPurpose: Equatable {
     case tutor(HintLevel)
     case flashcard
     case studyPlan
+
+    /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
+    var timeout: TimeInterval {
+        switch self {
+        case .tutor: return 120
+        case .flashcard: return 90
+        case .studyPlan: return 600
+        }
+    }
 }
 
 enum LLMEffort: String {
@@ -63,6 +72,21 @@ protocol LLMClient {
     func complete(_ request: LLMRequest) async throws -> LLMResponse
 }
 
+extension URLSession {
+    /// Sends a request and turns a timeout into an error the student can act on.
+    func llmData(for request: URLRequest) async throws -> (Data, Int) {
+        do {
+            let (data, response) = try await data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw LLMError.invalidResponse
+            }
+            return (data, http.statusCode)
+        } catch let error as URLError where error.code == .timedOut {
+            throw LLMError.timeout(seconds: Int(request.timeoutInterval))
+        }
+    }
+}
+
 enum LLMError: LocalizedError, Equatable {
     case missingAPIKey(provider: String)
     case missingModel
@@ -76,6 +100,7 @@ enum LLMError: LocalizedError, Equatable {
     case requestTooLarge
     case unreadablePDF(String)
     case scannedPDF(title: String, pages: Int)
+    case timeout(seconds: Int)
 
     var errorDescription: String? {
         switch self {
@@ -101,6 +126,8 @@ enum LLMError: LocalizedError, Equatable {
             return "Das Material ist zu umfangreich für eine Anfrage. Wähl weniger Dateien aus."
         case let .unreadablePDF(title):
             return "„\(title)“ lässt sich nicht als PDF öffnen."
+        case let .timeout(seconds):
+            return "Keine Antwort nach \(seconds) Sekunden. Das kostenlose Modell ist vermutlich gerade überlastet. Versuch es nochmal oder wähl in den Einstellungen ein anderes Modell."
         case let .scannedPDF(title, pages):
             return "„\(title)“ hat \(pages) eingescannte Seiten, die auch die Texterkennung auf dem iPad nicht lesen konnte. Mit diesem Modell kann die App höchstens \(PlanGenerator.maxScannedPageImages) solcher Seiten als Bild schicken. Stell den Lernplan in den Einstellungen auf OpenRouter oder die Claude API um."
         }

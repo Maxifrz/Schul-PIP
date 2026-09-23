@@ -24,22 +24,27 @@ struct OpenAICompatibleClient: LLMClient {
         }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
-        urlRequest.timeoutInterval = 600
+        urlRequest.timeoutInterval = request.purpose.timeout
         urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization")
         if provider == .openRouter {
             urlRequest.setValue("Lernwerk", forHTTPHeaderField: "X-Title")
         }
-        let body = Self.body(for: request, model: model, provider: provider, sendsImages: sendsImages)
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await session.data(for: urlRequest)
-        guard let http = response as? HTTPURLResponse else {
-            throw LLMError.invalidResponse
+        var body = Self.body(for: request, model: model, provider: provider, sendsImages: sendsImages)
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        var (data, status) = try await session.llmData(for: urlRequest)
+
+        // Not every NIM model's chat template knows the thinking switch; retry once without it.
+        if status == 400 || status == 422, body["chat_template_kwargs"] != nil {
+            body["chat_template_kwargs"] = nil
+            urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+            (data, status) = try await session.llmData(for: urlRequest)
         }
+
         return try Self.parse(
             data: data,
-            status: http.statusCode,
+            status: status,
             expectsJSON: request.jsonSchema != nil,
             sentImages: Self.containsImages(request, sendsImages: sendsImages)
         )
@@ -57,11 +62,29 @@ struct OpenAICompatibleClient: LLMClient {
         let hasPDF = request.messages.contains { message in
             message.content.contains { if case .pdf = $0 { return true } else { return false } }
         }
+        if wantsFastAnswer(request) {
+            switch provider {
+            case .nvidia:
+                // GLM/Qwen templates read enable_thinking, Kimi reads thinking; unknown keys are ignored.
+                let thinkingOff: [String: Any] = ["enable_thinking": false, "thinking": false]
+                body["chat_template_kwargs"] = thinkingOff
+            case .openRouter:
+                let reasoning: [String: Any] = ["effort": "low"]
+                body["reasoning"] = reasoning
+            case .anthropic:
+                break
+            }
+        }
         if hasPDF, provider == .openRouter {
             let parser: [String: Any] = ["id": "file-parser", "pdf": ["engine": ocrEngine]]
             body["plugins"] = [parser]
         }
         return body
+    }
+
+    /// All suggested models reason before answering, which takes minutes on free tiers; only the study plan needs that depth.
+    static func wantsFastAnswer(_ request: LLMRequest) -> Bool {
+        request.purpose != .studyPlan
     }
 
     /// Not every hosted model enforces JSON schemas (OpenRouter rejects the request instead), so the schema goes into the prompt.
