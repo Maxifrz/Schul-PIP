@@ -199,7 +199,7 @@ final class PDFContainerView: UIView {
         pdfView.autoScales = true
         pdfView.displayMode = .singlePageContinuous
         pdfView.displayDirection = .vertical
-        pdfView.backgroundColor = .systemGray6
+        pdfView.backgroundColor = QuillUIColor.canvas
         addSubview(pdfView)
         markingView.isHidden = true
         addSubview(markingView)

@@ -13,76 +13,106 @@ struct ReviewView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let card = dueCards.first {
-                    cardView(card)
-                } else {
-                    doneView
-                }
+        VStack(spacing: 0) {
+            PageHeader(caption: "Karteikarten", title: "Wiederholen") {
+                Text(dueCards.count == 1 ? "1 fällig" : "\(dueCards.count) fällig")
+                    .font(.work(14))
+                    .foregroundStyle(Quill.muted)
+                    .padding(.bottom, 6)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Wiederholen")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text("\(dueCards.count) fällig")
-                        .foregroundStyle(.secondary)
-                }
+            .frame(maxWidth: 760)
+            .padding(.horizontal, 40)
+            .padding(.top, 44)
+
+            if let card = dueCards.first {
+                cardView(card)
+                    .id(card.persistentModelID)
+                    .transition(.opacity)
+            } else {
+                doneView
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(.easeInOut(duration: 0.3), value: showAnswer)
+        .animation(.easeInOut(duration: 0.3), value: dueCards.first?.persistentModelID)
     }
 
     private func cardView(_ card: ReviewCard) -> some View {
         VStack(spacing: 24) {
-            if reviewedThisSession > 0 {
-                Label("\(reviewedThisSession) geschafft", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.green)
-            }
-            Spacer()
+            PixelCaption(text: reviewedThisSession > 0 ? "\(reviewedThisSession) geschafft" : " ", color: Quill.accent)
+                .frame(height: 14)
+            Spacer(minLength: 0)
             Text(card.front)
-                .font(.title2.weight(.semibold))
+                .font(.work(30, .light))
+                .tracking(-0.66)
+                .lineSpacing(6)
                 .multilineTextAlignment(.center)
+                .foregroundStyle(Quill.ink)
+                .fixedSize(horizontal: false, vertical: true)
             if showAnswer {
-                Divider()
-                Text(card.back)
-                    .font(.title3)
-                    .multilineTextAlignment(.center)
-                if let page = card.page {
-                    Text("Aus deinem Material, Seite \(page)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                VStack(spacing: 14) {
+                    QuillDivider()
+                    Text(card.back)
+                        .font(.work(18))
+                        .lineSpacing(8)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Quill.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let page = card.page {
+                        Text("Aus deinem Material, Seite \(page)")
+                            .font(.work(12.5))
+                            .foregroundStyle(Quill.faint)
+                    }
                 }
+                .transition(.opacity.combined(with: .offset(y: 6)))
             }
-            Spacer()
+            Spacer(minLength: 0)
             if showAnswer {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     ForEach(ReviewGrade.allCases, id: \.self) { grade in
-                        Button(grade.label) {
+                        Button {
                             rate(card, grade)
+                        } label: {
+                            HStack(spacing: 8) {
+                                StatusDot(color: grade.dot, size: 7)
+                                Text(grade.label)
+                            }
                         }
-                        .buttonStyle(.bordered)
-                        .tint(grade.tint)
+                        .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14.5, weight: .medium))
                     }
                 }
             } else {
-                Button("Antwort zeigen") {
-                    withAnimation { showAnswer = true }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                Button("Antwort zeigen") { showAnswer = true }
+                    .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
             }
         }
-        .padding(32)
         .frame(maxWidth: 640)
+        .padding(.horizontal, 32)
+        .padding(.top, 28)
+        .padding(.bottom, 44)
     }
 
     private var doneView: some View {
-        ContentUnavailableView {
-            Label("Alles wiederholt", systemImage: "checkmark.seal.fill")
-        } description: {
+        VStack(spacing: 14) {
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { _ in StatusDot() }
+            }
+            Text("Alles wiederholt")
+                .font(.work(30, .light))
+                .tracking(-0.75)
+                .foregroundStyle(Quill.ink)
+                .padding(.top, 6)
             Text(doneText)
+                .font(.work(15.5))
+                .lineSpacing(5)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Quill.muted)
+                .frame(maxWidth: 400)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 40)
+        .padding(.bottom, 80)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var doneText: String {
@@ -103,12 +133,12 @@ struct ReviewView: View {
 }
 
 private extension ReviewGrade {
-    var tint: Color {
+    var dot: Color {
         switch self {
-        case .again: return .red
-        case .hard: return .orange
-        case .good: return .green
-        case .easy: return .blue
+        case .again: return Color(QuillUIColor.hex(0xC46A55))
+        case .hard: return Quill.warn
+        case .good: return Quill.accent
+        case .easy: return Color(QuillUIColor.hex(0x6F8FB0))
         }
     }
 }
