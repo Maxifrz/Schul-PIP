@@ -10,6 +10,10 @@ struct ClaudeClient: LLMClient {
     var model: String
     var session: URLSession = .shared
 
+    var capabilities: LLMCapabilities {
+        LLMCapabilities(acceptsImages: true, documentHandling: .nativePDF)
+    }
+
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
         var urlRequest = URLRequest(url: Self.endpoint)
         urlRequest.httpMethod = "POST"

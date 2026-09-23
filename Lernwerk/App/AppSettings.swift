@@ -1,64 +1,100 @@
 import Foundation
 
-struct ModelOption: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let note: String
-}
-
 final class AppSettings: ObservableObject {
-    static let models: [ModelOption] = [
-        ModelOption(id: "claude-opus-5", name: "Claude Opus 5", note: "Beste Erklärungen"),
-        ModelOption(id: "claude-sonnet-5", name: "Claude Sonnet 5", note: "Schneller, günstiger"),
-        ModelOption(id: "claude-haiku-4-5", name: "Claude Haiku 4.5", note: "Am günstigsten"),
-    ]
-    static let defaultModel = "claude-opus-5"
-
     private enum Keys {
-        static let model = "llm.model"
+        static let tutor = "llm.tutor"
+        static let plan = "llm.plan"
         static let demoMode = "demoMode"
-        static let apiKeyAccount = "anthropic-api-key"
     }
 
-    @Published var model: String {
-        didSet { defaults.set(model, forKey: Keys.model) }
+    /// Model for the help panel and the flashcards created from it.
+    @Published var tutor: ModelSelection {
+        didSet { store(tutor, forKey: Keys.tutor) }
+    }
+
+    /// Model that reads the material and builds the study plan.
+    @Published var plan: ModelSelection {
+        didSet { store(plan, forKey: Keys.plan) }
     }
 
     @Published var demoMode: Bool {
         didSet { defaults.set(demoMode, forKey: Keys.demoMode) }
     }
 
-    @Published private(set) var hasAPIKey: Bool
+    @Published private(set) var providersWithKey: Set<LLMProvider>
 
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        model = defaults.string(forKey: Keys.model) ?? Self.defaultModel
+        tutor = AppSettings.load(Keys.tutor, from: defaults) ?? .defaultSelection(for: .tutor, provider: .nvidia)
+        plan = AppSettings.load(Keys.plan, from: defaults) ?? .defaultSelection(for: .plan, provider: .openRouter)
         demoMode = defaults.bool(forKey: Keys.demoMode)
-        hasAPIKey = KeychainStore.load(account: Keys.apiKeyAccount) != nil
+        providersWithKey = Set(LLMProvider.allCases.filter { KeychainStore.load(account: $0.keychainAccount) != nil })
     }
 
-    func saveAPIKey(_ key: String) -> Bool {
+    var hasAnyKey: Bool {
+        !providersWithKey.isEmpty
+    }
+
+    func hasKey(for provider: LLMProvider) -> Bool {
+        providersWithKey.contains(provider)
+    }
+
+    func saveKey(_ key: String, for provider: LLMProvider) -> Bool {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        let saved = KeychainStore.save(trimmed, account: Keys.apiKeyAccount)
-        hasAPIKey = KeychainStore.load(account: Keys.apiKeyAccount) != nil
-        return saved
+        guard !trimmed.isEmpty, KeychainStore.save(trimmed, account: provider.keychainAccount) else {
+            return false
+        }
+        providersWithKey.insert(provider)
+        return true
     }
 
-    func deleteAPIKey() {
-        KeychainStore.delete(account: Keys.apiKeyAccount)
-        hasAPIKey = false
+    func deleteKey(for provider: LLMProvider) {
+        KeychainStore.delete(account: provider.keychainAccount)
+        providersWithKey.remove(provider)
     }
 
-    func makeClient() -> any LLMClient {
+    func selection(for task: LLMTask) -> ModelSelection {
+        switch task {
+        case .tutor: return tutor
+        case .plan: return plan
+        }
+    }
+
+    func makeClient(for task: LLMTask) -> any LLMClient {
         if demoMode {
             return DemoLLMClient()
         }
-        guard let key = KeychainStore.load(account: Keys.apiKeyAccount) else {
-            return MissingKeyClient()
+        let chosen = self.selection(for: task)
+        let model = chosen.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !model.isEmpty else {
+            return FailingClient(error: .missingModel)
         }
-        return ClaudeClient(apiKey: key, model: model)
+        guard let key = KeychainStore.load(account: chosen.provider.keychainAccount) else {
+            return FailingClient(error: .missingAPIKey(provider: chosen.provider.name))
+        }
+        switch chosen.provider {
+        case .anthropic:
+            return ClaudeClient(apiKey: key, model: model)
+        case .nvidia, .openRouter:
+            return OpenAICompatibleClient(
+                provider: chosen.provider,
+                apiKey: key,
+                model: model,
+                sendsImages: chosen.sendsImages
+            )
+        }
+    }
+
+    private func store(_ selection: ModelSelection, forKey key: String) {
+        if let data = try? JSONEncoder().encode(selection) {
+            defaults.set(data, forKey: key)
+        }
+    }
+
+    private static func load(_ key: String, from defaults: UserDefaults) -> ModelSelection? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(ModelSelection.self, from: data)
     }
 }

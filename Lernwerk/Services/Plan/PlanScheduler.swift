@@ -1,12 +1,46 @@
 import Foundation
 
 struct TopicDraft: Codable, Equatable {
+    enum CodingKeys: String, CodingKey {
+        case title, summary, prerequisites, materialIndex, sourcePages, estimatedMinutes
+    }
+
     var title: String
     var summary: String
     var prerequisites: [String]
     var materialIndex: Int
     var sourcePages: [Int]
     var estimatedMinutes: Int
+}
+
+/// Models without schema enforcement drop fields or send numbers as strings; only the title is mandatory.
+extension TopicDraft {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        summary = (try? container.decode(String.self, forKey: .summary)) ?? ""
+        prerequisites = (try? container.decode([String].self, forKey: .prerequisites)) ?? []
+        materialIndex = container.lenientInt(forKey: .materialIndex) ?? 0
+        sourcePages = (try? container.decode([Int].self, forKey: .sourcePages))
+            ?? (try? container.decode([String].self, forKey: .sourcePages))?.compactMap { Int($0) }
+            ?? []
+        estimatedMinutes = container.lenientInt(forKey: .estimatedMinutes) ?? 30
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func lenientInt(forKey key: Key) -> Int? {
+        if let value = try? decode(Int.self, forKey: key) {
+            return value
+        }
+        if let value = try? decode(Double.self, forKey: key) {
+            return Int(value)
+        }
+        if let value = try? decode(String.self, forKey: key) {
+            return Int(value.trimmingCharacters(in: .whitespaces))
+        }
+        return nil
+    }
 }
 
 struct ScheduledTopic: Equatable {

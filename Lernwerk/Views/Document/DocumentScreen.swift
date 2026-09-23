@@ -98,7 +98,7 @@ struct DocumentScreen: View {
             topicSummary: topic?.summary,
             weakSpots: Array(weakSpots)
         )
-        let session = TutorSession(context: context, regionImage: region.imageJPEG, client: settings.makeClient())
+        let session = TutorSession(context: context, regionImage: region.imageJPEG, client: settings.makeClient(for: .tutor))
         tutor = session
         Task { await session.start() }
     }

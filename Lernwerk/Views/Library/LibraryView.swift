@@ -93,7 +93,7 @@ struct LibraryView: View {
         do {
             let material = try MaterialStore.save(pdfData: DemoContent.makePDF(), title: DemoContent.materialTitle)
             modelContext.insert(material)
-            if !settings.hasAPIKey {
+            if !settings.hasAnyKey {
                 settings.demoMode = true
             }
         } catch {

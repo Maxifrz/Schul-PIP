@@ -136,6 +136,10 @@ enum DemoContent {
 }
 
 struct DemoLLMClient: LLMClient {
+    var capabilities: LLMCapabilities {
+        LLMCapabilities(acceptsImages: true, documentHandling: .nativePDF)
+    }
+
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
         try await Task.sleep(nanoseconds: 700_000_000)
         let text: String

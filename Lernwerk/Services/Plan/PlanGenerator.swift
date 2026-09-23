@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 
 struct PlanResponse: Codable {
     var topics: [TopicDraft]
@@ -10,8 +11,11 @@ struct PlanGenerator {
         var pdf: Data
     }
 
-    /// Base64 inflates PDFs by a third; this keeps the request below the API's 32 MB limit.
+    /// Base64 inflates PDFs by a third; this keeps requests below the API upload limits.
     static let maxTotalBytes = 22_000_000
+    /// Roughly 100k tokens of extracted text.
+    static let maxTextCharacters = 400_000
+    static let maxScannedPageImages = 12
 
     let client: any LLMClient
 
@@ -28,7 +32,7 @@ struct PlanGenerator {
     - summary: one German sentence saying what the student can do after studying it
     - prerequisites: exact titles of other topics in this plan that must be learned first (may be empty)
     - materialIndex: the number of the material that covers the topic
-    - sourcePages: the 1-based page numbers in that material
+    - sourcePages: the 1-based page numbers in that material (use the "--- Page N ---" markers when present)
     - estimatedMinutes: realistic study time between 15 and 60 minutes, including practice
     """
 
@@ -59,18 +63,7 @@ struct PlanGenerator {
     """)
 
     func generate(from inputs: [Input]) async throws -> [TopicDraft] {
-        let totalBytes = inputs.reduce(0) { $0 + $1.pdf.count }
-        guard totalBytes <= Self.maxTotalBytes else {
-            throw LLMError.requestTooLarge
-        }
-
-        var content: [LLMContent] = []
-        for (index, input) in inputs.enumerated() {
-            content.append(.text("Material \(index): \(input.title)"))
-            content.append(.pdf(input.pdf))
-        }
-        content.append(.text(Self.instructions))
-
+        let content = try Self.content(for: inputs, capabilities: client.capabilities)
         let request = LLMRequest(
             purpose: .studyPlan,
             system: Self.system,
@@ -79,14 +72,68 @@ struct PlanGenerator {
             effort: .high,
             jsonSchema: Self.schema
         )
-        let response = try await client.complete(request)
-        return try Self.decode(response.text)
+        let response = try await StructuredOutput.complete(
+            PlanResponse.self,
+            request: request,
+            client: client,
+            isValid: { !$0.topics.isEmpty }
+        )
+        return response.topics
+    }
+
+    /// Picks the cheapest way each provider can read the material: native PDF, local text, provider OCR or page images.
+    static func content(for inputs: [Input], capabilities: LLMCapabilities) throws -> [LLMContent] {
+        var content: [LLMContent] = []
+        var pdfBytes = 0
+        var textCharacters = 0
+        var imageBudget = maxScannedPageImages
+
+        for (index, input) in inputs.enumerated() {
+            if capabilities.documentHandling == .nativePDF {
+                content.append(.text("Material \(index): \(input.title)"))
+                content.append(.pdf(input.pdf))
+                pdfBytes += input.pdf.count
+                continue
+            }
+
+            guard let document = PDFDocument(data: input.pdf) else {
+                throw LLMError.unreadablePDF(input.title)
+            }
+            let pages = PDFMaterialReader.pageTexts(of: document)
+            let scanned = PDFMaterialReader.scannedPages(in: pages)
+
+            if !scanned.isEmpty, capabilities.documentHandling == .providerOCR {
+                content.append(.text("Material \(index): \(input.title)"))
+                content.append(.pdf(input.pdf))
+                pdfBytes += input.pdf.count
+                continue
+            }
+
+            let text = PDFMaterialReader.labeledText(materialIndex: index, title: input.title, pages: pages)
+            textCharacters += text.count
+            content.append(.text(text))
+
+            guard !scanned.isEmpty else { continue }
+            guard capabilities.acceptsImages, scanned.count <= imageBudget else {
+                throw LLMError.scannedPDF(title: input.title, pages: scanned.count)
+            }
+            for pageNumber in scanned {
+                guard let image = PDFMaterialReader.pageImage(of: document, pageNumber: pageNumber) else { continue }
+                content.append(.text("Material \(index), page \(pageNumber) (scanned):"))
+                content.append(.image(jpeg: image))
+            }
+            imageBudget -= scanned.count
+        }
+
+        guard pdfBytes <= maxTotalBytes, textCharacters <= maxTextCharacters else {
+            throw LLMError.requestTooLarge
+        }
+        content.append(.text(instructions))
+        return content
     }
 
     static func decode(_ text: String) throws -> [TopicDraft] {
-        guard let response = try? JSONDecoder().decode(PlanResponse.self, from: Data(text.utf8)),
-              !response.topics.isEmpty
-        else {
+        guard let response = StructuredOutput.decode(PlanResponse.self, from: text), !response.topics.isEmpty else {
             throw LLMError.invalidResponse
         }
         return response.topics

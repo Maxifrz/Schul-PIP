@@ -69,12 +69,12 @@ final class TutorSession: ObservableObject {
             effort: .low,
             jsonSchema: Flashcard.schema
         )
-        let response = try await client.complete(request)
-        do {
-            return try JSONDecoder().decode(Flashcard.self, from: Data(response.text.utf8))
-        } catch {
-            throw LLMError.invalidResponse
-        }
+        return try await StructuredOutput.complete(
+            Flashcard.self,
+            request: request,
+            client: client,
+            isValid: { !$0.front.isEmpty && !$0.back.isEmpty }
+        )
     }
 
     private func send(_ text: String, showAsStudentTurn: Bool) async {
@@ -82,10 +82,11 @@ final class TutorSession: ObservableObject {
 
         var content: [LLMContent] = []
         if history.isEmpty {
-            if let regionImage {
-                content.append(.image(jpeg: regionImage))
+            let imageToSend = client.capabilities.acceptsImages ? regionImage : nil
+            if let imageToSend {
+                content.append(.image(jpeg: imageToSend))
             }
-            content.append(.text(TutorPrompt.contextBlock(context)))
+            content.append(.text(TutorPrompt.contextBlock(context, hasImage: imageToSend != nil)))
         }
         content.append(.text(TutorPrompt.studentTurn(text, level: level)))
         history.append(LLMMessage(role: .user, content: content))

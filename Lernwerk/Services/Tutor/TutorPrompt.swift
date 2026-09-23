@@ -39,13 +39,15 @@ enum TutorPrompt {
     (x², √, ·, ≤, →, ∫), never LaTeX. Use Markdown only for **bold**, *italics* and short lists.
     """
 
-    static func contextBlock(_ context: TutorContext) -> String {
+    static func contextBlock(_ context: TutorContext, hasImage: Bool = true) -> String {
         var parts: [String] = []
         parts.append("<material title=\"\(context.materialTitle)\" page=\"\(context.pageNumber)\"/>")
 
         let selected = context.selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if selected.isEmpty {
+        if selected.isEmpty, hasImage {
             parts.append("<marked_text>(no text layer - read the marked region from the image)</marked_text>")
+        } else if selected.isEmpty {
+            parts.append("<marked_text>(no text layer and no image available - ask the student to type out the part they are stuck on)</marked_text>")
         } else {
             parts.append("<marked_text>\n\(selected)\n</marked_text>")
         }

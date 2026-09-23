@@ -5,7 +5,7 @@ enum LLMRole: String {
     case assistant
 }
 
-enum LLMContent {
+enum LLMContent: Equatable {
     case text(String)
     case image(jpeg: Data)
     case pdf(Data)
@@ -43,22 +43,52 @@ struct LLMResponse {
     var model: String?
 }
 
+/// How a provider can take in a PDF.
+enum DocumentHandling: Equatable {
+    /// The model reads the PDF itself (Claude).
+    case nativePDF
+    /// The provider converts scanned PDFs with OCR (OpenRouter's file parser).
+    case providerOCR
+    /// Only text and images; the app has to extract the PDF itself (NVIDIA NIM).
+    case textOnly
+}
+
+struct LLMCapabilities: Equatable {
+    var acceptsImages: Bool
+    var documentHandling: DocumentHandling
+}
+
 protocol LLMClient {
+    var capabilities: LLMCapabilities { get }
     func complete(_ request: LLMRequest) async throws -> LLMResponse
 }
 
 enum LLMError: LocalizedError, Equatable {
-    case missingAPIKey
+    case missingAPIKey(provider: String)
+    case missingModel
+    case invalidAPIKey
+    case rateLimited(String)
+    case paymentRequired(String)
     case http(status: Int, message: String)
     case refusal
     case truncated
     case invalidResponse
     case requestTooLarge
+    case unreadablePDF(String)
+    case scannedPDF(title: String, pages: Int)
 
     var errorDescription: String? {
         switch self {
-        case .missingAPIKey:
-            return "Kein API-Key hinterlegt. Trag ihn in den Einstellungen ein oder aktiviere den Demo-Modus."
+        case let .missingAPIKey(provider):
+            return "Für \(provider) ist noch kein API-Key hinterlegt. Trag ihn in den Einstellungen ein, wähl dort einen anderen Anbieter oder aktiviere den Demo-Modus."
+        case .missingModel:
+            return "Es ist kein Modell eingetragen. Wähl in den Einstellungen ein Modell aus."
+        case .invalidAPIKey:
+            return "Der API-Key wurde abgelehnt. Prüf ihn in den Einstellungen."
+        case let .rateLimited(message):
+            return "Limit des Anbieters erreicht – warte kurz oder versuch es morgen wieder. (\(message))"
+        case let .paymentRequired(message):
+            return "Der Anbieter verlangt Guthaben für diese Anfrage. (\(message))"
         case let .http(status, message):
             return "Die KI-Anfrage ist fehlgeschlagen (\(status)): \(message)"
         case .refusal:
@@ -66,16 +96,27 @@ enum LLMError: LocalizedError, Equatable {
         case .truncated:
             return "Die Antwort war zu lang und wurde abgeschnitten. Versuch es mit weniger Material."
         case .invalidResponse:
-            return "Die Antwort der KI konnte nicht gelesen werden. Versuch es noch einmal."
+            return "Die Antwort der KI konnte nicht gelesen werden. Versuch es noch einmal oder wähl ein anderes Modell."
         case .requestTooLarge:
-            return "Das Material ist zu groß für eine Anfrage (max. ca. 22 MB PDF). Wähle weniger Dateien aus."
+            return "Das Material ist zu umfangreich für eine Anfrage. Wähl weniger Dateien aus."
+        case let .unreadablePDF(title):
+            return "„\(title)“ lässt sich nicht als PDF öffnen."
+        case let .scannedPDF(title, pages):
+            return "„\(title)“ hat \(pages) eingescannte Seiten ohne Text. Mit diesem Modell kann die App höchstens \(PlanGenerator.maxScannedPageImages) solcher Seiten als Bild schicken. Stell den Lernplan in den Einstellungen auf OpenRouter oder die Claude API um."
         }
     }
 }
 
-struct MissingKeyClient: LLMClient {
+/// Stands in for a client that cannot be built, so the error surfaces where the request is made.
+struct FailingClient: LLMClient {
+    let error: LLMError
+
+    var capabilities: LLMCapabilities {
+        LLMCapabilities(acceptsImages: true, documentHandling: .nativePDF)
+    }
+
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
-        throw LLMError.missingAPIKey
+        throw error
     }
 }
 

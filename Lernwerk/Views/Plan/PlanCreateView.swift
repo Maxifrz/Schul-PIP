@@ -95,7 +95,7 @@ struct PlanCreateView: View {
 
     private func generate() {
         let chosen = materials.filter { selection.contains($0.id) }
-        let client = settings.makeClient()
+        let client = settings.makeClient(for: .plan)
         let planTitle = title.trimmingCharacters(in: .whitespaces).isEmpty ? "Lernplan" : title
         isGenerating = true
         errorMessage = nil

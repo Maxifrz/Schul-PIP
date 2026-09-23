@@ -33,6 +33,11 @@ final class TutorAndPlanTests: XCTestCase {
         XCTAssertTrue(block.contains("no text layer"))
     }
 
+    func testContextAsksToTypeWhenNeitherTextNorImageExists() {
+        let block = TutorPrompt.contextBlock(context(selected: ""), hasImage: false)
+        XCTAssertTrue(block.contains("no image available"))
+    }
+
     func testContextClipsVeryLongPages() {
         let block = TutorPrompt.contextBlock(context(page: String(repeating: "a", count: 20_000)))
         XCTAssertLessThan(block.count, TutorPrompt.pageTextLimit + 500)
