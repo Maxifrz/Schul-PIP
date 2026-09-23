@@ -5,9 +5,12 @@ import SwiftUI
 struct DocumentScreen: View {
     let material: StudyMaterial
     let startPage: Int?
+    let backTitle: String
 
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Query private var topics: [PlanTopic]
     @Query private var cards: [ReviewCard]
 
@@ -16,27 +19,51 @@ struct DocumentScreen: View {
     @State private var mode: InteractionMode = .read
     @State private var tutor: TutorSession?
 
-    init(material: StudyMaterial, startPage: Int? = nil) {
+    init(material: StudyMaterial, startPage: Int? = nil, backTitle: String = "Bibliothek") {
         self.material = material
         self.startPage = startPage
+        self.backTitle = backTitle
     }
 
     var body: some View {
-        content
-            .navigationTitle(material.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom) {
-                DocumentToolbar(mode: $mode)
-            }
-            .inspector(isPresented: tutorPresented) {
-                if let tutor {
-                    TutorPanel(session: tutor, onClose: closeTutor)
-                        .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
+        VStack(spacing: 0) {
+            DetailHeader(backTitle: backTitle, title: material.title, onBack: leave) {
+                if let document {
+                    PixelCaption(text: document.pageCount == 1 ? "1 Seite" : "\(document.pageCount) Seiten")
+                        .padding(.trailing, 8)
                 }
             }
-            .task {
-                loadDocument()
+            HStack(spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    content
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Quill.canvas)
+                    DocumentToolbar(mode: $mode)
+                        .padding(.bottom, 18)
+                }
+                if sizeClass == .regular, let tutor {
+                    Rectangle()
+                        .fill(Quill.line)
+                        .frame(width: 1)
+                    TutorPanel(session: tutor, onClose: closeTutor)
+                        .frame(width: 390)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
+            .animation(.spring(response: 0.35, dampingFraction: 0.9), value: tutor != nil)
+        }
+        .background(Quill.bg.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: compactTutorPresented) {
+            if let tutor {
+                TutorPanel(session: tutor, onClose: closeTutor)
+                    .presentationDetents([.medium, .large])
+                    .presentationBackground(Quill.bg)
+            }
+        }
+        .task {
+            loadDocument()
+        }
     }
 
     @ViewBuilder
@@ -51,23 +78,31 @@ struct DocumentScreen: View {
                 onPageChange: { material.lastOpenedPage = $0 }
             )
         } else if loadFailed {
-            ContentUnavailableView(
-                "PDF nicht lesbar",
-                systemImage: "doc.questionmark",
-                description: Text("Die Datei fehlt oder ist beschädigt.")
-            )
+            VStack(spacing: 10) {
+                Text("PDF nicht lesbar")
+                    .font(.work(24, .light))
+                    .foregroundStyle(Quill.ink)
+                Text("Die Datei fehlt oder ist beschädigt.")
+                    .font(.work(15))
+                    .foregroundStyle(Quill.muted)
+            }
         } else {
-            ProgressView()
+            PulsingDots(size: 6)
         }
     }
 
-    private var tutorPresented: Binding<Bool> {
+    private var compactTutorPresented: Binding<Bool> {
         Binding(
-            get: { tutor != nil },
+            get: { sizeClass != .regular && tutor != nil },
             set: { isPresented in
                 if !isPresented { closeTutor() }
             }
         )
+    }
+
+    private func leave() {
+        closeTutor()
+        dismiss()
     }
 
     private func loadDocument() {

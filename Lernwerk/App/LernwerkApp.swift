@@ -5,6 +5,10 @@ import SwiftUI
 struct LernwerkApp: App {
     @StateObject private var settings = AppSettings()
 
+    init() {
+        QuillFont.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

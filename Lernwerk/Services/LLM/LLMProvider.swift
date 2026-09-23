@@ -94,10 +94,21 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// Fast, widely available models to fall back on when the chosen one is overloaded.
+    var fallbackModelIDs: [String] {
+        switch self {
+        case .nvidia: return ["google/gemma-4-31b-it", "z-ai/glm-5.3-flash"]
+        case .openRouter: return ["google/gemma-4-31b-it:free", "openrouter/free"]
+        case .anthropic: return []
+        }
+    }
+
     func defaultModel(for task: LLMTask) -> ModelOption {
         switch (self, task) {
         case (.openRouter, .plan):
             return models[2]
+        case (.nvidia, .tutor):
+            return models[1]
         default:
             return models[0]
         }

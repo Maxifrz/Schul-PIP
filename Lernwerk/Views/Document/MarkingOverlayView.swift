@@ -9,11 +9,11 @@ final class MarkingOverlayView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = UIColor.systemBlue.withAlphaComponent(0.05)
+        backgroundColor = QuillUIColor.accent.withAlphaComponent(0.06)
 
-        selectionLayer.fillColor = UIColor.systemBlue.withAlphaComponent(0.12).cgColor
-        selectionLayer.strokeColor = UIColor.systemBlue.cgColor
-        selectionLayer.lineWidth = 2
+        selectionLayer.fillColor = QuillUIColor.accent.withAlphaComponent(0.14).cgColor
+        selectionLayer.strokeColor = QuillUIColor.accent.cgColor
+        selectionLayer.lineWidth = 1.5
         selectionLayer.lineDashPattern = [6, 4]
         layer.addSublayer(selectionLayer)
 

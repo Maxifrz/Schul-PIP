@@ -15,6 +15,10 @@ Built as a personal study tool for Abitur preparation and as a portfolio project
 | **Spaced repetition** | Every finished help session is turned into a flashcard and scheduled with SM-2. |
 | **Demo mode** | Bundled sample material and canned answers, so the app can be tried without an API key. |
 
+## Design
+
+The interface follows **Quill**, a small design system: warm neutrals, a single sage accent, Work Sans for text and the Silkscreen pixel font for labels, in light and dark. The tabs sit in a capsule at the top, the library shows documents as covers like the Files and Books apps, and **Pip**, a pixel cat, walks along the tutor's input bar — it thinks while the model is answering and can be poked or picked up. Tokens and shared components live in `Lernwerk/Theme/`; the fonts are bundled under the SIL Open Font License.
+
 ## Why these teaching methods
 
 The design follows techniques with strong evidence in learning research, not "learning styles":
@@ -37,7 +41,9 @@ Lernwerk/
 │   ├── Review/     SpacedRepetition (SM-2)
 │   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore, TextRecognizer (Apple Vision OCR)
 │   └── Demo/       sample PDF and DemoLLMClient
-└── Views/          Library, Document (PDF canvas, marking overlay), Tutor, Plan, Review, Settings
+├── Theme/          Quill tokens (colors, fonts) and shared components
+├── Resources/      bundled fonts (Work Sans, Silkscreen) with their licenses
+└── Views/          Library, Document (PDF canvas, marking overlay), Tutor with Pip, Plan, Review, Settings
 ```
 
 Design decisions:
@@ -78,7 +84,7 @@ Free tiers may log prompts. That is fine for school material, less so for privat
 
 1. **Einstellungen**: create a key at [build.nvidia.com](https://build.nvidia.com) and/or [openrouter.ai](https://openrouter.ai), paste it in, or enable the demo mode.
 2. **Bibliothek**: import PDFs (or load the demo material) and open one.
-3. Use the toolbar at the bottom: read, pen, highlighter, eraser, and the wand for help.
+3. Use the toolbar at the bottom: Lesen, Stift, Marker, Radierer, and Hilfe to mark a passage.
 4. **Lernplan**: pick materials, exam date and daily study time.
 5. **Wiederholen**: review the cards created from your help sessions.
 

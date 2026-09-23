@@ -5,137 +5,260 @@ struct TutorPanel: View {
     let onClose: () -> Void
 
     @State private var draft = ""
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        regionPreview
+                    VStack(alignment: .leading, spacing: 22) {
+                        markedRegion
                         ForEach(session.turns) { turn in
-                            TurnBubble(turn: turn)
+                            TurnView(turn: turn)
                                 .id(turn.id)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
                         if session.isLoading {
                             WaitingIndicator(label: session.waitingFor, since: session.waitingSince)
+                                .id("waiting")
                         }
                         if let error = session.errorMessage {
                             errorView(error)
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 6)
+                    .animation(.easeOut(duration: 0.3), value: session.turns.count)
                 }
+                .scrollIndicators(.hidden)
                 .onChange(of: session.turns.count) { _, _ in
                     guard let last = session.turns.last?.id else { return }
-                    withAnimation {
-                        proxy.scrollTo(last, anchor: .bottom)
-                    }
+                    withAnimation { proxy.scrollTo(last, anchor: .bottom) }
+                }
+                .onChange(of: session.isLoading) { _, isLoading in
+                    guard isLoading else { return }
+                    withAnimation { proxy.scrollTo("waiting", anchor: .bottom) }
                 }
             }
-            Divider()
-            controls
+            composer
         }
+        .background(Quill.bg)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Lernhilfe", systemImage: "wand.and.stars")
-                    .font(.headline)
+                Text("Lernhilfe")
+                    .font(.work(17, .medium))
+                    .tracking(-0.25)
+                    .foregroundStyle(Quill.ink)
                 Spacer()
                 Button("Fertig", action: onClose)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(QuillOutlineButtonStyle(height: 32, weight: .medium))
             }
             HStack(spacing: 6) {
                 ForEach(HintLevel.allCases, id: \.self) { level in
-                    Text(level.title)
-                        .font(.caption.weight(level == session.level ? .semibold : .regular))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            level <= session.level ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08),
-                            in: Capsule()
-                        )
+                    ladderStep(level)
                 }
             }
             if session.isDemo {
-                Label("Demo-Modus: vorbereitete Beispielantworten, keine echte KI. Ausschalten unter Einstellungen.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                HStack(alignment: .firstTextBaseline, spacing: 9) {
+                    StatusDot(color: Quill.warn)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+                    Text("Demo-Modus: vorbereitete Beispielantworten, keine echte KI. Ausschalten unter Einstellungen.")
+                        .font(.work(12.5))
+                        .foregroundStyle(Quill.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let topic = session.context.topicTitle {
                 Text("Thema im Lernplan: \(topic)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.work(12.5))
+                    .foregroundStyle(Quill.faint)
             }
         }
-        .padding()
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+        .padding(.bottom, 16)
+        .overlay(alignment: .bottom) { QuillDivider(color: Quill.lineSoft) }
     }
 
+    private func ladderStep(_ level: HintLevel) -> some View {
+        let isCurrent = level == session.level
+        let isReached = level < session.level
+        return Text(level.title)
+            .font(.work(12.5, isCurrent ? .medium : .regular))
+            .foregroundStyle(isCurrent ? Quill.bg : (isReached ? Quill.ink : Quill.faint))
+            .padding(.horizontal, 11)
+            .frame(height: 26)
+            .background(isCurrent ? Quill.ink : (isReached ? Quill.hover : Color.clear), in: Capsule())
+            .overlay(Capsule().stroke(isCurrent ? Color.clear : Quill.line2, lineWidth: 1))
+            .animation(.easeInOut(duration: 0.2), value: session.level)
+    }
+
+    /// The marked passage as a paper snippet, so the conversation keeps its reference.
     @ViewBuilder
-    private var regionPreview: some View {
-        if let data = session.regionImage, let image = UIImage(data: data) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxHeight: 140)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+    private var markedRegion: some View {
+        let text = session.context.selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        VStack(alignment: .leading, spacing: 8) {
+            PixelCaption(text: "Seite \(session.context.pageNumber) · markiert", color: Quill.faint, size: 9)
+            if !text.isEmpty {
+                Text(text)
+                    .font(.system(size: 13))
+                    .lineSpacing(4)
+                    .foregroundStyle(Quill.paperInk)
+                    .frame(maxWidth: .infinity, maxHeight: 110, alignment: .topLeading)
+                    .clipped()
+            } else if let data = session.regionImage, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: 130, alignment: .leading)
+            }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Quill.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Quill.line2, lineWidth: 1))
     }
 
     private func errorView(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(.red)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                StatusDot(color: Quill.warn)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+                Text(message)
+                    .font(.work(14))
+                    .lineSpacing(3)
+                    .foregroundStyle(Quill.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if session.turns.isEmpty {
                 Button("Erneut versuchen") {
                     Task { await session.start() }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(QuillOutlineButtonStyle())
             }
         }
     }
 
-    private var controls: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .bottom) {
+    private var composer: some View {
+        VStack(spacing: 0) {
+            PipView(isThinking: session.isLoading)
+                .padding(.horizontal, 6)
+            HStack(alignment: .bottom, spacing: 9) {
                 TextField("Deine Antwort …", text: $draft, axis: .vertical)
+                    .font(.work(15.5))
+                    .tracking(-0.15)
+                    .foregroundStyle(Quill.ink)
                     .lineLimit(1...4)
-                    .textFieldStyle(.roundedBorder)
+                    .focused($isInputFocused)
+                    .padding(.vertical, 11)
+                    .onSubmit(sendAnswer)
                 Button(action: sendAnswer) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Quill.bg)
+                        .frame(width: 38, height: 38)
+                        .background(Quill.ink, in: Circle())
                 }
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isLoading)
+                .buttonStyle(.plain)
+                .disabled(!canSend)
+                .opacity(canSend ? 1 : 0.4)
                 .accessibilityLabel("Antwort senden")
             }
-            HStack {
-                Button {
+            .padding(.leading, 18)
+            .padding(6)
+            .background(Quill.surface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Quill.line2, lineWidth: 1))
+
+            HStack(spacing: 8) {
+                Button("Mehr Hilfe") {
                     Task { await session.requestMoreHelp() }
-                } label: {
-                    Label("Mehr Hilfe", systemImage: "lightbulb")
                 }
-                .disabled(session.level == .explanation || session.isLoading)
                 Spacer()
                 Button("Sag's mir einfach") {
                     Task { await session.revealExplanation() }
                 }
-                .disabled(session.level == .explanation || session.isLoading)
             }
-            .buttonStyle(.bordered)
-            .font(.subheadline)
+            .buttonStyle(QuillOutlineButtonStyle())
+            .disabled(session.level == .explanation || session.isLoading)
+            .padding(.top, 10)
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.bottom, 20)
+    }
+
+    private var canSend: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !session.isLoading
     }
 
     private func sendAnswer() {
+        guard canSend else { return }
         let text = draft
         draft = ""
         Task { await session.answer(text) }
+    }
+}
+
+private struct TurnView: View {
+    let turn: TutorSession.Turn
+
+    var body: some View {
+        switch turn.speaker {
+        case .student:
+            HStack {
+                Spacer(minLength: 48)
+                Text(turn.text)
+                    .font(.work(15))
+                    .tracking(-0.15)
+                    .lineSpacing(4)
+                    .foregroundStyle(Quill.bg)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 11)
+                    .background(Quill.ink, in: UnevenRoundedRectangle(
+                        topLeadingRadius: 20,
+                        bottomLeadingRadius: 20,
+                        bottomTrailingRadius: 6,
+                        topTrailingRadius: 20,
+                        style: .continuous
+                    ))
+                    .textSelection(.enabled)
+            }
+        case .tutor:
+            VStack(alignment: .leading, spacing: 9) {
+                PixelCaption(text: "Lernhilfe · \(turn.level.title)", size: 9)
+                Text(rendered)
+                    .font(.work(15))
+                    .lineSpacing(8)
+                    .foregroundStyle(Quill.ink2)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Markdown bold and italics in the Work Sans cuts; bold is also drawn in full ink.
+    private var rendered: AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        guard var text = try? AttributedString(markdown: turn.text, options: options) else {
+            return AttributedString(turn.text)
+        }
+        let styledRuns = text.runs.compactMap { run -> (Range<AttributedString.Index>, InlinePresentationIntent)? in
+            guard let intent = run.inlinePresentationIntent else { return nil }
+            return (run.range, intent)
+        }
+        for (range, intent) in styledRuns {
+            if intent.contains(.stronglyEmphasized) {
+                text[range].font = .work(15, .semibold)
+                text[range].foregroundColor = Quill.ink
+            } else if intent.contains(.emphasized) {
+                text[range].font = .workItalic(15)
+            }
+        }
+        return text
     }
 }
 
@@ -146,13 +269,15 @@ private struct WaitingIndicator: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             HStack(spacing: 10) {
-                ProgressView()
+                PulsingDots()
                 Text(text(at: timeline.date))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(.work(13))
+                    .foregroundStyle(Quill.faint)
                     .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.top, 2)
+            .padding(.bottom, 20)
         }
     }
 
@@ -160,32 +285,5 @@ private struct WaitingIndicator: View {
         let seconds = since.map { max(0, Int(date.timeIntervalSince($0))) } ?? 0
         let base = "\(label ?? "Warte") … \(seconds) s"
         return seconds >= 30 ? base + " – kostenlose Modelle brauchen manchmal etwas länger" : base
-    }
-}
-
-private struct TurnBubble: View {
-    let turn: TutorSession.Turn
-
-    var body: some View {
-        HStack {
-            if turn.speaker == .student {
-                Spacer(minLength: 40)
-            }
-            Text(rendered)
-                .padding(10)
-                .background(
-                    turn.speaker == .tutor ? Color.secondary.opacity(0.12) : Color.accentColor.opacity(0.2),
-                    in: RoundedRectangle(cornerRadius: 12)
-                )
-                .textSelection(.enabled)
-            if turn.speaker == .tutor {
-                Spacer(minLength: 40)
-            }
-        }
-    }
-
-    private var rendered: AttributedString {
-        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: turn.text, options: options)) ?? AttributedString(turn.text)
     }
 }

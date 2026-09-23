@@ -60,10 +60,68 @@ final class OpenAICompatibleClientTests: XCTestCase {
     }
 
     func testTimeoutsMatchWhatTheStudentWaitsFor() {
-        XCTAssertEqual(LLMPurpose.tutor(.hint).timeout, 120)
+        XCTAssertEqual(LLMPurpose.tutor(.hint).timeout, 75)
         XCTAssertEqual(LLMPurpose.flashcard.timeout, 90)
         XCTAssertEqual(LLMPurpose.studyPlan.timeout, 600)
-        XCTAssertTrue(LLMError.timeout(seconds: 120).errorDescription?.contains("120 Sekunden") ?? false)
+        XCTAssertTrue(LLMError.timeout(seconds: 75).errorDescription?.contains("75 Sekunden") ?? false)
+    }
+
+    func testOverloadedModelFallsBackToTheNextOne() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ScriptedProtocol.self]
+        ScriptedProtocol.reset(replies: [
+            (504, #"{"error":{"message":"Gateway Timeout","code":504}}"#),
+            (200, #"{"choices":[{"message":{"content":"Welche Funktion ist innen?"},"finish_reason":"stop"}]}"#),
+        ])
+        let client = OpenAICompatibleClient(
+            provider: .nvidia,
+            apiKey: "k",
+            model: "z-ai/glm-5.3-flash",
+            sendsImages: false,
+            fallbackModels: ["google/gemma-4-31b-it"],
+            session: URLSession(configuration: configuration)
+        )
+        let tutor = LLMRequest(
+            purpose: .tutor(.question),
+            system: "s",
+            messages: [LLMMessage(role: .user, content: [.text("x")])],
+            maxTokens: 100
+        )
+
+        let response = try await client.complete(tutor)
+
+        XCTAssertEqual(response.text, "Welche Funktion ist innen?")
+        XCTAssertEqual(response.model, "google/gemma-4-31b-it")
+        XCTAssertEqual(ScriptedProtocol.requestedModels, ["z-ai/glm-5.3-flash", "google/gemma-4-31b-it"])
+    }
+
+    func testFallbackGivesUpWithAClearError() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ScriptedProtocol.self]
+        ScriptedProtocol.reset(replies: [(504, "{}"), (503, "{}")])
+        let client = OpenAICompatibleClient(
+            provider: .nvidia,
+            apiKey: "k",
+            model: "a",
+            sendsImages: false,
+            fallbackModels: ["b"],
+            session: URLSession(configuration: configuration)
+        )
+        let tutor = LLMRequest(purpose: .tutor(.hint), system: "s", messages: [LLMMessage(role: .user, content: [.text("x")])], maxTokens: 100)
+        do {
+            _ = try await client.complete(tutor)
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error as? LLMError, .overloaded(status: 503))
+        }
+    }
+
+    func testRequestErrorsDoNotTriggerAFallback() {
+        XCTAssertFalse(LLMError.invalidAPIKey.isModelUnavailable)
+        XCTAssertFalse(LLMError.rateLimited("x").isModelUnavailable)
+        XCTAssertTrue(LLMError.overloaded(status: 504).isModelUnavailable)
+        XCTAssertTrue(LLMError.timeout(seconds: 75).isModelUnavailable)
+        XCTAssertTrue(LLMError.http(status: 404, message: "model not found").isModelUnavailable)
     }
 
     func testTextOnlyUserMessageIsAPlainString() {
@@ -154,8 +212,53 @@ final class OpenAICompatibleClientTests: XCTestCase {
             parseError(#"{"error":{"message":"image input not supported","code":400}}"#, status: 400, sentImages: true),
             .http(status: 400, message: "image input not supported" + OpenAICompatibleClient.imageHint)
         )
-        XCTAssertEqual(parseError(#"{"error":{"message":"upstream failed","code":502}}"#, status: 200), .http(status: 502, message: "upstream failed"))
+        XCTAssertEqual(parseError(#"{"error":{"message":"upstream failed","code":502}}"#, status: 200), .overloaded(status: 502))
+        XCTAssertEqual(parseError(#"{"status":504,"title":"Gateway Timeout"}"#, status: 504), .overloaded(status: 504))
         XCTAssertEqual(parseError(#"{"choices":[{"message":{"content":""},"finish_reason":"content_filter"}]}"#, status: 200), .refusal)
         XCTAssertEqual(parseError(#"{"choices":[{"message":{"content":null},"finish_reason":"length"}]}"#, status: 200), .truncated)
+    }
+}
+
+/// Answers requests from a fixed script and records which model each request asked for.
+private final class ScriptedProtocol: URLProtocol {
+    private static var replies: [(Int, String)] = []
+    private(set) static var requestedModels: [String] = []
+
+    static func reset(replies: [(Int, String)]) {
+        self.replies = replies
+        requestedModels = []
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        if let body = Self.body(of: request),
+           let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+           let model = json["model"] as? String {
+            Self.requestedModels.append(model)
+        }
+        let (status, text) = Self.replies.isEmpty ? (500, "{}") : Self.replies.removeFirst()
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(text.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func body(of request: URLRequest) -> Data? {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { break }
+            data.append(buffer, count: count)
+        }
+        return data
     }
 }

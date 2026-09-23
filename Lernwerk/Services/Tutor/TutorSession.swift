@@ -11,6 +11,8 @@ final class TutorSession: ObservableObject {
         let id = UUID()
         let speaker: Speaker
         let text: String
+        /// The ladder step the tutor answered on, shown above its reply.
+        var level: HintLevel = .question
     }
 
     @Published private(set) var turns: [Turn] = []
@@ -130,7 +132,7 @@ final class TutorSession: ObservableObject {
             )
             let response = try await client.complete(request)
             history.append(LLMMessage(role: .assistant, content: [.text(response.text)]))
-            turns.append(Turn(speaker: .tutor, text: response.text))
+            turns.append(Turn(speaker: .tutor, text: response.text, level: level))
         } catch {
             history.removeLast()
             if showAsStudentTurn {

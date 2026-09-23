@@ -7,40 +7,69 @@ struct DocumentToolbar: View {
         VStack(spacing: 8) {
             if mode == .mark {
                 Text("Zieh einen Rahmen um die Stelle, bei der du Hilfe brauchst.")
-                    .font(.footnote)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
+                    .font(.work(13))
+                    .foregroundStyle(Quill.ink2)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Quill.line2, lineWidth: 1))
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             HStack(spacing: 4) {
-                item(.read, icon: "hand.point.up.left", label: "Lesen")
-                item(.draw(.pen), icon: "pencil.tip", label: "Stift")
-                item(.draw(.highlighter), icon: "highlighter", label: "Marker")
-                item(.draw(.eraser), icon: "eraser", label: "Radierer")
-                Divider()
-                    .frame(height: 28)
+                item(.read, label: "Lesen")
+                item(.draw(.pen), label: "Stift")
+                item(.draw(.highlighter), label: "Marker")
+                item(.draw(.eraser), label: "Radierer")
+                Rectangle()
+                    .fill(Quill.line2)
+                    .frame(width: 1, height: 26)
                     .padding(.horizontal, 4)
-                item(.mark, icon: "wand.and.stars", label: "Hilfe")
+                helpItem
             }
-            .padding(6)
-            .background(.regularMaterial, in: Capsule())
-            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+            .padding(5)
+            .background(Quill.surface, in: Capsule())
+            .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.1), radius: 9, y: 6)
         }
-        .padding(.bottom, 8)
+        .animation(.easeInOut(duration: 0.2), value: mode)
     }
 
-    private func item(_ target: InteractionMode, icon: String, label: String) -> some View {
+    private func item(_ target: InteractionMode, label: String) -> some View {
         let isSelected = mode == target
         return Button {
             mode = target
         } label: {
-            Image(systemName: icon)
-                .font(.title3)
-                .frame(width: 44, height: 44)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
+            Text(label)
+                .font(.work(14, .medium))
+                .tracking(-0.14)
+                .foregroundStyle(isSelected ? Quill.bg : Quill.ink)
+                .padding(.horizontal, 17)
+                .frame(height: 44)
+                .background(isSelected ? Quill.ink : Color.clear, in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var helpItem: some View {
+        let isSelected = mode == .mark
+        return Button {
+            mode = .mark
+        } label: {
+            HStack(spacing: 8) {
+                StatusDot()
+                Text("Hilfe")
+                    .font(.work(14, .medium))
+                    .tracking(-0.14)
+            }
+            .foregroundStyle(isSelected ? Quill.bg : Quill.ink)
+            .padding(.horizontal, 18)
+            .frame(height: 44)
+            .background(isSelected ? Quill.ink : Color.clear, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Lernhilfe: Bereich markieren")
     }
 }

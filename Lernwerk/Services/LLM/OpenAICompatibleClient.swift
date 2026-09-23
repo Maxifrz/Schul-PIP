@@ -9,6 +9,8 @@ struct OpenAICompatibleClient: LLMClient {
     var apiKey: String
     var model: String
     var sendsImages: Bool
+    /// Tried in order when the chosen model is overloaded, times out or no longer exists.
+    var fallbackModels: [String] = []
     var session: URLSession = .shared
 
     var capabilities: LLMCapabilities {
@@ -19,6 +21,20 @@ struct OpenAICompatibleClient: LLMClient {
     }
 
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
+        var lastError: LLMError = .invalidResponse
+        for candidate in [model] + fallbackModels.filter({ $0 != model }) {
+            do {
+                var response = try await complete(request, model: candidate)
+                response.model = response.model ?? candidate
+                return response
+            } catch let error as LLMError where error.isModelUnavailable {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
+    private func complete(_ request: LLMRequest, model: String) async throws -> LLMResponse {
         guard let url = provider.chatCompletionsURL else {
             throw LLMError.invalidResponse
         }
@@ -157,6 +173,8 @@ struct OpenAICompatibleClient: LLMClient {
                 throw LLMError.paymentRequired(message)
             case 429:
                 throw LLMError.rateLimited(message)
+            case 502, 503, 504:
+                throw LLMError.overloaded(status: code)
             case 400 where sentImages, 422 where sentImages:
                 throw LLMError.http(status: code, message: message + imageHint)
             default:
