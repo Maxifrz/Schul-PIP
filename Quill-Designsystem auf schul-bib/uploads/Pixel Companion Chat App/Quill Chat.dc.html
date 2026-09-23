@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300..700;1,400&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EAE8E1;font-family:"Work Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background .3s}
+body:has([data-theme="dark"]){background:#0C0C0B}
+[data-theme]{--bg:#FAF9F6;--surface:#FFFFFF;--ink:#16150F;--ink2:#24231C;--muted:#6E6B62;--faint:#9A968B;--hint:#B0ABA0;--line:rgba(22,21,15,.1);--line-soft:rgba(22,21,15,.08);--line2:rgba(22,21,15,.16);--line3:rgba(22,21,15,.2);--hover:rgba(22,21,15,.05);--hover-soft:rgba(22,21,15,.03);--scrim:rgba(22,21,15,.32);--accent:#7FA98C}
+[data-theme="dark"]{--bg:#171714;--surface:#212019;--ink:#F1EFE7;--ink2:#DFDCD3;--muted:#9B978D;--faint:#807C73;--hint:#6C6961;--line:rgba(241,239,231,.12);--line-soft:rgba(241,239,231,.09);--line2:rgba(241,239,231,.2);--line3:rgba(241,239,231,.26);--hover:rgba(241,239,231,.07);--hover-soft:rgba(241,239,231,.05);--scrim:rgba(0,0,0,.55);--accent:#8FBE9C}
+a{color:#4F7A63;text-decoration:none}a:hover{color:#2F5744}
+button{font-family:inherit;border:0;background:none;padding:0;cursor:pointer;color:inherit}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes qfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes qsheet{from{transform:translateY(110%)}to{transform:none}}
+@keyframes qdot{0%,60%,100%{opacity:.22}30%{opacity:1}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;box-sizing:border-box">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ deviceW }}" height="{{ deviceH }}" dark="{{ isDark }}" hint-size="402px,874px">
+
+<div data-theme="{{ theme }}" style="height:100%;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);position:relative;overflow:hidden;transition:background .3s,color .3s">
+
+<sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+<div style="height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:110px 30px 46px;box-sizing:border-box;animation:qfade .4s ease both">
+<div>
+<div style="font:600 13px/1 'Silkscreen',monospace;letter-spacing:.14em;color:var(--accent)">QUILL</div>
+<h1 style="margin:22px 0 0;font:300 42px/1.06 'Work Sans',sans-serif;letter-spacing:-.028em;text-wrap:pretty">A quieter place<br>to think out loud.</h1>
+<p style="margin:18px 0 0;max-width:280px;font:400 15.5px/1.55 'Work Sans',sans-serif;color:var(--muted);text-wrap:pretty">Ask anything. Answers stay plain, unhurried, and yours — nothing is kept unless you keep it.</p>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+<canvas ref="{{ heroRef }}" style="image-rendering:pixelated;cursor:grab;touch-action:none"></canvas>
+<div style="font:400 9px/1.6 'Silkscreen',monospace;color:var(--faint);letter-spacing:.06em;text-align:center">THIS IS PIP.<br>POKE HIM.</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<button onClick="{{ start }}" style="height:54px;border-radius:27px;background:var(--ink);color:var(--bg);font:500 16px/1 'Work Sans',sans-serif;letter-spacing:-.01em" style-hover="opacity:.88">Start a conversation</button>
+<div style="text-align:center;font:400 13px/1 'Work Sans',sans-serif;color:var(--faint)">Already have an account? <a href="#">Sign in</a></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isChat }}" hint-placeholder-val="{{ true }}">
+<div style="height:100%;display:flex;flex-direction:column">
+
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:60px 14px 10px;border-bottom:1px solid var(--line-soft);background:var(--bg);z-index:4">
+<button onClick="{{ goHistory }}" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="18" height="14" viewBox="0 0 18 14"><rect y="0" width="18" height="1.6" fill="currentColor"/><rect y="6.2" width="18" height="1.6" fill="currentColor"/><rect y="12.4" width="12" height="1.6" fill="currentColor"/></svg>
+</button>
+<button onClick="{{ openSheet }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line2);color:var(--muted)" style-hover="background:var(--hover-soft)">
+<span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span>
+<span style="font:500 14px/1 'Work Sans',sans-serif;letter-spacing:-.01em;color:var(--ink)">{{ modelName }}</span>
+<svg width="9" height="6" viewBox="0 0 9 6"><path d="M1 1l3.5 3.5L8 1" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+</button>
+<button onClick="{{ goSettings }}" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="4" height="18" viewBox="0 0 4 18"><circle cx="2" cy="2" r="2" fill="currentColor"/><circle cx="2" cy="9" r="2" fill="currentColor"/><circle cx="2" cy="16" r="2" fill="currentColor"/></svg>
+</button>
+</div>
+
+<div ref="{{ scrollRef }}" style="flex:1;overflow:auto;padding:26px 22px 8px">
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+<div style="padding-top:34px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">TUESDAY · 9:41</div>
+<h2 style="margin:16px 0 30px;font:300 30px/1.15 'Work Sans',sans-serif;letter-spacing:-.025em">What are we<br>working on?</h2>
+<div style="display:flex;flex-direction:column;border-top:1px solid var(--line)">
+<sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+<button onClick="{{ s.send }}" style="display:flex;align-items:baseline;gap:12px;padding:15px 2px;text-align:left;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="font:400 10px/1.6 'Silkscreen',monospace;color:var(--hint);min-width:16px">{{ s.num }}</span>
+<span style="font:400 15.5px/1.4 'Work Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">{{ s.text }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-for list="{{ messages }}" as="m" hint-placeholder-count="0">
+<div style="margin-bottom:26px;animation:qfade .35s ease both">
+<sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:flex-end">
+<div style="max-width:82%;padding:12px 16px;border-radius:20px 20px 6px 20px;background:var(--ink);color:var(--bg);font:400 15.5px/1.5 'Work Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">{{ m.text }}</div>
+</div>
+</sc-if>
+<sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:9px">QUILL</div>
+<div style="font:400 16px/1.62 'Work Sans',sans-serif;letter-spacing:-.005em;color:var(--ink2);white-space:pre-wrap;text-wrap:pretty">{{ m.text }}</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:5px;padding:2px 0 20px">
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s infinite"></span>
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .18s infinite"></span>
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .36s infinite"></span>
+</div>
+</sc-if>
+</div>
+
+<div style="position:relative;padding:0 16px 34px;background:var(--bg)">
+<div style="position:relative;height:56px;pointer-events:none;z-index:3">
+<div ref="{{ bubbleRef }}" style="position:absolute;top:-6px;left:0;opacity:0;padding:5px 9px;border-radius:9px;background:var(--ink);color:var(--bg);font:400 9px/1 'Silkscreen',monospace;white-space:nowrap;transition:opacity .18s"></div>
+<canvas ref="{{ catRef }}" style="position:absolute;left:0;bottom:0;image-rendering:pixelated;pointer-events:auto;cursor:grab;touch-action:none"></canvas>
+</div>
+<div style="display:flex;align-items:flex-end;gap:9px;padding:8px 8px 8px 18px;border:1px solid var(--line2);border-radius:26px;background:var(--surface)">
+<input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Message Quill" style="flex:1;border:0;outline:none;background:none;padding:11px 0;font:400 16px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em;color:var(--ink)"/>
+<button onClick="{{ submit }}" style="width:38px;height:38px;flex:none;border-radius:19px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center" style-hover="opacity:.85">
+<svg width="15" height="16" viewBox="0 0 15 16"><path d="M7.5 15V2M7.5 2L2 7.5M7.5 2L13 7.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div style="height:100%;display:flex;flex-direction:column;animation:qfade .3s ease both">
+<div style="display:flex;align-items:center;gap:6px;padding:60px 14px 6px">
+<button onClick="{{ goChat }}" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="11" height="18" viewBox="0 0 11 18"><path d="M9 1L2 9l7 8" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<span style="font:500 17px/1 'Work Sans',sans-serif;letter-spacing:-.015em">Conversations</span>
+</div>
+<div style="padding:10px 22px 0">
+<div style="display:flex;align-items:center;gap:9px;height:40px;padding:0 14px;border-radius:20px;background:var(--hover);color:var(--faint)">
+<svg width="13" height="13" viewBox="0 0 13 13"><circle cx="5.4" cy="5.4" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M8.8 8.8L12.2 12.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+<span style="font:400 15px/1 'Work Sans',sans-serif">Search</span>
+</div>
+</div>
+<div style="flex:1;overflow:auto;padding:22px 22px 40px">
+<sc-for list="{{ historyGroups }}" as="g" hint-placeholder-count="2">
+<div style="margin-bottom:26px">
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:6px">{{ g.label }}</div>
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+<button onClick="{{ it.open }}" style="display:flex;align-items:baseline;justify-content:space-between;gap:14px;width:100%;padding:14px 2px;text-align:left;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">{{ it.title }}</span>
+<span style="font:400 13px/1.3 'Work Sans',sans-serif;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.snippet }}</span>
+</span>
+<span style="font:400 12px/1.3 'Work Sans',sans-serif;color:var(--hint);flex:none">{{ it.time }}</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="height:100%;display:flex;flex-direction:column;animation:qfade .3s ease both">
+<div style="display:flex;align-items:center;gap:6px;padding:60px 14px 6px">
+<button onClick="{{ goChat }}" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="11" height="18" viewBox="0 0 11 18"><path d="M9 1L2 9l7 8" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<span style="font:500 17px/1 'Work Sans',sans-serif;letter-spacing:-.015em">Settings</span>
+</div>
+<div style="flex:1;overflow:auto;padding:20px 22px 40px">
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:10px">APPEARANCE</div>
+<div style="display:flex;gap:6px;padding-bottom:18px;border-bottom:1px solid var(--line)">
+<sc-for list="{{ themeOptions }}" as="th" hint-placeholder-count="3">
+<button onClick="{{ th.pick }}" style="flex:1;height:38px;border-radius:19px;border:1px solid var(--line2);font:400 13.5px/1 'Work Sans',sans-serif;background:{{ th.bg }};color:{{ th.fg }}">{{ th.label }}</button>
+</sc-for>
+</div>
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin:24px 0 10px">COMPANION</div>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)">
+<canvas ref="{{ settingsRef }}" style="image-rendering:pixelated;touch-action:none;cursor:grab"></canvas>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Pip</span>
+<span style="font:400 13px/1.3 'Work Sans',sans-serif;color:var(--faint)">Lives on the message bar</span>
+</span>
+<button onClick="{{ toggleCat }}" style="width:50px;height:30px;border-radius:15px;padding:3px;display:flex;justify-content:flex-start;background:{{ catToggleBg }};transition:background .2s">
+<span ref="{{ knobRef }}" style="width:24px;height:24px;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s"></span>
+</button>
+</div>
+<div style="padding:16px 0 14px;border-bottom:1px solid var(--line)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Mischief</span>
+<span style="font:400 9px/1 'Silkscreen',monospace;color:var(--accent)">{{ mischiefLabel }}</span>
+</div>
+<div style="display:flex;gap:6px">
+<sc-for list="{{ mischiefLevels }}" as="lv" hint-placeholder-count="3">
+<button onClick="{{ lv.pick }}" style="flex:1;height:34px;border-radius:17px;border:1px solid var(--line2);font:400 13px/1 'Work Sans',sans-serif;background:{{ lv.bg }};color:{{ lv.fg }}">{{ lv.label }}</button>
+</sc-for>
+</div>
+</div>
+<sc-for list="{{ settingRows }}" as="r" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">{{ r.label }}</span>
+<span style="font:400 14px/1.3 'Work Sans',sans-serif;color:var(--faint)">{{ r.value }}</span>
+</div>
+</sc-for>
+<div style="margin-top:26px;font:400 12px/1.6 'Work Sans',sans-serif;color:var(--hint)">Quill 2.4 · Conversations are stored on device.</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:40">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--scrim)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:28px 28px 0 0;padding:12px 22px 42px;animation:qsheet .28s cubic-bezier(.2,.9,.3,1) both">
+<div style="width:38px;height:4px;border-radius:2px;background:var(--line3);margin:0 auto 18px"></div>
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:12px">MODEL</div>
+<sc-for list="{{ models }}" as="md" hint-placeholder-count="3">
+<button onClick="{{ md.pick }}" style="display:flex;align-items:flex-start;gap:13px;width:100%;text-align:left;padding:14px 2px;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="width:18px;height:18px;border-radius:9px;border:1.5px solid {{ md.ring }};margin-top:2px;flex:none;display:flex;align-items:center;justify-content:center">
+<span style="width:9px;height:9px;border-radius:5px;background:{{ md.dot }}"></span>
+</span>
+<span style="display:flex;flex-direction:column;gap:3px">
+<span style="font:500 15.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">{{ md.name }}</span>
+<span style="font:400 13.5px/1.4 'Work Sans',sans-serif;color:var(--faint);text-wrap:pretty">{{ md.desc }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:960},&quot;catColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7FA98C&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7FA98C&quot;,&quot;#E8A33D&quot;,&quot;#C4C9D4&quot;,&quot;#2B2B2B&quot;]},&quot;startDark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CAT = [
+  '.............',
+  '.oo.......oo.',
+  '.opo.....opo.',
+  '.offo...offo.',
+  '.offfffffffo.',
+  'offfffffffffo',
+  'offeefffeeffo',
+  'offeefffeeffo',
+  'offfffpfffffo',
+  'offfffffffffo',
+  '.offfffffffo.',
+  '.offwwfffwwo.',
+  '..ooooooooo..'
+];
+const GW = 16, GH = 18, BODY_Y = 5;
+const TAILS = [
+  [[12,10],[13,10],[14,9],[14,8]],
+  [[12,10],[13,9],[14,8],[14,7]],
+  [[12,11],[13,10],[14,10],[15,9]]
+];
+const SAYINGS = ['mrrp!','nyah~','hey!','*stretch*','hm?','prrr'];
+
+class Component extends DCLogic {
+  state = {
+    screen: 'onboarding', sheetOpen: false, messages: [], typing: false,
+    draft: '', model: 0, catOn: true, mischief: 1, theme: 'light'
+  };
+
+  constructor(p) {
+    super(p);
+    this.catRef = React.createRef();
+    this.heroRef = React.createRef();
+    this.settingsRef = React.createRef();
+    this.bubbleRef = React.createRef();
+    this.scrollRef = React.createRef();
+    this.knobRef = React.createRef();
+    this.cat = { x: 10, dir: 1, mode: 'walk', t: 0, blink: 0, squash: 0, vy: 0, y: 0,
+                 drag: false, px: 0, py: 0, moved: 0, pause: 40, say: 0 };
+  }
+
+  componentDidMount() {
+    if (this.props.startDark) this.setState({ theme: 'dark' });
+    this.loop = () => { this.tick(); this.raf = requestAnimationFrame(this.loop); };
+    this.raf = requestAnimationFrame(this.loop);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); clearTimeout(this.replyT); }
+
+  speed() { return [0.35, 0.7, 1.25][this.state.mischief] || 0.7; }
+  dark() { return this.state.theme === 'dark'; }
+
+  tick() {
+    const c = this.cat;
+    c.t += 1;
+    if (c.blink > 0) c.blink -= 1;
+    else if (Math.random() < 0.006) c.blink = 9;
+    if (c.squash > 0) c.squash -= 1;
+
+    const canvas = this.catRef.current;
+    const lane = canvas ? canvas.parentElement.clientWidth - 16 * this.scale() : 300;
+
+    if (!c.drag) {
+      if (c.y > 0 || c.vy !== 0) {
+        c.vy += 1.6; c.y += c.vy;
+        if (c.y >= 0) { c.y = 0; c.vy = c.vy > 6 ? -c.vy * 0.32 : 0; if (Math.abs(c.vy) < 1) c.vy = 0; if (c.vy === 0) c.squash = 8; }
+      } else if (c.mode === 'walk') {
+        if (c.pause > 0) c.pause -= 1;
+        else {
+          c.x += c.dir * this.speed();
+          if (c.x < 0) { c.x = 0; c.dir = 1; c.pause = 30 + Math.random() * 90; }
+          if (c.x > lane) { c.x = lane; c.dir = -1; c.pause = 30 + Math.random() * 90; }
+          if (Math.random() < 0.004) { c.dir *= -1; c.pause = 20 + Math.random() * 70; }
+        }
+      }
+    }
+    if (c.say > 0) {
+      c.say -= 1;
+      if (c.say === 0 && this.bubbleRef.current) this.bubbleRef.current.style.opacity = '0';
+    }
+
+    this.paint(this.catRef.current, this.scale(), true);
+    this.paint(this.heroRef.current, 6, false);
+    this.paint(this.settingsRef.current, 2.4, false);
+
+    const b = this.bubbleRef.current;
+    if (b && canvas) b.style.transform = 'translate(' + Math.round(c.x) + 'px,' + Math.round(c.y - 26) + 'px)';
+  }
+
+  scale() { return 3; }
+
+  paint(canvas, scale, positioned) {
+    if (!canvas) return;
+    const c = this.cat;
+    if (!this.state.catOn && positioned) { canvas.style.opacity = '0'; return; }
+    canvas.style.opacity = '1';
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = GW * scale, h = GH * scale;
+    if (canvas.width !== w * dpr) {
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+      canvas.onpointerdown = (e) => this.grab(e, canvas, scale);
+      canvas.onpointermove = (e) => this.move(e, scale, positioned);
+      canvas.onpointerup = (e) => this.release(e, canvas);
+      canvas.onpointercancel = (e) => this.release(e, canvas);
+    }
+    if (positioned) canvas.style.transform = 'translate(' + Math.round(c.x) + 'px,' + Math.round(c.y) + 'px)';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const dk = this.dark();
+    const fur = this.props.catColor || '#7FA98C';
+    const P = { o: dk ? '#0A0A08' : '#23231F', f: fur, p: '#E5A8A2', e: dk ? '#0A0A08' : '#23231F', w: '#FFFDF6' };
+
+    const grid = CAT.map(r => r.split(''));
+    const set = (x, y, v) => { if (grid[y] && grid[y][x] !== undefined) grid[y][x] = v; };
+    const eyesAt = [[3,6],[4,6],[9,6],[10,6],[3,7],[4,7],[9,7],[10,7]];
+
+    const mode = c.drag ? 'drag' : c.mode;
+    if (c.blink > 4) { eyesAt.forEach(([x,y]) => set(x, y, 'f')); [[3,7],[4,7],[9,7],[10,7]].forEach(([x,y]) => set(x,y,'o')); }
+    else if (mode === 'think') { eyesAt.forEach(([x,y]) => set(x, y, 'f')); [[3,6],[4,6],[9,6],[10,6]].forEach(([x,y]) => set(x,y,'e')); }
+    else if (mode === 'drag') { set(3,5,'e'); set(4,5,'e'); set(9,5,'e'); set(10,5,'e'); set(3,6,'w'); set(9,6,'w'); set(6,9,'o'); set(7,9,'o'); }
+
+    const tailIdx = mode === 'drag' ? 1 : Math.floor(c.t / (mode === 'think' ? 7 : 16)) % 3;
+    const tail = mode === 'drag' ? [[12,9],[13,8],[13,7],[13,6]] : TAILS[tailIdx];
+
+    const step = mode === 'walk' && c.pause <= 0 && !c.drag ? Math.floor(c.t / 9) % 2 : 0;
+    const bobY = c.drag ? 0 : (mode === 'think' ? (Math.floor(c.t / 14) % 2) : step);
+
+    const sq = c.squash > 0 ? 1 - c.squash / 34 : 1;
+    ctx.save();
+    ctx.translate(0, h);
+    ctx.scale(1, sq);
+    ctx.translate(0, -h);
+
+    const px = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x * scale, (y + BODY_Y + bobY) * scale, scale, scale); };
+
+    const occupied = new Set();
+    grid.forEach((row, y) => row.forEach((ch, x) => { if (ch !== '.') occupied.add(x + ',' + y); }));
+    tail.forEach(([x, y]) => occupied.add(x + ',' + y));
+    tail.forEach(([x, y]) => {
+      [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => {
+        if (!occupied.has((x+dx) + ',' + (y+dy))) px(x + dx, y + dy, P.o);
+      });
+    });
+    tail.forEach(([x, y]) => px(x, y, P.f));
+    grid.forEach((row, y) => row.forEach((ch, x) => { if (ch !== '.') px(x, y, P[ch]); }));
+
+    if (this.state.typing && mode === 'think') {
+      const on = Math.floor(c.t / 12) % 3;
+      [0,1,2].forEach(i => {
+        ctx.fillStyle = i <= on ? (dk ? '#F1EFE7' : '#23231F') : (dk ? 'rgba(241,239,231,.2)' : 'rgba(35,35,31,.15)');
+        ctx.fillRect((5 + i * 2) * scale, (1 + (i === on ? -1 : 0)) * scale, scale, scale);
+      });
+    }
+    ctx.restore();
+  }
+
+  grab(e, canvas, scale) {
+    if (scale !== this.scale()) { this.poke(); return; }
+    canvas.setPointerCapture(e.pointerId);
+    const c = this.cat;
+    c.drag = true; c.moved = 0; c.px = e.clientX; c.py = e.clientY; c.vy = 0;
+    canvas.style.cursor = 'grabbing';
+  }
+  move(e, scale, positioned) {
+    const c = this.cat;
+    if (!c.drag || !positioned) return;
+    const dx = e.clientX - c.px, dy = e.clientY - c.py;
+    c.px = e.clientX; c.py = e.clientY;
+    c.moved += Math.abs(dx) + Math.abs(dy);
+    const lane = this.catRef.current.parentElement.clientWidth - GW * this.scale();
+    c.x = Math.max(-8, Math.min(lane + 8, c.x + dx));
+    c.y = Math.max(-520, Math.min(0, c.y + dy));
+  }
+  release(e, canvas) {
+    const c = this.cat;
+    if (!c.drag) return;
+    c.drag = false; c.vy = 0;
+    canvas.style.cursor = 'grab';
+    if (c.moved < 6) this.poke(); else this.say(c.y < -40 ? 'wheee' : 'mrrp!');
+  }
+  poke() {
+    this.cat.squash = 14;
+    this.say(SAYINGS[Math.floor(Math.random() * SAYINGS.length)]);
+  }
+  say(text) {
+    const b = this.bubbleRef.current;
+    if (!b) return;
+    b.textContent = text;
+    b.style.opacity = '1';
+    this.cat.say = 90;
+  }
+
+  scrollDown() {
+    const el = this.scrollRef.current;
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  }
+
+  send(text) {
+    if (!text.trim()) return;
+    const reply = this.replyFor(text);
+    this.setState(s => ({ messages: s.messages.concat({ role: 'user', text }), typing: true, draft: '' }));
+    this.cat.mode = 'think';
+    this.scrollDown();
+    clearTimeout(this.replyT);
+    this.replyT = setTimeout(() => {
+      this.setState(s => ({ messages: s.messages.concat({ role: 'bot', text: reply }), typing: false }));
+      this.cat.mode = 'walk';
+      this.cat.squash = 10;
+      this.say('done!');
+      this.scrollDown();
+    }, 2200);
+  }
+
+  replyFor(t) {
+    const k = t.toLowerCase();
+    if (k.includes('email')) return 'Start with the ask, then the reason, then the deadline. Three sentences is usually enough.\n\nSend me the draft and I will tighten it.';
+    if (k.includes('explain') || k.includes('how')) return 'Short version: it works by splitting the problem into parts small enough to check one at a time.\n\nWant the longer version with an example?';
+    if (k.includes('plan') || k.includes('week')) return 'Pick the two things that would make the week feel finished. Put them on Tuesday and Thursday morning. Everything else fills the gaps.';
+    return 'Here is the plain answer, without the throat-clearing.\n\nTell me what part to expand and I will go deeper on that one.';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dk = s.theme === 'dark';
+    const MODELS = [
+      { name: 'Quill 2 · Balanced', desc: 'Everyday questions, writing, and thinking out loud.' },
+      { name: 'Quill 2 Pro', desc: 'Slower, more careful. Good for long reasoning and code.' },
+      { name: 'Quill Mini', desc: 'Instant answers on device. No network, no history.' }
+    ];
+    const sug = ['Help me write a short email declining a meeting', 'Explain how a compiler works, plainly', 'Plan a quiet week with two deep-work days', 'Rewrite this paragraph in fewer words'];
+    const levels = ['Sleepy', 'Normal', 'Feral'];
+    const ink = dk ? '#F1EFE7' : '#16150F';
+    const bg = dk ? '#171714' : '#FAF9F6';
+    const accent = dk ? '#8FBE9C' : '#7FA98C';
+    if (this.knobRef.current) this.knobRef.current.style.transform = s.catOn ? 'translateX(20px)' : 'none';
+
+    return {
+      theme: s.theme,
+      isDark: dk,
+      deviceW: 402,
+      deviceH: 874,
+      isOnboarding: s.screen === 'onboarding',
+      isChat: s.screen === 'chat',
+      isHistory: s.screen === 'history',
+      isSettings: s.screen === 'settings',
+      isEmpty: s.messages.length === 0,
+      sheetOpen: s.sheetOpen,
+      typing: s.typing,
+      draft: s.draft,
+      modelName: MODELS[s.model].name,
+      catToggleBg: s.catOn ? accent : (dk ? 'rgba(241,239,231,.2)' : 'rgba(22,21,15,.2)'),
+      catRef: this.catRef, heroRef: this.heroRef, settingsRef: this.settingsRef,
+      bubbleRef: this.bubbleRef, scrollRef: this.scrollRef, knobRef: this.knobRef,
+      messages: s.messages.map(m => ({ text: m.text, isUser: m.role === 'user', isBot: m.role === 'bot' })),
+      suggestions: sug.map((text, i) => ({ text, num: '0' + (i + 1), send: () => this.send(text) })),
+      models: MODELS.map((m, i) => ({
+        name: m.name, desc: m.desc,
+        ring: i === s.model ? accent : (dk ? 'rgba(241,239,231,.26)' : 'rgba(22,21,15,.2)'),
+        dot: i === s.model ? accent : 'transparent',
+        pick: () => this.setState({ model: i, sheetOpen: false })
+      })),
+      themeOptions: [
+        { label: 'Light', v: 'light' },
+        { label: 'Dark', v: 'dark' }
+      ].map(o => ({
+        label: o.label,
+        bg: s.theme === o.v ? ink : 'transparent',
+        fg: s.theme === o.v ? bg : ink,
+        pick: () => this.setState({ theme: o.v })
+      })),
+      historyGroups: [
+        { label: 'TODAY', items: [
+          { title: 'Compiler internals', snippet: 'Explain how a compiler works, plainly', time: '9:12' },
+          { title: 'Email: declining Thursday', snippet: 'Short, warm, no excuses', time: '8:40' }
+        ]},
+        { label: 'YESTERDAY', items: [
+          { title: 'Quiet week plan', snippet: 'Two deep-work days, no meetings before 11', time: 'Mon' },
+          { title: 'Naming the cat', snippet: 'Pip, Miso, Bug — settled on Pip', time: 'Mon' },
+          { title: 'Reading list, non-fiction', snippet: 'Six books, short ones first', time: 'Sun' }
+        ]}
+      ].map(g => ({ label: g.label, items: g.items.map(it => ({ ...it, open: () => this.setState({ screen: 'chat' }) })) })),
+      mischiefLabel: levels[s.mischief].toUpperCase(),
+      mischiefLevels: levels.map((label, i) => ({
+        label,
+        bg: i === s.mischief ? ink : 'transparent',
+        fg: i === s.mischief ? bg : ink,
+        pick: () => this.setState({ mischief: i })
+      })),
+      settingRows: [
+        { label: 'Voice', value: 'Off' },
+        { label: 'Saved chats', value: '12' },
+        { label: 'Clear on close', value: 'On' }
+      ],
+      start: () => this.setState({ screen: 'chat' }),
+      goChat: () => this.setState({ screen: 'chat' }),
+      goHistory: () => this.setState({ screen: 'history' }),
+      goSettings: () => this.setState({ screen: 'settings' }),
+      openSheet: () => this.setState({ sheetOpen: true }),
+      closeSheet: () => this.setState({ sheetOpen: false }),
+      toggleCat: () => this.setState(st => ({ catOn: !st.catOn })),
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter') this.send(this.state.draft); },
+      submit: () => this.send(this.state.draft)
+    };
+  }
+}
+</script>
+</body>
+</html>

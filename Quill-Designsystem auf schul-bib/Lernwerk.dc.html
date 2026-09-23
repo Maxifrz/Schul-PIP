@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300..700;1,400&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EAE8E1;font-family:"Work Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background .3s}
+body:has([data-theme="dark"]){background:#0C0C0B}
+[data-theme]{--bg:#FAF9F6;--surface:#FFFFFF;--ink:#16150F;--ink2:#24231C;--muted:#6E6B62;--faint:#9A968B;--hint:#B0ABA0;--line:rgba(22,21,15,.1);--line-soft:rgba(22,21,15,.08);--line2:rgba(22,21,15,.16);--line3:rgba(22,21,15,.2);--hover:rgba(22,21,15,.05);--hover-soft:rgba(22,21,15,.03);--scrim:rgba(22,21,15,.32);--accent:#7FA98C;--warn:#C9974F}
+[data-theme="dark"]{--bg:#171714;--surface:#212019;--ink:#F1EFE7;--ink2:#DFDCD3;--muted:#9B978D;--faint:#807C73;--hint:#6C6961;--line:rgba(241,239,231,.12);--line-soft:rgba(241,239,231,.09);--line2:rgba(241,239,231,.2);--line3:rgba(241,239,231,.26);--hover:rgba(241,239,231,.07);--hover-soft:rgba(241,239,231,.05);--scrim:rgba(0,0,0,.55);--accent:#8FBE9C;--warn:#D6A762}
+a{color:#4F7A63;text-decoration:none}a:hover{color:#2F5744}
+button{font-family:inherit;border:0;background:none;padding:0;cursor:pointer;color:inherit}
+button:disabled{cursor:default;opacity:.4}
+input{font-family:inherit}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes qfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes qside{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes qpop{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes qdot{0%,60%,100%{opacity:.22}30%{opacity:1}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+<div style="zoom:{{ scale }};width:1222px;height:862px;box-sizing:border-box;padding:14px;border-radius:44px;background:#0E0E0C;box-shadow:0 30px 80px rgba(22,21,15,.18)">
+<div data-theme="{{ theme }}" style="width:1194px;height:834px;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);position:relative;transition:background .3s,color .3s">
+
+<div style="height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font:600 13px/1 'Work Sans',sans-serif;letter-spacing:-.01em">
+<span style="display:flex;gap:8px"><span>9:41</span><span style="font-weight:500">Mi. 23. Sept.</span></span>
+<span>100 %</span>
+</div>
+
+<sc-if value="{{ isTabs }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 26px 0">
+<div style="font:600 13px/1 'Silkscreen',monospace;letter-spacing:.14em;color:var(--accent)">LERNWERK</div>
+<div style="display:flex;gap:2px;padding:4px;border:1px solid var(--line2);border-radius:23px;background:var(--surface)">
+<sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+<button onClick="{{ tb.pick }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 17px;border-radius:18px;font:500 14px/1 'Work Sans',sans-serif;letter-spacing:-.01em;background:{{ tb.bg }};color:{{ tb.fg }};transition:background .2s,color .2s">
+<span>{{ tb.label }}</span>
+<sc-if value="{{ tb.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:9px;padding:3px 5px;border-radius:8px;background:var(--accent);color:#16150F;font:400 9px/1 'Silkscreen',monospace;text-align:center">{{ tb.badge }}</span></sc-if>
+</button>
+</sc-for>
+</div>
+<div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;overflow:auto;animation:qfade .3s ease both">
+<div style="max-width:760px;margin:0 auto;padding:44px 40px 60px">
+<sc-if value="{{ hasMaterials }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:30px">
+<div>
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">{{ materialCountLabel }}</div>
+<h1 style="margin:14px 0 0;font:300 40px/1.06 'Work Sans',sans-serif;letter-spacing:-.028em">Bibliothek</h1>
+</div>
+<button style="height:44px;padding:0 20px;border-radius:22px;background:var(--ink);color:var(--bg);font:500 15px/1 'Work Sans',sans-serif;letter-spacing:-.01em" style-hover="opacity:.88">PDF importieren</button>
+</div>
+<div style="display:flex;flex-direction:column;border-top:1px solid var(--line)">
+<sc-for list="{{ materials }}" as="m" hint-placeholder-count="3">
+<button onClick="{{ m.open }}" style="display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:baseline;gap:12px;padding:17px 2px;text-align:left;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="font:400 10px/1.6 'Silkscreen',monospace;color:var(--hint)">{{ m.num }}</span>
+<span style="display:flex;flex-direction:column;gap:4px;min-width:0">
+<span style="font:400 16.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">{{ m.title }}</span>
+<span style="font:400 13px/1.3 'Work Sans',sans-serif;color:var(--faint)">Hinzugefügt {{ m.added }}</span>
+</span>
+<span style="font:400 12.5px/1.3 'Work Sans',sans-serif;color:var(--hint)">{{ m.last }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noMaterials }}" hint-placeholder-val="{{ false }}">
+<div style="padding-top:70px;max-width:440px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">BIBLIOTHEK</div>
+<h2 style="margin:16px 0 0;font:300 34px/1.12 'Work Sans',sans-serif;letter-spacing:-.025em">Noch kein Material</h2>
+<p style="margin:14px 0 30px;font:400 15.5px/1.55 'Work Sans',sans-serif;color:var(--muted);text-wrap:pretty">Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF.</p>
+<div style="display:flex;align-items:center;gap:20px">
+<button style="height:48px;padding:0 24px;border-radius:24px;background:var(--ink);color:var(--bg);font:500 15.5px/1 'Work Sans',sans-serif" style-hover="opacity:.88">PDF importieren</button>
+<button onClick="{{ loadDemo }}" style="font:500 15px/1 'Work Sans',sans-serif;color:#4F7A63" style-hover="color:#2F5744">Demo-Material laden</button>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPlans }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;overflow:auto;animation:qfade .3s ease both">
+<div style="max-width:760px;margin:0 auto;padding:44px 40px 60px">
+<sc-if value="{{ hasPlans }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:30px">
+<div>
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">{{ planCountLabel }}</div>
+<h1 style="margin:14px 0 0;font:300 40px/1.06 'Work Sans',sans-serif;letter-spacing:-.028em">Lernplan</h1>
+</div>
+<button onClick="{{ openCreate }}" style="height:44px;padding:0 20px;border-radius:22px;background:var(--ink);color:var(--bg);font:500 15px/1 'Work Sans',sans-serif;letter-spacing:-.01em" style-hover="opacity:.88">Neuer Lernplan</button>
+</div>
+<div style="display:flex;flex-direction:column;border-top:1px solid var(--line)">
+<sc-for list="{{ plans }}" as="p" hint-placeholder-count="1">
+<button onClick="{{ p.open }}" style="display:flex;flex-direction:column;gap:7px;padding:20px 2px;text-align:left;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="font:500 17px/1.3 'Work Sans',sans-serif;letter-spacing:-.015em">{{ p.title }}</span>
+<span style="font:400 14px/1.3 'Work Sans',sans-serif;color:var(--muted)">Prüfung am {{ p.exam }}</span>
+<span style="display:block;width:100%;height:4px;border-radius:2px;background:var(--line);margin:6px 0 2px;overflow:hidden"><span style="display:block;height:100%;border-radius:2px;background:var(--accent);width:{{ p.pct }};transition:width .3s"></span></span>
+<span style="font:400 12.5px/1.3 'Work Sans',sans-serif;color:var(--faint)">{{ p.progress }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noPlans }}" hint-placeholder-val="{{ false }}">
+<div style="padding-top:70px;max-width:460px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">LERNPLAN</div>
+<h2 style="margin:16px 0 0;font:300 34px/1.12 'Work Sans',sans-serif;letter-spacing:-.025em">Noch kein Lernplan</h2>
+<p style="margin:14px 0 30px;font:400 15.5px/1.55 'Work Sans',sans-serif;color:var(--muted);text-wrap:pretty">Wähl dein Material und den Prüfungstermin. Die KI zerlegt den Stoff in Lerneinheiten und verteilt sie bis zur Prüfung.</p>
+<button onClick="{{ openCreate }}" style="height:48px;padding:0 24px;border-radius:24px;background:var(--ink);color:var(--bg);font:500 15.5px/1 'Work Sans',sans-serif" style-hover="opacity:.88">Lernplan erstellen</button>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;animation:qfade .3s ease both">
+<div style="width:100%;max-width:760px;margin:0 auto;padding:44px 40px 0;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between">
+<div>
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">KARTEIKARTEN</div>
+<h1 style="margin:14px 0 0;font:300 40px/1.06 'Work Sans',sans-serif;letter-spacing:-.028em">Wiederholen</h1>
+</div>
+<span style="font:400 14px/1 'Work Sans',sans-serif;color:var(--muted);padding-bottom:6px">{{ dueLabel }}</span>
+</div>
+<sc-if value="{{ hasDue }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:24px;width:100%;max-width:640px;margin:0 auto;padding:28px 32px 44px;box-sizing:border-box;text-align:center">
+<div style="height:14px;font:400 10px/1.4 'Silkscreen',monospace;letter-spacing:.1em;color:var(--accent)">{{ reviewedLabel }}</div>
+<div style="flex:1"></div>
+<div style="font:300 30px/1.25 'Work Sans',sans-serif;letter-spacing:-.022em;text-wrap:pretty">{{ card.front }}</div>
+<sc-if value="{{ showAnswer }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;animation:qfade .3s ease both">
+<div style="width:100%;height:1px;background:var(--line)"></div>
+<div style="font:400 18px/1.55 'Work Sans',sans-serif;color:var(--ink2);text-wrap:pretty">{{ card.back }}</div>
+<div style="font:400 12.5px/1 'Work Sans',sans-serif;color:var(--faint)">Aus deinem Material, Seite {{ card.page }}</div>
+</div>
+</sc-if>
+<div style="flex:1"></div>
+<sc-if value="{{ showAnswer }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:10px">
+<sc-for list="{{ grades }}" as="g" hint-placeholder-count="4">
+<button onClick="{{ g.rate }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:22px;border:1px solid var(--line2);font:500 14.5px/1 'Work Sans',sans-serif;color:var(--ink)" style-hover="background:var(--hover)">
+<span style="width:7px;height:7px;border-radius:4px;background:{{ g.dot }}"></span>{{ g.label }}
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ hideAnswer }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ reveal }}" style="height:52px;padding:0 30px;border-radius:26px;background:var(--ink);color:var(--bg);font:500 16px/1 'Work Sans',sans-serif;letter-spacing:-.01em" style-hover="opacity:.88">Antwort zeigen</button>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ noDue }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 40px 80px;text-align:center;animation:qfade .3s ease both">
+<div style="display:flex;gap:6px"><span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span><span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span><span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span></div>
+<h2 style="margin:6px 0 0;font:300 30px/1.15 'Work Sans',sans-serif;letter-spacing:-.025em">Alles wiederholt</h2>
+<p style="margin:0;max-width:400px;font:400 15.5px/1.55 'Work Sans',sans-serif;color:var(--muted);text-wrap:pretty">{{ doneText }}</p>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;overflow:auto;animation:qfade .3s ease both">
+<div style="max-width:680px;margin:0 auto;padding:44px 40px 60px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint)">VERSION {{ version }}</div>
+<h1 style="margin:14px 0 34px;font:300 40px/1.06 'Work Sans',sans-serif;letter-spacing:-.028em">Einstellungen</h1>
+
+<sc-for list="{{ modelSections }}" as="ms" hint-placeholder-count="2">
+<div style="margin-bottom:34px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:6px">{{ ms.header }}</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Anbieter</span>
+<div style="display:flex;gap:6px">
+<sc-for list="{{ ms.providers }}" as="pv" hint-placeholder-count="3">
+<button onClick="{{ pv.pick }}" style="height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line2);font:400 13.5px/1 'Work Sans',sans-serif;background:{{ pv.bg }};color:{{ pv.fg }}">{{ pv.name }}</button>
+</sc-for>
+</div>
+</div>
+<button onClick="{{ ms.openModels }}" style="display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;padding:15px 2px;border-bottom:1px solid var(--line);text-align:left;color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Modell</span>
+<span style="display:flex;align-items:center;gap:10px">
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+<span style="font:400 14.5px/1.3 'Work Sans',sans-serif">{{ ms.modelName }}</span>
+<span style="font:400 12.5px/1.3 'Work Sans',sans-serif;color:var(--faint)">{{ ms.modelNote }}</span>
+</span>
+<svg width="7" height="12" viewBox="0 0 7 12" style="color:var(--hint)"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</span>
+</button>
+<sc-if value="{{ ms.isCustom }}" hint-placeholder-val="{{ false }}">
+<div style="padding:12px 2px;border-bottom:1px solid var(--line)">
+<input value="{{ ms.model }}" onChange="{{ ms.onCustom }}" placeholder="Modell-ID, z. B. meta/llama-3.2-90b-vision-instruct" style="width:100%;height:40px;padding:0 14px;box-sizing:border-box;border:1px solid var(--line2);border-radius:20px;background:var(--surface);outline:none;font:400 13px/1 ui-monospace,Menlo,monospace;color:var(--ink)">
+</div>
+</sc-if>
+<sc-if value="{{ ms.showImages }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Bilder mitschicken</span>
+<button onClick="{{ ms.toggleImages }}" style="width:50px;height:30px;flex:none;border-radius:15px;padding:3px;display:flex;background:{{ ms.toggleBg }};transition:background .2s"><span style="width:24px;height:24px;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s;transform:{{ ms.knob }}"></span></button>
+</div>
+</sc-if>
+<sc-if value="{{ ms.warn }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:9px;padding:13px 2px;border-bottom:1px solid var(--line);font:400 14px/1.3 'Work Sans',sans-serif;color:var(--muted)">
+<span style="width:6px;height:6px;border-radius:3px;background:var(--warn);flex:none"></span>{{ ms.warnText }}
+</div>
+</sc-if>
+<p style="margin:10px 2px 0;font:400 12.5px/1.55 'Work Sans',sans-serif;color:var(--faint);text-wrap:pretty">{{ ms.footer }}</p>
+</div>
+</sc-for>
+
+<div style="margin-bottom:34px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:6px">API-KEYS</div>
+<sc-for list="{{ keyRows }}" as="k" hint-placeholder-count="3">
+<div style="padding:14px 2px;border-bottom:1px solid var(--line)">
+<sc-if value="{{ k.has }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px">
+<span style="display:flex;align-items:center;gap:9px;font:400 15.5px/1.3 'Work Sans',sans-serif"><span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span>{{ k.name }}</span>
+<button onClick="{{ k.remove }}" style="font:500 14px/1 'Work Sans',sans-serif;color:var(--muted)" style-hover="color:var(--ink)">Entfernen</button>
+</div>
+</sc-if>
+<sc-if value="{{ k.missing }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;justify-content:space-between">
+<span style="font:500 15.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">{{ k.name }}</span>
+<a href="{{ k.portal }}" target="_blank" style="font:400 14px/1 'Work Sans',sans-serif">Key holen</a>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 4px 4px 16px;border:1px solid var(--line2);border-radius:22px;background:var(--surface)">
+<input type="password" value="{{ k.input }}" onChange="{{ k.onInput }}" placeholder="{{ k.placeholder }}" style="flex:1;border:0;outline:none;background:none;padding:8px 0;font:400 14.5px/1.2 'Work Sans',sans-serif;color:var(--ink)">
+<button onClick="{{ k.save }}" disabled="{{ k.cantSave }}" style="height:32px;padding:0 14px;border-radius:16px;background:var(--ink);color:var(--bg);font:500 13.5px/1 'Work Sans',sans-serif">Speichern</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<p style="margin:10px 2px 0;font:400 12.5px/1.55 'Work Sans',sans-serif;color:var(--faint)">Keys liegen nur im Schlüsselbund dieses Geräts. Ein Claude-Pro-Abo enthält keinen API-Zugang.</p>
+</div>
+
+<div style="margin-bottom:34px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 2px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Demo-Modus</span>
+<button onClick="{{ toggleDemo }}" style="width:50px;height:30px;flex:none;border-radius:15px;padding:3px;display:flex;background:{{ demoBg }};transition:background .2s"><span style="width:24px;height:24px;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s;transform:{{ demoKnob }}"></span></button>
+</div>
+<p style="margin:10px 2px 0;font:400 12.5px/1.55 'Work Sans',sans-serif;color:var(--faint)">Antwortet mit vorbereiteten Beispielen statt einer echten KI – zum Ausprobieren ohne Key.</p>
+</div>
+
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:6px">ÜBER</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Version</span>
+<span style="font:400 14px/1.3 'Work Sans',sans-serif;color:var(--faint)">{{ version }}</span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPlanDetail }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;min-height:0;animation:qfade .3s ease both">
+<div style="flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:6px 16px 10px;border-bottom:1px solid var(--line-soft)">
+<button onClick="{{ backToPlans }}" style="justify-self:start;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px 0 10px;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="11" height="18" viewBox="0 0 11 18"><path d="M9 1L2 9l7 8" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="font:400 15px/1 'Work Sans',sans-serif;color:var(--muted)">Lernplan</span>
+</button>
+<span style="font:500 16px/1 'Work Sans',sans-serif;letter-spacing:-.015em">{{ plan.title }}</span>
+<button onClick="{{ reschedule }}" style="justify-self:end;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line2);font:500 13.5px/1 'Work Sans',sans-serif;color:var(--ink)" style-hover="background:var(--hover-soft)">Ab heute neu verteilen</button>
+</div>
+<div style="flex:1;overflow:auto">
+<div style="max-width:760px;margin:0 auto;padding:36px 40px 60px">
+<div style="display:flex;flex-direction:column;gap:10px;padding-bottom:26px;border-bottom:1px solid var(--line)">
+<span style="font:300 30px/1.15 'Work Sans',sans-serif;letter-spacing:-.025em">{{ plan.progress }}</span>
+<span style="display:block;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:6px"><span style="display:block;height:100%;border-radius:2px;background:var(--accent);width:{{ plan.pct }};transition:width .3s"></span></span>
+<span style="font:400 13px/1.3 'Work Sans',sans-serif;color:var(--faint)">Prüfung am {{ plan.exam }} · noch {{ plan.daysLeft }} Tage</span>
+</div>
+<sc-if value="{{ plan.overbooked }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:10px;align-items:baseline;padding:16px 2px;border-bottom:1px solid var(--line);font:400 14px/1.5 'Work Sans',sans-serif;color:var(--muted)"><span style="width:6px;height:6px;border-radius:3px;background:var(--warn);flex:none;transform:translateY(-2px)"></span>{{ plan.overText }}</div>
+</sc-if>
+<sc-for list="{{ plan.days }}" as="d" hint-placeholder-count="3">
+<div style="margin-top:28px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:4px">{{ d.label }}</div>
+<sc-for list="{{ d.topics }}" as="tp" hint-placeholder-count="1">
+<div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid var(--line)">
+<button onClick="{{ tp.toggle }}" style="width:22px;height:22px;flex:none;margin-top:1px;border-radius:11px;border:1.5px solid {{ tp.ring }};background:{{ tp.fill }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;transition:background .2s">
+<sc-if value="{{ tp.done }}" hint-placeholder-val="{{ false }}"><svg width="11" height="9" viewBox="0 0 11 9"><path d="M1 4.5l3 3L10 1" stroke="#16150F" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+</button>
+<button onClick="{{ tp.open }}" style="flex:1;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--ink)">
+<span style="font:400 16px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em;text-decoration:{{ tp.deco }};color:{{ tp.color }}">{{ tp.title }}</span>
+<span style="font:400 14px/1.45 'Work Sans',sans-serif;color:var(--muted);text-wrap:pretty">{{ tp.summary }}</span>
+<span style="display:flex;gap:14px;margin-top:2px;font:400 12.5px/1 'Work Sans',sans-serif;color:var(--faint)"><span>{{ tp.minutes }} min</span><span>{{ tp.pages }}</span></span>
+</button>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDocument }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;min-height:0;animation:qfade .3s ease both">
+<div style="flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:6px 16px 10px;border-bottom:1px solid var(--line-soft)">
+<button onClick="{{ closeDoc }}" style="justify-self:start;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px 0 10px;border-radius:19px;color:var(--ink)" style-hover="background:var(--hover)">
+<svg width="11" height="18" viewBox="0 0 11 18"><path d="M9 1L2 9l7 8" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="font:400 15px/1 'Work Sans',sans-serif;color:var(--muted)">{{ docBack }}</span>
+</button>
+<span style="font:500 16px/1 'Work Sans',sans-serif;letter-spacing:-.015em">{{ docTitle }}</span>
+<span style="justify-self:end;font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);padding-right:8px">2 SEITEN</span>
+</div>
+<div style="flex:1;display:flex;min-height:0">
+<div style="flex:1;position:relative;min-width:0;background:var(--hover)">
+<div style="position:absolute;inset:0;overflow:auto;padding:30px 0 150px">
+<sc-for list="{{ pages }}" as="pg" hint-placeholder-count="2">
+<div style="width:520px;margin:0 auto 26px;padding:46px 50px 60px;box-sizing:border-box;min-height:700px;background:{{ pageBg }};color:#16150F;box-shadow:0 1px 3px rgba(22,21,15,.08),0 8px 24px rgba(22,21,15,.06);font-family:Helvetica,Arial,sans-serif;transition:background .2s">
+<div style="font:700 24px/1.2 Helvetica,Arial,sans-serif;margin-bottom:22px">{{ pg.title }}</div>
+<sc-for list="{{ pg.blocks }}" as="b" hint-placeholder-count="3">
+<div onClick="{{ b.mark }}" style="margin:0 -8px 8px;padding:6px 8px;border-radius:6px;border:1.5px dashed {{ b.border }};background:{{ b.bg }};cursor:{{ b.cursor }};font:400 14px/1.7 Helvetica,Arial,sans-serif;white-space:pre-wrap;transition:background .15s,border-color .15s">{{ b.text }}</div>
+</sc-for>
+<div style="margin-top:30px;font:400 11px/1 Helvetica,Arial,sans-serif;color:#9A968B;text-align:center">{{ pg.num }}</div>
+</div>
+</sc-for>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:18px;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none">
+<sc-if value="{{ isMarkMode }}" hint-placeholder-val="{{ false }}">
+<div style="padding:8px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line2);font:400 13px/1.3 'Work Sans',sans-serif;color:var(--ink2);animation:qfade .25s ease both">Zieh einen Rahmen um die Stelle, bei der du Hilfe brauchst.</div>
+</sc-if>
+<div style="pointer-events:auto;display:flex;align-items:center;gap:4px;padding:5px;border-radius:28px;background:var(--surface);border:1px solid var(--line2);box-shadow:0 6px 18px rgba(22,21,15,.1)">
+<sc-for list="{{ tools }}" as="tl" hint-placeholder-count="4">
+<button onClick="{{ tl.pick }}" style="height:44px;padding:0 17px;border-radius:22px;font:500 14px/1 'Work Sans',sans-serif;letter-spacing:-.01em;background:{{ tl.bg }};color:{{ tl.fg }};transition:background .2s,color .2s">{{ tl.label }}</button>
+</sc-for>
+<span style="width:1px;height:26px;background:var(--line2);margin:0 4px"></span>
+<button onClick="{{ pickMark }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:22px;font:500 14px/1 'Work Sans',sans-serif;letter-spacing:-.01em;background:{{ markBg }};color:{{ markFg }};transition:background .2s,color .2s">
+<span style="width:6px;height:6px;border-radius:3px;background:var(--accent)"></span>Hilfe
+</button>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ hasTutor }}" hint-placeholder-val="{{ false }}">
+<div style="width:390px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--line);background:var(--bg);animation:qside .3s cubic-bezier(.2,.9,.3,1) both">
+<div style="padding:18px 20px 16px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font:500 17px/1 'Work Sans',sans-serif;letter-spacing:-.015em">Lernhilfe</span>
+<button onClick="{{ closeTutor }}" style="height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line2);font:500 13.5px/1 'Work Sans',sans-serif;color:var(--ink)" style-hover="background:var(--hover-soft)">Fertig</button>
+</div>
+<div style="display:flex;gap:6px">
+<sc-for list="{{ ladder }}" as="ld" hint-placeholder-count="3">
+<span style="height:26px;padding:0 11px;border-radius:13px;display:flex;align-items:center;font:{{ ld.weight }} 12.5px/1 'Work Sans',sans-serif;background:{{ ld.bg }};color:{{ ld.fg }};border:1px solid {{ ld.border }};transition:background .2s">{{ ld.title }}</span>
+</sc-for>
+</div>
+<sc-if value="{{ isDemo }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:9px;align-items:baseline;font:400 12.5px/1.5 'Work Sans',sans-serif;color:var(--muted)"><span style="width:6px;height:6px;border-radius:3px;background:var(--warn);flex:none;transform:translateY(-1px)"></span><span>Demo-Modus: vorbereitete Beispielantworten, keine echte KI. Ausschalten unter Einstellungen.</span></div>
+</sc-if>
+<sc-if value="{{ hasTopic }}" hint-placeholder-val="{{ false }}">
+<div style="font:400 12.5px/1.4 'Work Sans',sans-serif;color:var(--faint)">Thema im Lernplan: {{ tutor.topic }}</div>
+</sc-if>
+</div>
+<div ref="{{ scrollRef }}" style="flex:1;overflow:auto;padding:18px 20px 6px">
+<div style="margin-bottom:22px;padding:12px 14px;border:1px solid var(--line2);border-radius:8px;background:#FFFFFF;color:#16150F">
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:#9A968B;margin-bottom:8px">SEITE {{ tutor.page }} · MARKIERT</div>
+<div style="font:400 13px/1.6 Helvetica,Arial,sans-serif;white-space:pre-wrap;max-height:110px;overflow:hidden">{{ tutor.text }}</div>
+</div>
+<sc-for list="{{ turns }}" as="t" hint-placeholder-count="0">
+<div style="margin-bottom:22px;animation:qfade .35s ease both">
+<sc-if value="{{ t.isStudent }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:flex-end"><div style="max-width:84%;padding:11px 15px;border-radius:20px 20px 6px 20px;background:var(--ink);color:var(--bg);font:400 15px/1.5 'Work Sans',sans-serif;letter-spacing:-.01em;white-space:pre-wrap;text-wrap:pretty">{{ t.text }}</div></div>
+</sc-if>
+<sc-if value="{{ t.isTutor }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="font:400 9px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:9px">LERNHILFE · {{ t.level }}</div>
+<div style="font:400 15px/1.62 'Work Sans',sans-serif;letter-spacing:-.005em;color:var(--ink2);white-space:pre-wrap;text-wrap:pretty"><sc-for list="{{ t.segs }}" as="sg" hint-placeholder-count="1"><span style="font-weight:{{ sg.w }};font-style:{{ sg.i }};color:{{ sg.c }}">{{ sg.t }}</span></sc-for></div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ tutorLoading }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;padding:2px 0 20px">
+<span style="display:flex;gap:5px">
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s infinite"></span>
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .18s infinite"></span>
+<span style="width:5px;height:5px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .36s infinite"></span>
+</span>
+<span ref="{{ waitRef }}" style="font:400 13px/1.3 'Work Sans',sans-serif;color:var(--faint);font-variant-numeric:tabular-nums">Warte … 0 s</span>
+</div>
+</sc-if>
+</div>
+<div style="padding:0 16px 20px">
+<div style="position:relative;height:56px;pointer-events:none;z-index:3">
+<div ref="{{ bubbleRef }}" style="position:absolute;top:-6px;left:0;opacity:0;padding:5px 9px;border-radius:9px;background:var(--ink);color:var(--bg);font:400 9px/1 'Silkscreen',monospace;white-space:nowrap;transition:opacity .18s"></div>
+<canvas ref="{{ catRef }}" style="position:absolute;left:0;bottom:0;image-rendering:pixelated;pointer-events:auto;cursor:grab;touch-action:none"></canvas>
+</div>
+<div style="display:flex;align-items:flex-end;gap:9px;padding:6px 6px 6px 18px;border:1px solid var(--line2);border-radius:26px;background:var(--surface)">
+<input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Deine Antwort …" style="flex:1;min-width:0;border:0;outline:none;background:none;padding:11px 0;font:400 15.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em;color:var(--ink)">
+<button onClick="{{ sendAnswer }}" disabled="{{ cantSend }}" style="width:38px;height:38px;flex:none;border-radius:19px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center" style-hover="opacity:.85">
+<svg width="15" height="16" viewBox="0 0 15 16"><path d="M7.5 15V2M7.5 2L2 7.5M7.5 2L13 7.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+<div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px">
+<button onClick="{{ moreHelp }}" disabled="{{ cantEscalate }}" style="height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line2);font:400 13.5px/1 'Work Sans',sans-serif;color:var(--ink)" style-hover="background:var(--hover-soft)">Mehr Hilfe</button>
+<button onClick="{{ revealAll }}" disabled="{{ cantEscalate }}" style="height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line2);font:400 13.5px/1 'Work Sans',sans-serif;color:var(--ink)" style-hover="background:var(--hover-soft)">Sag's mir einfach</button>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ createOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center">
+<div onClick="{{ closeCreate }}" style="position:absolute;inset:0;background:var(--scrim)"></div>
+<div style="position:relative;width:560px;max-height:700px;display:flex;flex-direction:column;background:var(--bg);border-radius:24px;overflow:hidden;animation:qpop .28s cubic-bezier(.2,.9,.3,1) both">
+<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line-soft)">
+<button onClick="{{ closeCreate }}" disabled="{{ generating }}" style="justify-self:start;font:400 15px/1 'Work Sans',sans-serif;color:var(--muted)">Abbrechen</button>
+<span style="font:500 16px/1 'Work Sans',sans-serif;letter-spacing:-.015em">Neuer Lernplan</span>
+<button onClick="{{ generate }}" disabled="{{ cantCreate }}" style="justify-self:end;height:34px;padding:0 16px;border-radius:17px;background:var(--ink);color:var(--bg);font:500 14px/1 'Work Sans',sans-serif">Erstellen</button>
+</div>
+<div style="flex:1;overflow:auto;padding:22px 24px 30px">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:6px">MATERIAL</div>
+<sc-if value="{{ noMaterials }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 2px;border-bottom:1px solid var(--line);font:400 15px/1.4 'Work Sans',sans-serif;color:var(--faint)">Importiere zuerst ein PDF in der Bibliothek.</div>
+</sc-if>
+<sc-for list="{{ createMaterials }}" as="cm" hint-placeholder-count="2">
+<button onClick="{{ cm.toggle }}" style="display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;padding:15px 2px;border-bottom:1px solid var(--line);text-align:left;color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">{{ cm.title }}</span>
+<span style="width:22px;height:22px;flex:none;border-radius:11px;border:1.5px solid {{ cm.ring }};background:{{ cm.fill }};box-sizing:border-box;display:flex;align-items:center;justify-content:center">
+<sc-if value="{{ cm.on }}" hint-placeholder-val="{{ false }}"><svg width="11" height="9" viewBox="0 0 11 9"><path d="M1 4.5l3 3L10 1" stroke="#16150F" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+</span>
+</button>
+</sc-for>
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin:28px 0 6px">PRÜFUNG</div>
+<div style="display:flex;align-items:center;gap:14px;padding:8px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif;width:80px">Titel</span>
+<input value="{{ createTitle }}" onChange="{{ onTitle }}" placeholder="Titel" style="flex:1;border:0;outline:none;background:none;padding:8px 0;text-align:right;font:400 15.5px/1.3 'Work Sans',sans-serif;color:var(--ink)">
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">Termin</span>
+<span style="display:flex;align-items:center;gap:8px">
+<button onClick="{{ examEarlier }}" style="width:32px;height:32px;border-radius:16px;border:1px solid var(--line2);font:400 16px/1 'Work Sans',sans-serif" style-hover="background:var(--hover)">−</button>
+<span style="min-width:110px;height:32px;padding:0 12px;border-radius:16px;background:var(--hover);display:flex;align-items:center;justify-content:center;font:400 14.5px/1 'Work Sans',sans-serif">{{ examShort }}</span>
+<button onClick="{{ examLater }}" style="width:32px;height:32px;border-radius:16px;border:1px solid var(--line2);font:400 16px/1 'Work Sans',sans-serif" style-hover="background:var(--hover)">+</button>
+</span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 2px;border-bottom:1px solid var(--line)">
+<span style="font:400 15.5px/1.3 'Work Sans',sans-serif">{{ minutesLabel }}</span>
+<span style="display:flex;border:1px solid var(--line2);border-radius:16px;overflow:hidden">
+<button onClick="{{ minLess }}" style="width:44px;height:32px;font:400 16px/1 'Work Sans',sans-serif;border-right:1px solid var(--line2)" style-hover="background:var(--hover)">−</button>
+<button onClick="{{ minMore }}" style="width:44px;height:32px;font:400 16px/1 'Work Sans',sans-serif" style-hover="background:var(--hover)">+</button>
+</span>
+</div>
+</div>
+<sc-if value="{{ generating }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);animation:qfade .2s ease both">
+<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:28px 32px;border-radius:20px;background:var(--surface);text-align:center">
+<span style="display:flex;gap:5px">
+<span style="width:6px;height:6px;border-radius:3px;background:var(--accent);animation:qdot 1.1s infinite"></span>
+<span style="width:6px;height:6px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .18s infinite"></span>
+<span style="width:6px;height:6px;border-radius:3px;background:var(--accent);animation:qdot 1.1s .36s infinite"></span>
+</span>
+<span style="font:500 16px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">Die KI liest dein Material …</span>
+<span style="font:400 12.5px/1.3 'Work Sans',sans-serif;color:var(--faint)">Je nach Umfang dauert das bis zu zwei Minuten.</span>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ modelSheetOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center">
+<div onClick="{{ closeModels }}" style="position:absolute;inset:0;background:var(--scrim)"></div>
+<div style="position:relative;width:480px;background:var(--bg);border-radius:24px;padding:22px 24px 26px;animation:qpop .28s cubic-bezier(.2,.9,.3,1) both">
+<div style="font:400 10px/1 'Silkscreen',monospace;letter-spacing:.1em;color:var(--hint);margin-bottom:10px">MODELL · {{ sheetProvider }}</div>
+<sc-for list="{{ modelOptions }}" as="md" hint-placeholder-count="4">
+<button onClick="{{ md.pick }}" style="display:flex;align-items:flex-start;gap:13px;width:100%;text-align:left;padding:14px 2px;border-bottom:1px solid var(--line);color:var(--ink)" style-hover="background:var(--hover-soft)">
+<span style="width:18px;height:18px;border-radius:9px;border:1.5px solid {{ md.ring }};margin-top:1px;flex:none;box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:9px;height:9px;border-radius:5px;background:{{ md.dot }}"></span></span>
+<span style="display:flex;flex-direction:column;gap:3px">
+<span style="font:500 15.5px/1.3 'Work Sans',sans-serif;letter-spacing:-.01em">{{ md.name }}</span>
+<span style="font:400 13.5px/1.4 'Work Sans',sans-serif;color:var(--faint)">{{ md.note }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;catColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7FA98C&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#7FA98C&quot;,&quot;#E8A33D&quot;,&quot;#C4C9D4&quot;,&quot;#2B2B2B&quot;]},&quot;showPip&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;startDark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;emptyLibrary&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CAT = [
+  '.............',
+  '.oo.......oo.',
+  '.opo.....opo.',
+  '.offo...offo.',
+  '.offfffffffo.',
+  'offfffffffffo',
+  'offeefffeeffo',
+  'offeefffeeffo',
+  'offfffpfffffo',
+  'offfffffffffo',
+  '.offfffffffo.',
+  '.offwwfffwwo.',
+  '..ooooooooo..'
+];
+const GW = 16, GH = 18, BODY_Y = 5;
+const TAILS = [
+  [[12,10],[13,10],[14,9],[14,8]],
+  [[12,10],[13,9],[14,8],[14,7]],
+  [[12,11],[13,10],[14,10],[15,9]]
+];
+const SAYINGS = ['mrrp!','nyah~','hey!','*stretch*','hm?','prrr'];
+const TODAY = new Date(2026, 8, 23);
+
+const PAGES = [
+  { title: 'Die Kettenregel', blocks: [
+    'Viele Funktionen sind verkettet: Eine äußere Funktion wird auf eine innere Funktion angewendet, zum Beispiel f(x) = (3x² + 1)⁵. Die innere Funktion ist v(x) = 3x² + 1, die äußere u(v) = v⁵.',
+    "Kettenregel: f(x) = u(v(x))  ⇒  f'(x) = u'(v(x)) · v'(x)",
+    'Merksatz: äußere Ableitung mal innere Ableitung.',
+    "Beispiel: f(x) = (3x² + 1)⁵\nu'(v) = 5v⁴ und v'(x) = 6x\nf'(x) = 5(3x² + 1)⁴ · 6x = 30x(3x² + 1)⁴",
+    'Typischer Fehler: Die innere Ableitung wird vergessen. Dann steht dort nur 5(3x² + 1)⁴ – das ist falsch, weil die Änderung der inneren Funktion fehlt.'
+  ]},
+  { title: 'Übungsaufgaben', blocks: [
+    'Bestimme jeweils die erste Ableitung.',
+    'a) f(x) = (2x − 7)³\nb) g(x) = sin(4x)\nc) h(x) = e^(x²)\nd) k(x) = √(5x + 2)',
+    'Tipp: Wenn du feststeckst, wähle unten das Hilfe-Werkzeug und ziehe einen Rahmen um die Aufgabe.'
+  ]}
+];
+
+const DEMO_TOPICS = [
+  { title: 'Verkettete Funktionen erkennen', summary: 'Du kannst bei einer Funktion innere und äußere Funktion benennen.', pages: [1], minutes: 20 },
+  { title: 'Kettenregel anwenden', summary: 'Du leitest verkettete Funktionen mit äußerer mal innerer Ableitung ab.', pages: [1], minutes: 30 },
+  { title: 'Übungsaufgaben zur Kettenregel', summary: 'Du löst gemischte Aufgaben mit Potenz-, Sinus-, e- und Wurzelfunktionen.', pages: [2], minutes: 45 }
+];
+
+const DEMO_CARD = {
+  front: 'Wie leitest du eine verkettete Funktion wie (2x − 7)³ ab?',
+  back: 'Mit der Kettenregel: äußere Ableitung mal innere Ableitung. Hier 3(2x − 7)² · 2 = 6(2x − 7)².',
+  page: 2
+};
+
+const MATS = [
+  { id: 'demo', title: 'Demo: Kettenregel', added: '23. Sept. 2026', page: 1 },
+  { id: 'm2', title: 'Analysis Skript Q1', added: '18. Sept. 2026', page: 4 },
+  { id: 'm3', title: 'Mitschrift Genetik', added: '12. Sept. 2026', page: 2 }
+];
+
+const PROVIDERS = {
+  nvidia: { name: 'NVIDIA NIM', placeholder: 'nvapi-…', portal: 'https://build.nvidia.com', models: [
+    { id: 'moonshotai/kimi-k3', name: 'Kimi K3', note: 'Stark, versteht Bilder', vision: true },
+    { id: 'google/gemma-4-31b-it', name: 'Gemma 4 31B', note: 'Schnell, versteht Bilder', vision: true },
+    { id: 'z-ai/glm-5.3-flash', name: 'GLM 5.3 Flash', note: 'Schnell, versteht Bilder', vision: true },
+    { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'Nemotron 3 Super', note: 'Nur Text', vision: false }
+  ]},
+  openRouter: { name: 'OpenRouter', placeholder: 'sk-or-…', portal: 'https://openrouter.ai', models: [
+    { id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B', note: 'Gratis, versteht Bilder', vision: true },
+    { id: 'qwen/qwen3.8-27b:free', name: 'Qwen 3.8 27B', note: 'Gratis, versteht Bilder', vision: true },
+    { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron 3 Super', note: 'Gratis, nur Text, großer Kontext', vision: false },
+    { id: 'openrouter/free', name: 'Automatisch', note: 'Gratis, wechselndes Modell', vision: true },
+    { id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', note: 'Kostenpflichtig, braucht Guthaben', vision: true }
+  ]},
+  anthropic: { name: 'Claude API', placeholder: 'sk-ant-…', portal: 'https://console.anthropic.com', models: [
+    { id: 'claude-opus-5', name: 'Claude Opus 5', note: 'Beste Erklärungen', vision: true },
+    { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', note: 'Schneller, günstiger', vision: true },
+    { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', note: 'Am günstigsten', vision: true }
+  ]}
+};
+const PROVIDER_ORDER = ['nvidia', 'openRouter', 'anthropic'];
+const LEVELS = ['Frage', 'Hinweis', 'Erklärung'];
+
+function defaultSel(task, provider) {
+  const ms = PROVIDERS[provider].models;
+  const opt = (provider === 'openRouter' && task === 'plan') ? ms[2] : ms[0];
+  return { provider, model: opt.id, images: opt.vision };
+}
+function schedule(topics, perDay) {
+  let day = 0, used = 0;
+  return topics.map(t => {
+    if (used > 0 && used + t.minutes > perDay) { day += 1; used = 0; }
+    used += t.minutes;
+    return { ...t, day };
+  });
+}
+function addDays(n) { const d = new Date(TODAY); d.setDate(d.getDate() + n); return d; }
+function fmtLong(d) { return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); }
+function fmtShort(d) { return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function segs(text) {
+  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/).filter(Boolean).map(p =>
+    p.startsWith('**') ? { t: p.slice(2, -2), w: 600, i: 'normal', c: 'var(--ink)' } :
+    p.startsWith('*') ? { t: p.slice(1, -1), w: 400, i: 'italic', c: 'inherit' } :
+    { t: p, w: 400, i: 'normal', c: 'inherit' });
+}
+function tutorReply(level, studentTurns) {
+  if (level === 1 && studentTurns <= 1) return 'Schau dir die Funktion genau an: Welcher Teil wird *zuerst* berechnet, wenn du eine Zahl für x einsetzt – und was passiert danach mit diesem Ergebnis?';
+  if (level === 1) return 'Guter Gedanke! Du erkennst, dass hier zwei Funktionen ineinanderstecken. Wie würdest du die **äußere** Funktion ableiten, wenn du den inneren Teil erst einmal wie eine einzelne Variable behandelst?';
+  if (level === 2) return "Hinweis: Das ist ein Fall für die **Kettenregel** – äußere Ableitung mal innere Ableitung. Nenne den Teil in der Klammer v. Was ist die Ableitung von v³ nach v, und was ist v'(x)?";
+  return "So geht's Schritt für Schritt:\n1. Innere Funktion: v(x) = 2x − 7, also v'(x) = 2\n2. Äußere Funktion: u(v) = v³, also u'(v) = 3v²\n3. Kettenregel: f'(x) = 3(2x − 7)² · 2 = **6(2x − 7)²**\n\nSkizzen-Tipp: Zeichne zwei Kästen – innen „2x − 7“, außen „( )³“ – und schreib an jeden Kasten seine Ableitung.\n\nKurzer Check: Wie lautet die Ableitung von (5x + 1)²?";
+}
+
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = {
+      scale: 1, theme: 'light', tab: 'library', view: 'tabs', docFrom: 'library', docTitle: 'Demo: Kettenregel',
+      materials: p.emptyLibrary ? [] : MATS.slice(),
+      plans: p.emptyLibrary ? [] : [{ title: 'Prüfungsvorbereitung', examOffset: 28, perDay: 45, overbooked: false,
+        topics: schedule(DEMO_TOPICS, 45).map((t, i) => ({ ...t, done: i === 0 })) }],
+      planIdx: 0,
+      cards: [
+        { ...DEMO_CARD, due: true },
+        { front: 'Was ist bei f(x) = (3x² + 1)⁵ die innere Funktion?', back: 'v(x) = 3x² + 1. Die äußere Funktion ist u(v) = v⁵.', page: 1, due: true }
+      ],
+      showAnswer: false, reviewed: 0,
+      mode: 'read', marked: null, tutor: null, draft: '',
+      createOpen: false, create: { sel: [], title: 'Prüfungsvorbereitung', examOffset: 28, minutes: 45 }, generating: false,
+      settings: { tutor: defaultSel('tutor', 'nvidia'), plan: defaultSel('plan', 'openRouter'), keys: {}, inputs: {}, demo: true },
+      modelSheet: null
+    };
+    this.catRef = React.createRef();
+    this.bubbleRef = React.createRef();
+    this.waitRef = React.createRef();
+    this.scrollRef = React.createRef();
+    this.cat = { x: 10, dir: 1, mode: 'walk', t: 0, blink: 0, squash: 0, vy: 0, y: 0, drag: false, px: 0, py: 0, moved: 0, pause: 40, say: 0 };
+  }
+
+  componentDidMount() {
+    if (this.props.startDark) this.setState({ theme: 'dark' });
+    this.fit = () => {
+      const s = Math.min(1, (window.innerWidth - 48) / 1222, (window.innerHeight - 48) / 862);
+      this.setState({ scale: Math.max(0.35, s) });
+    };
+    this.fit();
+    window.addEventListener('resize', this.fit);
+    this.loop = () => { this.tick(); this.raf = requestAnimationFrame(this.loop); };
+    this.raf = requestAnimationFrame(this.loop);
+  }
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf); clearTimeout(this.replyT); clearTimeout(this.genT);
+    window.removeEventListener('resize', this.fit);
+  }
+
+  dark() { return this.state.theme === 'dark'; }
+  pipOn() { return this.props.showPip ?? true; }
+
+  tick() {
+    const c = this.cat;
+    c.t += 1;
+    if (c.blink > 0) c.blink -= 1; else if (Math.random() < 0.006) c.blink = 9;
+    if (c.squash > 0) c.squash -= 1;
+    const canvas = this.catRef.current;
+    const lane = canvas ? canvas.parentElement.clientWidth - GW * 3 : 300;
+    if (!c.drag) {
+      if (c.y < 0 || c.vy !== 0) {
+        c.vy += 1.6; c.y += c.vy;
+        if (c.y >= 0) { c.y = 0; c.vy = 0; c.squash = 8; }
+      } else if (c.mode === 'walk') {
+        if (c.pause > 0) c.pause -= 1;
+        else {
+          c.x += c.dir * 0.7;
+          if (c.x < 0) { c.x = 0; c.dir = 1; c.pause = 30 + Math.random() * 90; }
+          if (c.x > lane) { c.x = lane; c.dir = -1; c.pause = 30 + Math.random() * 90; }
+          if (Math.random() < 0.004) { c.dir *= -1; c.pause = 20 + Math.random() * 70; }
+        }
+      }
+    }
+    if (c.say > 0) { c.say -= 1; if (c.say === 0 && this.bubbleRef.current) this.bubbleRef.current.style.opacity = '0'; }
+    this.paint(canvas, 3);
+    const b = this.bubbleRef.current;
+    if (b) b.style.transform = 'translate(' + Math.round(c.x) + 'px,' + Math.round(c.y - 26) + 'px)';
+    const w = this.waitRef.current, tu = this.state.tutor;
+    if (w && tu && tu.loading) {
+      const sec = Math.max(0, Math.floor((Date.now() - tu.since) / 1000));
+      const base = 'Warte … ' + sec + ' s';
+      const txt = sec >= 30 ? base + ' – kostenlose Modelle brauchen manchmal etwas länger' : base;
+      if (w.textContent !== txt) w.textContent = txt;
+    }
+  }
+
+  paint(canvas, scale) {
+    if (!canvas) return;
+    const c = this.cat;
+    if (!this.pipOn()) { canvas.style.opacity = '0'; return; }
+    canvas.style.opacity = '1';
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = GW * scale, h = GH * scale;
+    if (canvas.width !== w * dpr) {
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+      canvas.onpointerdown = (e) => this.grab(e, canvas);
+      canvas.onpointermove = (e) => this.move(e);
+      canvas.onpointerup = () => this.release(canvas);
+      canvas.onpointercancel = () => this.release(canvas);
+    }
+    canvas.style.transform = 'translate(' + Math.round(c.x) + 'px,' + Math.round(c.y) + 'px)';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const dk = this.dark();
+    const P = { o: dk ? '#0A0A08' : '#23231F', f: this.props.catColor || '#7FA98C', p: '#E5A8A2', e: dk ? '#0A0A08' : '#23231F', w: '#FFFDF6' };
+    const grid = CAT.map(r => r.split(''));
+    const set = (x, y, v) => { if (grid[y] && grid[y][x] !== undefined) grid[y][x] = v; };
+    const eyesAt = [[3,6],[4,6],[9,6],[10,6],[3,7],[4,7],[9,7],[10,7]];
+    const mode = c.drag ? 'drag' : c.mode;
+    if (c.blink > 4) { eyesAt.forEach(([x,y]) => set(x, y, 'f')); [[3,7],[4,7],[9,7],[10,7]].forEach(([x,y]) => set(x,y,'o')); }
+    else if (mode === 'think') { eyesAt.forEach(([x,y]) => set(x, y, 'f')); [[3,6],[4,6],[9,6],[10,6]].forEach(([x,y]) => set(x,y,'e')); }
+    else if (mode === 'drag') { set(3,5,'e'); set(4,5,'e'); set(9,5,'e'); set(10,5,'e'); set(3,6,'w'); set(9,6,'w'); set(6,9,'o'); set(7,9,'o'); }
+    const tail = mode === 'drag' ? [[12,9],[13,8],[13,7],[13,6]] : TAILS[Math.floor(c.t / (mode === 'think' ? 7 : 16)) % 3];
+    const step = mode === 'walk' && c.pause <= 0 && !c.drag ? Math.floor(c.t / 9) % 2 : 0;
+    const bobY = c.drag ? 0 : (mode === 'think' ? (Math.floor(c.t / 14) % 2) : step);
+    const sq = c.squash > 0 ? 1 - c.squash / 34 : 1;
+    ctx.save(); ctx.translate(0, h); ctx.scale(1, sq); ctx.translate(0, -h);
+    const px = (x, y, col) => { ctx.fillStyle = col; ctx.fillRect(x * scale, (y + BODY_Y + bobY) * scale, scale, scale); };
+    const occ = new Set();
+    grid.forEach((row, y) => row.forEach((ch, x) => { if (ch !== '.') occ.add(x + ',' + y); }));
+    tail.forEach(([x, y]) => occ.add(x + ',' + y));
+    tail.forEach(([x, y]) => [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => { if (!occ.has((x+dx) + ',' + (y+dy))) px(x + dx, y + dy, P.o); }));
+    tail.forEach(([x, y]) => px(x, y, P.f));
+    grid.forEach((row, y) => row.forEach((ch, x) => { if (ch !== '.') px(x, y, P[ch]); }));
+    if (this.state.tutor && this.state.tutor.loading && mode === 'think') {
+      const on = Math.floor(c.t / 12) % 3;
+      [0,1,2].forEach(i => {
+        ctx.fillStyle = i <= on ? (dk ? '#F1EFE7' : '#23231F') : (dk ? 'rgba(241,239,231,.2)' : 'rgba(35,35,31,.15)');
+        ctx.fillRect((5 + i * 2) * scale, (1 + (i === on ? -1 : 0)) * scale, scale, scale);
+      });
+    }
+    ctx.restore();
+  }
+
+  grab(e, canvas) {
+    canvas.setPointerCapture(e.pointerId);
+    const c = this.cat;
+    c.drag = true; c.moved = 0; c.px = e.clientX; c.py = e.clientY; c.vy = 0;
+    canvas.style.cursor = 'grabbing';
+  }
+  move(e) {
+    const c = this.cat;
+    if (!c.drag) return;
+    const z = this.state.scale || 1;
+    const dx = (e.clientX - c.px) / z, dy = (e.clientY - c.py) / z;
+    c.px = e.clientX; c.py = e.clientY;
+    c.moved += Math.abs(dx) + Math.abs(dy);
+    const lane = this.catRef.current.parentElement.clientWidth - GW * 3;
+    c.x = Math.max(-8, Math.min(lane + 8, c.x + dx));
+    c.y = Math.max(-420, Math.min(0, c.y + dy));
+  }
+  release(canvas) {
+    const c = this.cat;
+    if (!c.drag) return;
+    c.drag = false; c.vy = 0;
+    canvas.style.cursor = 'grab';
+    if (c.moved < 6) this.poke(); else this.say(c.y < -40 ? 'wheee' : 'mrrp!');
+  }
+  poke() { this.cat.squash = 14; this.say(SAYINGS[Math.floor(Math.random() * SAYINGS.length)]); }
+  say(text) {
+    const b = this.bubbleRef.current;
+    if (!b) return;
+    b.textContent = text; b.style.opacity = '1'; this.cat.say = 90;
+  }
+  scrollDown() {
+    const el = this.scrollRef.current;
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  }
+
+  openDoc(title, from) {
+    this.setState({ view: 'document', docFrom: from, docTitle: title, mode: 'read', marked: null, tutor: null });
+  }
+  closeDoc() {
+    this.closeTutor();
+    this.setState({ view: this.state.docFrom === 'plan' ? 'planDetail' : 'tabs' });
+  }
+
+  openTutor(pi, bi) {
+    clearTimeout(this.replyT);
+    this.closeTutor();
+    const page = pi + 1;
+    const plan = this.state.plans[0];
+    const topic = plan ? plan.topics.find(t => t.pages.includes(page)) : null;
+    this.setState({
+      marked: pi + '-' + bi, draft: '',
+      tutor: { level: 1, turns: [], loading: true, since: Date.now(), helped: false, page, text: PAGES[pi].blocks[bi], topic: topic ? topic.title : null }
+    }, () => this.request());
+  }
+  request() {
+    this.cat.mode = 'think';
+    clearTimeout(this.replyT);
+    this.replyT = setTimeout(() => {
+      this.setState(s => {
+        if (!s.tutor) return null;
+        const studentTurns = 1 + s.tutor.turns.filter(t => t.who === 'student').length;
+        const text = tutorReply(s.tutor.level, studentTurns);
+        return { tutor: { ...s.tutor, loading: false, helped: true, turns: s.tutor.turns.concat({ who: 'tutor', text, level: s.tutor.level }) } };
+      });
+      this.cat.mode = 'walk'; this.cat.squash = 10; this.say('!');
+      this.scrollDown();
+    }, 1500);
+  }
+  answer() {
+    const tu = this.state.tutor, text = this.state.draft;
+    if (!tu || tu.loading || !text.trim()) return;
+    this.setState({ draft: '', tutor: { ...tu, loading: true, since: Date.now(), turns: tu.turns.concat({ who: 'student', text }) } }, () => this.request());
+    this.scrollDown();
+  }
+  escalate(to) {
+    const tu = this.state.tutor;
+    if (!tu || tu.loading || tu.level >= 3) return;
+    this.setState({ tutor: { ...tu, level: to || tu.level + 1, loading: true, since: Date.now() } }, () => this.request());
+    this.scrollDown();
+  }
+  closeTutor() {
+    clearTimeout(this.replyT);
+    this.cat.mode = 'walk';
+    const tu = this.state.tutor;
+    if (tu && tu.helped) this.setState(s => ({ cards: s.cards.concat({ ...DEMO_CARD, page: tu.page, due: true }) }));
+    this.setState({ tutor: null, marked: null });
+  }
+
+  toggleTopic(pi, ti) {
+    this.setState(s => {
+      const plans = s.plans.slice();
+      const p = { ...plans[pi], topics: plans[pi].topics.slice() };
+      p.topics[ti] = { ...p.topics[ti], done: !p.topics[ti].done };
+      plans[pi] = p;
+      return { plans };
+    });
+  }
+  reschedule() {
+    this.setState(s => {
+      const plans = s.plans.slice();
+      const p = plans[s.planIdx];
+      const open = schedule(p.topics.filter(t => !t.done), p.perDay);
+      let k = 0;
+      const topics = p.topics.map(t => t.done ? t : open[k++]);
+      const last = open.length ? open[open.length - 1].day : 0;
+      plans[s.planIdx] = { ...p, topics, overbooked: last >= p.examOffset };
+      return { plans };
+    });
+  }
+  generate() {
+    this.setState({ generating: true });
+    this.genT = setTimeout(() => {
+      this.setState(s => {
+        const c = s.create;
+        const sched = schedule(DEMO_TOPICS, c.minutes).map(t => ({ ...t, done: false }));
+        const last = sched[sched.length - 1].day;
+        const plan = { title: c.title.trim() || 'Lernplan', examOffset: c.examOffset, perDay: c.minutes, overbooked: last >= c.examOffset, topics: sched };
+        return { plans: [plan].concat(s.plans), generating: false, createOpen: false, create: { ...c, sel: [] } };
+      });
+    }, 2200);
+  }
+
+  setSel(task, patch) {
+    this.setState(s => ({ settings: { ...s.settings, [task]: { ...s.settings[task], ...patch } } }));
+  }
+  updSettings(patch) { this.setState(s => ({ settings: { ...s.settings, ...patch } })); }
+
+  renderVals() {
+    const s = this.state;
+    const dk = s.theme === 'dark';
+    const ink = dk ? '#F1EFE7' : '#16150F';
+    const bg = dk ? '#171714' : '#FAF9F6';
+    const accent = dk ? '#8FBE9C' : '#7FA98C';
+    const off = dk ? 'rgba(241,239,231,.2)' : 'rgba(22,21,15,.2)';
+    const st = s.settings;
+    const dueCards = s.cards.filter(c => c.due);
+    const card = dueCards[0] || { front: '', back: '', page: '' };
+
+    const planView = (p, pi) => {
+      const done = p.topics.filter(t => t.done).length;
+      const days = [...new Set(p.topics.map(t => t.day))].sort((a, b) => a - b);
+      return {
+        title: p.title,
+        exam: fmtLong(addDays(p.examOffset)),
+        daysLeft: p.examOffset,
+        pct: Math.round(done / Math.max(1, p.topics.length) * 100) + '%',
+        progress: done + ' von ' + p.topics.length + ' Themen erledigt',
+        overbooked: p.overbooked,
+        overText: 'Bei ' + p.perDay + ' Minuten pro Tag passt der Stoff nicht bis zur Prüfung. Erhöh die tägliche Lernzeit oder streich Themen.',
+        open: () => this.setState({ planIdx: pi, view: 'planDetail' }),
+        days: days.map(d => ({
+          label: (d === 0 ? 'Heute' : d === 1 ? 'Morgen' : addDays(d).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })).toUpperCase(),
+          topics: p.topics.map((t, ti) => ({ t, ti })).filter(x => x.t.day === d).map(({ t, ti }) => ({
+            title: t.title, summary: t.summary, minutes: t.minutes,
+            pages: t.pages.length ? 'S. ' + Math.min(...t.pages) + (Math.max(...t.pages) !== Math.min(...t.pages) ? '–' + Math.max(...t.pages) : '') : '',
+            done: t.done,
+            ring: t.done ? accent : (dk ? 'rgba(241,239,231,.26)' : 'rgba(22,21,15,.2)'),
+            fill: t.done ? accent : 'transparent',
+            deco: t.done ? 'line-through' : 'none',
+            color: t.done ? 'var(--faint)' : 'var(--ink)',
+            toggle: () => this.toggleTopic(pi, ti),
+            open: () => this.openDoc('Demo: Kettenregel', 'plan')
+          }))
+        }))
+      };
+    };
+    const plans = s.plans.map(planView);
+    const plan = plans[s.planIdx] || { title: '', days: [] };
+
+    const tu = s.tutor;
+    const pill = (on) => ({ bg: on ? ink : 'transparent', fg: on ? bg : ink });
+
+    const modelSections = [
+      { key: 'tutor', header: 'LERNHILFE & KARTEIKARTEN', footer: 'Empfohlen: NVIDIA NIM, gratis. Text und Handschrift im markierten Bereich erkennt das iPad selbst. Formeln liest die Texterkennung oft falsch – dafür hilft ein Modell, das Bilder versteht.' },
+      { key: 'plan', header: 'LERNPLAN', footer: 'Empfohlen: OpenRouter. Die App liest PDFs selbst aus, eingescannte Seiten per Texterkennung auf dem iPad (offline). Nur was dabei unlesbar bleibt, geht an die Texterkennung von OpenRouter (braucht Guthaben, ca. 2 $ pro 1.000 Seiten) oder bei NVIDIA als Bild (höchstens 12 Seiten).' }
+    ].map(sec => {
+      const sel = st[sec.key];
+      const prov = PROVIDERS[sel.provider];
+      const opt = prov.models.find(m => m.id === sel.model);
+      return {
+        header: sec.header, footer: sec.footer, model: sel.model,
+        providers: PROVIDER_ORDER.map(k => ({ name: PROVIDERS[k].name, ...pill(sel.provider === k),
+          pick: () => { if (k !== sel.provider) this.setSel(sec.key, defaultSel(sec.key, k)); } })),
+        modelName: opt ? opt.name : 'Eigene Modell-ID',
+        modelNote: opt ? opt.note : (sel.model || 'noch leer'),
+        isCustom: !opt,
+        onCustom: (e) => this.setSel(sec.key, { model: e.target.value }),
+        showImages: sel.provider !== 'anthropic',
+        toggleBg: sel.images ? accent : off,
+        knob: sel.images ? 'translateX(20px)' : 'none',
+        toggleImages: () => this.setSel(sec.key, { images: !sel.images }),
+        warn: !st.demo && !st.keys[sel.provider],
+        warnText: 'Für ' + prov.name + ' ist noch kein API-Key hinterlegt.',
+        openModels: () => this.setState({ modelSheet: sec.key })
+      };
+    });
+
+    const sheetSel = s.modelSheet ? st[s.modelSheet] : null;
+    const sheetProv = sheetSel ? PROVIDERS[sheetSel.provider] : null;
+    const isCustomSheet = sheetSel && !sheetProv.models.some(m => m.id === sheetSel.model);
+    const modelOptions = sheetSel ? sheetProv.models.map(m => ({ id: m.id, name: m.name, note: m.note, vision: m.vision, on: m.id === sheetSel.model }))
+      .concat({ id: '__custom__', name: 'Eigene Modell-ID', note: 'Jede Modell-ID aus dem Katalog des Anbieters', on: isCustomSheet })
+      .map(m => ({ ...m, ring: m.on ? accent : (dk ? 'rgba(241,239,231,.26)' : 'rgba(22,21,15,.2)'), dot: m.on ? accent : 'transparent',
+        pick: () => { const task = s.modelSheet;
+          if (m.id === '__custom__') { if (!isCustomSheet) this.setSel(task, { model: '' }); }
+          else this.setSel(task, { model: m.id, images: m.vision });
+          this.setState({ modelSheet: null }); } })) : [];
+
+    const c = s.create;
+    return {
+      scale: s.scale, theme: s.theme,
+      isTabs: s.view === 'tabs',
+      isLibrary: s.view === 'tabs' && s.tab === 'library',
+      isPlans: s.view === 'tabs' && s.tab === 'plans',
+      isReview: s.view === 'tabs' && s.tab === 'review',
+      isSettings: s.view === 'tabs' && s.tab === 'settings',
+      isPlanDetail: s.view === 'planDetail',
+      isDocument: s.view === 'document',
+      tabs: [['library', 'Bibliothek'], ['plans', 'Lernplan'], ['review', 'Wiederholen'], ['settings', 'Einstellungen']].map(([k, label]) => ({
+        label, ...pill(s.tab === k), hasBadge: k === 'review' && dueCards.length > 0, badge: dueCards.length,
+        pick: () => this.setState({ tab: k })
+      })),
+
+      hasMaterials: s.materials.length > 0, noMaterials: s.materials.length === 0,
+      materialCountLabel: s.materials.length + (s.materials.length === 1 ? ' DOKUMENT' : ' DOKUMENTE'),
+      materials: s.materials.map((m, i) => ({ ...m, num: String(i + 1).padStart(2, '0'), last: 'Zuletzt S. ' + m.page, open: () => this.openDoc(m.title, 'library') })),
+      loadDemo: () => this.setState(st2 => ({ materials: [MATS[0]], settings: Object.keys(st2.settings.keys).length ? st2.settings : { ...st2.settings, demo: true } })),
+
+      hasPlans: plans.length > 0, noPlans: plans.length === 0,
+      planCountLabel: plans.length + (plans.length === 1 ? ' PLAN' : ' PLÄNE'),
+      plans, plan,
+      openCreate: () => this.setState({ createOpen: true }),
+      backToPlans: () => this.setState({ view: 'tabs', tab: 'plans' }),
+      reschedule: () => this.reschedule(),
+
+      hasDue: dueCards.length > 0, noDue: dueCards.length === 0,
+      dueLabel: dueCards.length + ' fällig',
+      card, showAnswer: s.showAnswer, hideAnswer: !s.showAnswer,
+      reviewedLabel: s.reviewed > 0 ? s.reviewed + ' GESCHAFFT' : '',
+      reveal: () => this.setState({ showAnswer: true }),
+      grades: [['Nochmal', 'oklch(0.68 0.11 25)'], ['Schwer', 'oklch(0.72 0.11 75)'], ['Gut', accent], ['Leicht', 'oklch(0.68 0.08 240)']].map(([label, dot]) => ({
+        label, dot,
+        rate: () => this.setState(st2 => {
+          const idx = st2.cards.findIndex(x => x.due);
+          const cards = st2.cards.slice();
+          cards[idx] = { ...cards[idx], due: false };
+          return { cards, showAnswer: false, reviewed: st2.reviewed + 1 };
+        })
+      })),
+      doneText: s.reviewed > 0 ? 'Stark – ' + s.reviewed + ' Karten in dieser Runde geschafft.'
+        : (s.cards.length ? 'Die nächste Karte ist morgen fällig.' : 'Karten entstehen automatisch, wenn du dir mit dem Hilfe-Werkzeug etwas erklären lässt.'),
+
+      version: '0.1.0',
+      modelSections,
+      keyRows: PROVIDER_ORDER.map(k => {
+        const input = st.inputs[k] || '';
+        return {
+          name: PROVIDERS[k].name, placeholder: PROVIDERS[k].placeholder, portal: PROVIDERS[k].portal,
+          has: !!st.keys[k], missing: !st.keys[k], input, cantSave: !input.trim(),
+          onInput: (e) => this.updSettings({ inputs: { ...st.inputs, [k]: e.target.value } }),
+          save: () => { if (input.trim()) this.updSettings({ keys: { ...st.keys, [k]: true }, inputs: { ...st.inputs, [k]: '' }, demo: false }); },
+          remove: () => { const keys = { ...st.keys }; delete keys[k]; this.updSettings({ keys }); }
+        };
+      }),
+      demoBg: st.demo ? accent : off,
+      demoKnob: st.demo ? 'translateX(20px)' : 'none',
+      toggleDemo: () => this.updSettings({ demo: !st.demo }),
+      modelSheetOpen: !!s.modelSheet,
+      sheetProvider: sheetProv ? sheetProv.name.toUpperCase() : '',
+      modelOptions,
+      closeModels: () => this.setState({ modelSheet: null }),
+
+      docTitle: s.docTitle,
+      docBack: s.docFrom === 'plan' ? plan.title : 'Bibliothek',
+      closeDoc: () => this.closeDoc(),
+      pageBg: s.mode === 'mark' ? '#F7FAF7' : '#FFFFFF',
+      pages: PAGES.map((pg, pi) => ({
+        title: pg.title, num: String(pi + 1),
+        blocks: pg.blocks.map((text, bi) => {
+          const on = s.marked === pi + '-' + bi;
+          return {
+            text,
+            border: on ? '#5E8A6C' : 'transparent',
+            bg: on ? 'rgba(127,169,140,.14)' : 'transparent',
+            cursor: s.mode === 'mark' ? 'crosshair' : 'text',
+            mark: () => { if (this.state.mode === 'mark') this.openTutor(pi, bi); }
+          };
+        })
+      })),
+      isMarkMode: s.mode === 'mark' && !tu,
+      tools: [['read', 'Lesen'], ['pen', 'Stift'], ['highlighter', 'Marker'], ['eraser', 'Radierer']].map(([k, label]) => ({
+        label, ...pill(s.mode === k), pick: () => this.setState({ mode: k })
+      })),
+      markBg: s.mode === 'mark' ? ink : 'transparent',
+      markFg: s.mode === 'mark' ? bg : ink,
+      pickMark: () => this.setState({ mode: 'mark' }),
+
+      hasTutor: !!tu,
+      tutor: tu || { page: '', text: '', topic: '' },
+      hasTopic: !!(tu && tu.topic),
+      isDemo: st.demo,
+      ladder: LEVELS.map((title, i) => {
+        const reached = tu && i + 1 <= tu.level;
+        return { title, weight: tu && i + 1 === tu.level ? 600 : 400,
+          bg: reached ? accent : 'transparent', fg: reached ? '#16150F' : 'var(--faint)', border: reached ? accent : 'var(--line2)' };
+      }),
+      turns: tu ? tu.turns.map(t => ({ isStudent: t.who === 'student', isTutor: t.who === 'tutor', text: t.text, segs: segs(t.text), level: (LEVELS[(t.level || 1) - 1] || '').toUpperCase() })) : [],
+      tutorLoading: !!(tu && tu.loading),
+      draft: s.draft,
+      cantSend: !tu || tu.loading || !s.draft.trim(),
+      cantEscalate: !tu || tu.loading || tu.level >= 3,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter') this.answer(); },
+      sendAnswer: () => this.answer(),
+      moreHelp: () => this.escalate(),
+      revealAll: () => this.escalate(3),
+      closeTutor: () => this.closeTutor(),
+      catRef: this.catRef, bubbleRef: this.bubbleRef, waitRef: this.waitRef, scrollRef: this.scrollRef,
+
+      createOpen: s.createOpen, generating: s.generating,
+      closeCreate: () => { if (!this.state.generating) this.setState({ createOpen: false }); },
+      cantCreate: c.sel.length === 0 || s.generating,
+      generate: () => this.generate(),
+      createMaterials: s.materials.map(m => {
+        const on = c.sel.includes(m.id);
+        return { title: m.title, on, ring: on ? accent : (dk ? 'rgba(241,239,231,.26)' : 'rgba(22,21,15,.2)'), fill: on ? accent : 'transparent',
+          toggle: () => this.setState(st2 => ({ create: { ...st2.create, sel: on ? st2.create.sel.filter(x => x !== m.id) : st2.create.sel.concat(m.id) } })) };
+      }),
+      createTitle: c.title,
+      onTitle: (e) => { const v = e.target.value; this.setState(st2 => ({ create: { ...st2.create, title: v } })); },
+      examShort: fmtShort(addDays(c.examOffset)),
+      examEarlier: () => this.setState(st2 => ({ create: { ...st2.create, examOffset: Math.max(1, st2.create.examOffset - 7) } })),
+      examLater: () => this.setState(st2 => ({ create: { ...st2.create, examOffset: st2.create.examOffset + 7 } })),
+      minutesLabel: c.minutes + ' Minuten pro Tag',
+      minLess: () => this.setState(st2 => ({ create: { ...st2.create, minutes: Math.max(15, st2.create.minutes - 15) } })),
+      minMore: () => this.setState(st2 => ({ create: { ...st2.create, minutes: Math.min(240, st2.create.minutes + 15) } }))
+    };
+  }
+}
+</script>
+</body>
+</html>
