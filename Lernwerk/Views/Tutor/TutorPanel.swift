@@ -61,6 +61,11 @@ struct TutorPanel: View {
                         )
                 }
             }
+            if session.isDemo {
+                Label("Demo-Modus: vorbereitete Beispielantworten, keine echte KI. Ausschalten unter Einstellungen.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
             if let topic = session.context.topicTitle {
                 Text("Thema im Lernplan: \(topic)")
                     .font(.caption)

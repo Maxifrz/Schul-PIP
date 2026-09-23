@@ -37,6 +37,10 @@ final class TutorSession: ObservableObject {
         self.recognizeText = recognizeText
     }
 
+    var isDemo: Bool {
+        client is DemoLLMClient
+    }
+
     var hasHelped: Bool {
         turns.contains { $0.speaker == .tutor }
     }

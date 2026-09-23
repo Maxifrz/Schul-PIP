@@ -72,6 +72,14 @@ final class TutorAndPlanTests: XCTestCase {
         XCTAssertEqual(session.turns.count, 1)
     }
 
+    @MainActor
+    func testTutorSessionKnowsWhenItIsOnlyADemo() {
+        let demo = TutorSession(context: context(), regionImage: nil, client: DemoLLMClient())
+        XCTAssertTrue(demo.isDemo)
+        let real = TutorSession(context: context(), regionImage: nil, client: CapturingClient())
+        XCTAssertFalse(real.isDemo)
+    }
+
     func testContextClipsVeryLongPages() {
         let block = TutorPrompt.contextBlock(context(page: String(repeating: "a", count: 20_000)))
         XCTAssertLessThan(block.count, TutorPrompt.pageTextLimit + 500)

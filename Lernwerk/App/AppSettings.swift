@@ -47,6 +47,8 @@ final class AppSettings: ObservableObject {
             return false
         }
         providersWithKey.insert(provider)
+        // Saving a key means the student wants real answers; a demo mode left on from the sample material would hide them.
+        demoMode = false
         return true
     }
 
