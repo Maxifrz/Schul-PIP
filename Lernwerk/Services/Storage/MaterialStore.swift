@@ -1,5 +1,7 @@
 import Foundation
 import PencilKit
+import UIKit
+import UniformTypeIdentifiers
 
 enum MaterialStore {
     static var directory: URL {
@@ -25,6 +27,34 @@ enum MaterialStore {
         let fileName = UUID().uuidString + ".pdf"
         try FileManager.default.copyItem(at: source, to: url(for: fileName))
         return StudyMaterial(title: source.deletingPathExtension().lastPathComponent, fileName: fileName)
+    }
+
+    /// PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF.
+    static func importFile(from source: URL) throws -> StudyMaterial {
+        let type = UTType(filenameExtension: source.pathExtension)
+        guard let type, type.conforms(to: .image), !type.conforms(to: .pdf) else {
+            return try importPDF(from: source)
+        }
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        let data = try Data(contentsOf: source)
+        guard let image = UIImage(data: data) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return try save(pdfData: pdf(from: image), title: source.deletingPathExtension().lastPathComponent)
+    }
+
+    /// One page as wide as A4, as tall as the image needs.
+    static func pdf(from image: UIImage) -> Data {
+        let width: CGFloat = 595
+        let height = max(1, (width * image.size.height / max(image.size.width, 1)).rounded())
+        let bounds = CGRect(x: 0, y: 0, width: width, height: height)
+        return UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
+            context.beginPage()
+            image.draw(in: bounds)
+        }
     }
 
     static func save(pdfData: Data, title: String) throws -> StudyMaterial {

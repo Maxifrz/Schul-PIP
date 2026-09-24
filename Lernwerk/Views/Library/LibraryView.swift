@@ -1,4 +1,5 @@
 import PDFKit
+import PhotosUI
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -10,6 +11,7 @@ struct LibraryView: View {
 
     @State private var isImporting = false
     @State private var errorMessage: String?
+    @State private var photoItems: [PhotosPickerItem] = []
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 28, alignment: .top)]
 
@@ -20,8 +22,12 @@ struct LibraryView: View {
                     emptyState
                 } else {
                     PageHeader(caption: countLabel, title: "Bibliothek") {
-                        Button("PDF importieren") { isImporting = true }
-                            .buttonStyle(QuillPrimaryButtonStyle())
+                        HStack(spacing: 10) {
+                            photosButton
+                                .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
+                            Button("PDF importieren") { isImporting = true }
+                                .buttonStyle(QuillPrimaryButtonStyle())
+                        }
                     }
                     .padding(.bottom, 30)
 
@@ -51,7 +57,7 @@ struct LibraryView: View {
         .scrollIndicators(.hidden)
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.pdf],
+            allowedContentTypes: [.pdf, .image],
             allowsMultipleSelection: true,
             onCompletion: handleImport
         )
@@ -74,7 +80,7 @@ struct LibraryView: View {
                 .tracking(-0.85)
                 .foregroundStyle(Quill.ink)
                 .padding(.top, 16)
-            Text("Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF.")
+            Text("Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF oder Foto.")
                 .font(.work(15.5))
                 .lineSpacing(5)
                 .foregroundStyle(Quill.muted)
@@ -83,13 +89,15 @@ struct LibraryView: View {
             HStack(spacing: 20) {
                 Button("PDF importieren") { isImporting = true }
                     .buttonStyle(QuillPrimaryButtonStyle(height: 48, fontSize: 15.5))
+                photosButton
+                    .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
                 Button("Demo-Material laden", action: loadDemo)
                     .font(.work(15, .medium))
                     .foregroundStyle(Quill.link)
                     .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: 440, alignment: .leading)
+        .frame(maxWidth: 560, alignment: .leading)
         .padding(.top, 70)
     }
 
@@ -105,7 +113,7 @@ struct LibraryView: View {
         case let .success(urls):
             for url in urls {
                 do {
-                    let material = try MaterialStore.importPDF(from: url)
+                    let material = try MaterialStore.importFile(from: url)
                     modelContext.insert(material)
                 } catch {
                     errorMessage = error.localizedDescription
@@ -113,6 +121,32 @@ struct LibraryView: View {
             }
         case let .failure(error):
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Photos of worksheets or the board; the Photos app has no share target for apps without an extension.
+    private var photosButton: some View {
+        PhotosPicker("Aus Fotos", selection: $photoItems, matching: .images)
+            .onChange(of: photoItems) { _, items in
+                guard !items.isEmpty else { return }
+                photoItems = []
+                Task { await importPhotos(items) }
+            }
+    }
+
+    @MainActor
+    private func importPhotos(_ items: [PhotosPickerItem]) async {
+        let date = Date.now.formatted(.dateTime.day().month(.abbreviated).hour().minute())
+        for (index, item) in items.enumerated() {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                let title = items.count == 1 ? "Foto \(date)" : "Foto \(date) (\(index + 1))"
+                modelContext.insert(try MaterialStore.save(pdfData: MaterialStore.pdf(from: image), title: title))
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

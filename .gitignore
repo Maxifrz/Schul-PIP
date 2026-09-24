@@ -6,3 +6,4 @@ DerivedData/
 build/
 Payload/
 *.ipa
+Support/Info.plist

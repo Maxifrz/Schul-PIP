@@ -15,6 +15,20 @@ targets:
     platform: iOS
     sources:
       - path: Lernwerk
+    # Document types put Lernwerk into the share sheet for PDFs and images; merged with the generated keys below.
+    info:
+      path: Support/Info.plist
+      properties:
+        LSSupportsOpeningDocumentsInPlace: false
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: PDF
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.adobe.pdf]
+          - CFBundleTypeName: Bild
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.image]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.maxifrz.lernwerk

@@ -22,6 +22,7 @@ enum Route: Hashable {
 }
 
 struct RootView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var cards: [ReviewCard]
     @State private var tab: AppTab = .library
     @State private var path = NavigationPath()
@@ -59,6 +60,20 @@ struct RootView: View {
             }
         }
         .tint(Quill.accent)
+        .onOpenURL(perform: importShared)
+    }
+
+    /// A PDF or image shared to Lernwerk from Files, Photos or another app lands in the library and opens.
+    private func importShared(_ url: URL) {
+        guard url.isFileURL, let material = try? MaterialStore.importFile(from: url) else { return }
+        // Shared files arrive as a copy in Documents/Inbox; the library keeps its own.
+        if url.path.contains("/Inbox/") {
+            try? FileManager.default.removeItem(at: url)
+        }
+        modelContext.insert(material)
+        tab = .library
+        path = NavigationPath()
+        path.append(Route.document(material, startPage: nil, backTitle: "Bibliothek"))
     }
 }
 

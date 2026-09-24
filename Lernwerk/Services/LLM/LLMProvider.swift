@@ -15,6 +15,7 @@ struct ModelOption: Identifiable, Hashable {
 enum LLMProvider: String, CaseIterable, Identifiable, Codable {
     case nvidia
     case openRouter
+    case google
     case anthropic
 
     var id: String { rawValue }
@@ -23,6 +24,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return "NVIDIA NIM"
         case .openRouter: return "OpenRouter"
+        case .google: return "Gemini"
         case .anthropic: return "Claude API"
         }
     }
@@ -31,6 +33,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return "nvidia-api-key"
         case .openRouter: return "openrouter-api-key"
+        case .google: return "google-api-key"
         case .anthropic: return "anthropic-api-key"
         }
     }
@@ -39,6 +42,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return "nvapi-…"
         case .openRouter: return "sk-or-…"
+        case .google: return "AIza…"
         case .anthropic: return "sk-ant-…"
         }
     }
@@ -47,6 +51,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return URL(string: "https://build.nvidia.com")!
         case .openRouter: return URL(string: "https://openrouter.ai")!
+        case .google: return URL(string: "https://aistudio.google.com/apikey")!
         case .anthropic: return URL(string: "https://console.anthropic.com")!
         }
     }
@@ -56,6 +61,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return URL(string: "https://integrate.api.nvidia.com/v1/chat/completions")!
         case .openRouter: return URL(string: "https://openrouter.ai/api/v1/chat/completions")!
+        case .google: return URL(string: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")!
         case .anthropic: return nil
         }
     }
@@ -64,7 +70,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
     var maxImageBytes: Int? {
         switch self {
         case .nvidia: return 180_000
-        case .openRouter, .anthropic: return nil
+        case .openRouter, .google, .anthropic: return nil
         }
     }
 
@@ -85,6 +91,12 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
                 ModelOption(id: "openrouter/free", name: "Automatisch", note: "Gratis, wechselndes Modell", vision: true),
                 ModelOption(id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5", note: "Kostenpflichtig, braucht Guthaben", vision: true),
             ]
+        case .google:
+            return [
+                ModelOption(id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", note: "Stark, versteht Bilder, Gratis-Kontingent", vision: true),
+                ModelOption(id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite", note: "Am schnellsten, versteht Bilder", vision: true),
+                ModelOption(id: "gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", note: "Beste Qualität, Vorschau, oft kostenpflichtig", vision: true),
+            ]
         case .anthropic:
             return [
                 ModelOption(id: "claude-opus-5", name: "Claude Opus 5", note: "Beste Erklärungen", vision: true),
@@ -99,6 +111,7 @@ enum LLMProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .nvidia: return ["google/gemma-4-31b-it", "z-ai/glm-5.3-flash"]
         case .openRouter: return ["google/gemma-4-31b-it:free", "openrouter/free"]
+        case .google: return ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
         case .anthropic: return []
         }
     }

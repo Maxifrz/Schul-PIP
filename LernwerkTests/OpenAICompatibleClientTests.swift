@@ -187,6 +187,30 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(openRouter.capabilities, LLMCapabilities(acceptsImages: true, documentHandling: .providerOCR))
     }
 
+    func testGeminiUsesLowReasoningAndReadsArrayErrors() {
+        let tutor = LLMRequest(
+            purpose: .tutor(.question),
+            system: "s",
+            messages: [LLMMessage(role: .user, content: [.text("x")])],
+            maxTokens: 100
+        )
+        let body = OpenAICompatibleClient.body(for: tutor, model: "gemini-3.8-flash", provider: .google, sendsImages: true)
+        XCTAssertEqual(body["reasoning_effort"] as? String, "low")
+        XCTAssertNil(body["chat_template_kwargs"])
+        XCTAssertNil(body["reasoning"])
+
+        var plan = tutor
+        plan.purpose = .studyPlan
+        XCTAssertNil(OpenAICompatibleClient.body(for: plan, model: "m", provider: .google, sendsImages: true)["reasoning_effort"])
+
+        let json = #"[{"error":{"code":429,"message":"Quota exceeded","status":"RESOURCE_EXHAUSTED"}}]"#
+        XCTAssertThrowsError(try OpenAICompatibleClient.parse(data: Data(json.utf8), status: 429, expectsJSON: false, sentImages: false)) { error in
+            XCTAssertEqual(error as? LLMError, .rateLimited("Quota exceeded"))
+        }
+        let gemini = OpenAICompatibleClient(provider: .google, apiKey: "k", model: "m", sendsImages: true)
+        XCTAssertEqual(gemini.capabilities, LLMCapabilities(acceptsImages: true, documentHandling: .textOnly))
+    }
+
     func testParseReadsContentAndStripsReasoning() throws {
         let json = #"{"model":"m","choices":[{"message":{"role":"assistant","content":"<think>hmm</think>\nWelche Funktion ist innen?"},"finish_reason":"stop"}]}"#
         let response = try OpenAICompatibleClient.parse(data: Data(json.utf8), status: 200, expectsJSON: false, sentImages: false)
