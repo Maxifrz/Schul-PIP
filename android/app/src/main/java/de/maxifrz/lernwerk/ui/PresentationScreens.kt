@@ -106,6 +106,34 @@ fun PresentationListScreen(app: AppState) {
     val colors = Quill.colors
     val presentations = store.presentations.sortedByDescending { it.updatedAt }
 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var importing by remember { mutableStateOf(false) }
+    var importError by remember { mutableStateOf<String?>(null) }
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importing = true
+        importError = null
+        scope.launch {
+            try {
+                val result = de.maxifrz.lernwerk.present.PresentationImport.import(context, store, uri)
+                // An imported talk goes straight to the critic.
+                app.push(Route.PresentationEditor(result.presentation.id, AssistantTab.CRITIC))
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                importError = error.message ?: "Import fehlgeschlagen."
+            } finally {
+                importing = false
+            }
+        }
+    }
+    val startImport = {
+        importer.launch(arrayOf("application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/pdf", "application/octet-stream"))
+    }
+
     fun createBlank() {
         val presentation = Presentation(title = "Neue Präsentation", slides = listOf(SlideLayouts.preset(SlideLayout.TITLE)))
         store.add(presentation)
@@ -126,7 +154,16 @@ fun PresentationListScreen(app: AppState) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     PrimaryButton("Mit KI erstellen", { app.push(Route.CreatePresentation) }, height = 48.dp, fontSize = 15.5f)
                     OutlineButton("Leere Präsentation", ::createBlank, height = 48.dp, fontSize = 15.5f, weight = FontWeight.Medium)
+                    OutlineButton("Importieren", startImport, height = 48.dp, fontSize = 15.5f, weight = FontWeight.Medium, enabled = !importing)
                 }
+                QText(
+                    "Importieren: PowerPoint (.pptx) oder PDF – danach prüft der Kritiker deine Präsentation.",
+                    work(12.5f),
+                    colors.faint,
+                    Modifier.padding(top = 14.dp),
+                )
+                if (importing) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { PulsingDots(); QText("Importiere …", work(13f), colors.faint) }
+                importError?.let { Notice(it, modifier = Modifier.padding(top = 16.dp)) }
             }
         }
         return
@@ -142,9 +179,16 @@ fun PresentationListScreen(app: AppState) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             PageHeader(if (presentations.size == 1) "1 Präsentation" else "${presentations.size} Präsentationen", "Präsentation") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlineButton("Importieren", startImport, height = 44.dp, fontSize = 15f, weight = FontWeight.Medium, enabled = !importing)
                     OutlineButton("Leer", ::createBlank, height = 44.dp, fontSize = 15f, weight = FontWeight.Medium)
                     PrimaryButton("Mit KI erstellen", { app.push(Route.CreatePresentation) })
                 }
+            }
+        }
+        if (importing || importError != null) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                if (importing) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PulsingDots(); QText("Importiere …", work(13f), colors.faint) }
+                importError?.let { Notice(it) }
             }
         }
         items(presentations, key = { it.id }) { presentation ->

@@ -96,6 +96,11 @@ class PresentationStore(context: Context) {
         name
     }
 
+    /** Stores a picture under a name chosen by an importer. */
+    suspend fun saveMedia(name: String, bytes: ByteArray) = withContext(Dispatchers.IO) {
+        mediaFile(name).writeBytes(bytes)
+    }
+
     fun mediaBytes(name: String): ByteArray? = mediaFile(name).takeIf { it.exists() }?.readBytes()
 
     /** A picture for drawing, scaled down to at most [maxSize] pixels on its longer side and cached. */
