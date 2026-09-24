@@ -86,6 +86,11 @@ final class PresentationStore: ObservableObject {
         return name
     }
 
+    /// Stores a picture under a name chosen by the caller, e.g. from an imported file.
+    func saveMedia(_ data: Data, named name: String) throws {
+        try data.write(to: mediaURL(name), options: .atomic)
+    }
+
     func mediaData(_ name: String) -> Data? {
         try? Data(contentsOf: mediaURL(name))
     }

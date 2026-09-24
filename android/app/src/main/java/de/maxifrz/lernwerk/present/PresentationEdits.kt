@@ -356,19 +356,19 @@ class PresentationChat(private val client: LlmClient) {
 /** The sceptical reviewer: finds weaknesses and proposes changes the student approves one by one. */
 class PresentationCritic(private val client: LlmClient) {
     suspend fun critique(presentation: Presentation, material: List<LlmContent> = emptyList()): Critique {
-    val prompt = buildString {
-        if (material.isNotEmpty()) appendLine("The material above is what the presentation is based on; check the slides against it.")
-        append(PresentationEdits.state(presentation))
-        append("\nReview this presentation.")
-    }
-    val request = LlmRequest(
-        purpose = LlmPurpose.PresentationCritique,
-        system = PresentationEdits.critiqueSystem,
-        messages = listOf(LlmMessage(LlmRole.USER, material + LlmContent.Text(prompt))),
-        maxTokens = 12000,
-        effort = LlmEffort.HIGH,
-        jsonSchema = PresentationEdits.critiqueSchema,
-    )
-    return StructuredOutput.complete(request, client, PresentationEdits::parseCritique)
+        val prompt = buildString {
+            if (material.isNotEmpty()) appendLine("The material above is what the presentation is based on; check the slides against it.")
+            append(PresentationEdits.state(presentation))
+            append("\nReview this presentation.")
+        }
+        val request = LlmRequest(
+            purpose = LlmPurpose.PresentationCritique,
+            system = PresentationEdits.critiqueSystem,
+            messages = listOf(LlmMessage(LlmRole.USER, material + LlmContent.Text(prompt))),
+            maxTokens = 12000,
+            effort = LlmEffort.HIGH,
+            jsonSchema = PresentationEdits.critiqueSchema,
+        )
+        return StructuredOutput.complete(request, client, PresentationEdits::parseCritique)
     }
 }

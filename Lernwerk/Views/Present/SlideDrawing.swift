@@ -18,7 +18,7 @@ enum SlideDrawing {
         defer { UIGraphicsPopContext() }
         context.saveGState()
         context.scaleBy(x: scale, y: scale)
-        context.setFillColor(uiColor(theme.background).cgColor)
+        context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
         context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
         for element in slide.elements where element.id != skipID {
             context.saveGState()

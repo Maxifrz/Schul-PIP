@@ -24,21 +24,23 @@ enum LLMPurpose: Equatable {
     case slideRewrite
     case speakerNotes
     case presentationFeedback
+    case presentationChat
+    case presentationCritique
 
     /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
     var timeout: TimeInterval {
         switch self {
         case .tutor: return 75
         case .flashcard, .slideRewrite: return 90
-        case .studyPlan, .presentation: return 600
+        case .studyPlan, .presentation, .presentationCritique: return 600
         case .speakerNotes: return 180
-        case .presentationFeedback: return 120
+        case .presentationFeedback, .presentationChat: return 120
         }
     }
 
-    /// Reading whole materials benefits from reasoning; everything else is answered while the student waits.
+    /// Reading whole materials and critical review benefit from reasoning; the rest is answered while the student waits.
     var needsDepth: Bool {
-        self == .studyPlan || self == .presentation
+        self == .studyPlan || self == .presentation || self == .presentationCritique
     }
 }
 

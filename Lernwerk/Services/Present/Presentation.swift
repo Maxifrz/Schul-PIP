@@ -153,12 +153,21 @@ struct Slide: Codable, Equatable, Identifiable {
     var elements: [SlideElement] = []
     var notes = ""
     var sources: [SourceRef] = []
+    /// Text on an imported picture slide (a PDF page), so the AI can read what the picture shows.
+    var extractedText = ""
+    /// "#RRGGBB", or empty for the theme's background.
+    var background = ""
 
-    init(id: String = UUID().uuidString, elements: [SlideElement] = [], notes: String = "", sources: [SourceRef] = []) {
+    init(
+        id: String = UUID().uuidString, elements: [SlideElement] = [], notes: String = "", sources: [SourceRef] = [],
+        extractedText: String = "", background: String = ""
+    ) {
         self.id = id
         self.elements = elements
         self.notes = notes
         self.sources = sources
+        self.extractedText = extractedText
+        self.background = background
     }
 
     init(from decoder: Decoder) throws {
@@ -167,6 +176,12 @@ struct Slide: Codable, Equatable, Identifiable {
         elements = try c.decodeIfPresent([SlideElement].self, forKey: .elements) ?? []
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         sources = try c.decodeIfPresent([SourceRef].self, forKey: .sources) ?? []
+        extractedText = try c.decodeIfPresent(String.self, forKey: .extractedText) ?? ""
+        background = try c.decodeIfPresent(String.self, forKey: .background) ?? ""
+    }
+
+    func backgroundColor(_ theme: SlideTheme) -> UInt32 {
+        theme.color(background) ?? theme.background
     }
 }
 

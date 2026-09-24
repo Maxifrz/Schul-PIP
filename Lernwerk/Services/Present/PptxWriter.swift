@@ -189,7 +189,7 @@ enum PptxWriter {
     }
 
     private static func slideXMLString(_ slide: Slide, theme: SlideTheme, images: [String: String]) -> String {
-        var xml = head + "<p:sld \(ns)><p:cSld><p:bg><p:bgPr>\(solid(theme.background))<a:effectLst/></p:bgPr></p:bg><p:spTree>\(emptyTree)"
+        var xml = head + "<p:sld \(ns)><p:cSld><p:bg><p:bgPr>\(solid(slide.backgroundColor(theme)))<a:effectLst/></p:bgPr></p:bg><p:spTree>\(emptyTree)"
         for (index, element) in slide.elements.enumerated() {
             let id = index + 2
             switch element.kind {
