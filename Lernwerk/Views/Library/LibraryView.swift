@@ -66,6 +66,9 @@ struct LibraryView: View {
     @State private var subjectRequest: SubjectRequest?
     @State private var deletingFolder: MaterialFolder?
     @State private var confirmEmptyTrash = false
+    @State private var creatingNotebook = false
+    @State private var openedNotebook: StudyMaterial?
+    @State private var createdNotebook: StudyMaterial?
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 28, alignment: .top)]
 
@@ -124,6 +127,16 @@ struct LibraryView: View {
                 moveRequest = nil
             }
         }
+        .sheet(isPresented: $creatingNotebook, onDismiss: {
+            // Opens once the sheet is gone; pushing while it is still up does nothing.
+            openedNotebook = createdNotebook
+            createdNotebook = nil
+        }) {
+            NotebookSheet(onCreate: createNotebook)
+        }
+        .navigationDestination(item: $openedNotebook) { material in
+            DocumentScreen(material: material)
+        }
         .sheet(item: $subjectRequest) { request in
             SubjectSheet { subject in
                 for material in library where request.ids.contains(material.id) { material.subject = subject }
@@ -161,8 +174,26 @@ struct LibraryView: View {
                     }
                     Button("Auswählen") { selecting = true }
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
-                    Button("Neuer Ordner") { prompt(.newFolder, text: "") }
-                        .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
+                    Menu {
+                        Button {
+                            creatingNotebook = true
+                        } label: {
+                            Label("Notizbuch", systemImage: "book.closed")
+                        }
+                        Button {
+                            prompt(.newFolder, text: "")
+                        } label: {
+                            Label("Ordner", systemImage: "folder.badge.plus")
+                        }
+                    } label: {
+                        Text("Neu")
+                            .font(.work(15, .medium))
+                            .foregroundStyle(Quill.ink)
+                            .padding(.horizontal, 20)
+                            .frame(height: 44)
+                            .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+                            .contentShape(Capsule())
+                    }
                     photosButton
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
                     Button("Importieren") { isImporting = true }
@@ -540,6 +571,8 @@ struct LibraryView: View {
                     .buttonStyle(QuillPrimaryButtonStyle(height: 48, fontSize: 15.5))
                 photosButton
                     .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
+                Button("Leeres Notizbuch") { creatingNotebook = true }
+                    .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
                 Button("Demo-Material laden", action: loadDemo)
                     .font(.work(15, .medium))
                     .foregroundStyle(Quill.link)
@@ -606,6 +639,17 @@ struct LibraryView: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func createNotebook(title: String, paper: PaperStyle) {
+        do {
+            let material = try MaterialStore.createNotebook(title: title, paper: paper)
+            material.folderID = folderID
+            modelContext.insert(material)
+            createdNotebook = material
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -879,5 +923,81 @@ enum DocumentCover {
         await Task.detached(priority: .utility) {
             PDFDocument(url: url)?.page(at: 0)?.thumbnail(of: CGSize(width: 400, height: 520), for: .cropBox)
         }.value
+    }
+}
+
+/// Title and paper for a new notebook: blank, lined, squared or dotted, like school paper.
+private struct NotebookSheet: View {
+    let onCreate: (String, PaperStyle) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var paper: PaperStyle = .lined
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 0) {
+                PixelCaption(text: "Titel")
+                TextField("z. B. Mathe Mitschrift", text: $title)
+                    .font(.work(18))
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit(create)
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .background(Quill.surface, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Quill.line2, lineWidth: 1))
+                    .padding(.top, 10)
+                PixelCaption(text: "Papier")
+                    .padding(.top, 26)
+                HStack(spacing: 14) {
+                    ForEach(PaperStyle.allCases) { style in
+                        Button {
+                            paper = style
+                        } label: {
+                            VStack(spacing: 8) {
+                                Image(uiImage: PaperRenderer.preview(style, width: 92))
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 76)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .strokeBorder(paper == style ? Quill.accent : Quill.line2, lineWidth: paper == style ? 2.5 : 1)
+                                    )
+                                Text(style.label)
+                                    .font(.work(13.5, paper == style ? .semibold : .regular))
+                                    .foregroundStyle(paper == style ? Quill.ink : Quill.muted)
+                            }
+                        }
+                        .buttonStyle(QuillPressStyle())
+                    }
+                }
+                .padding(.top, 12)
+                Spacer(minLength: 0)
+            }
+            .padding(24)
+            .background(Quill.bg)
+            .navigationTitle("Neues Notizbuch")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Erstellen", action: create)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .onAppear { focused = true }
+    }
+
+    private func create() {
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = "Notizbuch " + Date.now.formatted(.dateTime.day().month(.abbreviated))
+        onCreate(name.isEmpty ? fallback : name, paper)
+        dismiss()
     }
 }

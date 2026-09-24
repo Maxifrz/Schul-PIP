@@ -17,6 +17,8 @@ final class StudyMaterial {
     var lastOpenedAt: Date? = nil
     /// Set while it is in the trash; the trash empties itself after `Library.trashDays`.
     var deletedAt: Date? = nil
+    /// The paper of a notebook made in the app (`PaperStyle`), empty for imported PDFs.
+    var paper: String = ""
 
     init(title: String, fileName: String, folderID: UUID? = nil) {
         id = UUID()
