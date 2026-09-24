@@ -18,8 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import de.maxifrz.lernwerk.data.ReviewCard
+import de.maxifrz.lernwerk.data.Exercise
 import de.maxifrz.lernwerk.data.PlanTopic
 import de.maxifrz.lernwerk.data.StudyPlan
+import de.maxifrz.lernwerk.data.WikiSummary
 import de.maxifrz.lernwerk.tutor.DemoLlmClient
 import de.maxifrz.lernwerk.tutor.TutorContext
 import de.maxifrz.lernwerk.tutor.TutorSession
@@ -99,8 +101,28 @@ class ScreenshotTest {
                 isOverbooked = false,
                 topics = listOf(
                     PlanTopic(title = "Verkettete Funktionen erkennen", summary = "Du kannst innere und äußere Funktion benennen.", materialId = null, sourcePages = listOf(1), estimatedMinutes = 20, order = 0, scheduledDay = today, isDone = true),
-                    PlanTopic(title = "Kettenregel anwenden", summary = "Du leitest verkettete Funktionen ab.", materialId = null, sourcePages = listOf(1, 2), estimatedMinutes = 30, order = 1, scheduledDay = today + 1),
+                    PlanTopic(
+                        title = "Kettenregel anwenden",
+                        summary = "Du leitest verkettete Funktionen ab.",
+                        materialId = null,
+                        sourcePages = listOf(1, 2),
+                        estimatedMinutes = 30,
+                        order = 1,
+                        scheduledDay = today + 1,
+                        videoQuery = "Kettenregel einfach erklärt",
+                        exercises = listOf(
+                            Exercise("Leite f(x) = (3x + 1)⁵ ab.", "Äußere mal innere Ableitung.", "f′(x) = 5 · (3x + 1)⁴ · 3 = 15 · (3x + 1)⁴"),
+                            Exercise("Leite f(x) = sin(x²) ab.", "Die innere Funktion ist x².", "f′(x) = cos(x²) · 2x"),
+                        ),
+                        wiki = WikiSummary(
+                            "Kettenregel",
+                            "https://de.wikipedia.org/wiki/Kettenregel",
+                            "Die Kettenregel ist eine der grundlegenden Regeln der Differentialrechnung. Sie beschreibt, wie man eine verkettete Funktion ableitet.",
+                        ),
+                        cardCount = 6,
+                    ),
                 ),
+                reminderMinute = 17 * 60,
             ),
         )
         app.repository.addCard(ReviewCard(front = "Wie leitest du (2x − 7)³ ab?", back = "Äußere mal innere Ableitung: 6(2x − 7)².", materialId = null, page = 2))
@@ -111,6 +133,11 @@ class ScreenshotTest {
         compose.onNodeWithText("Analysis Abi").performClick()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screenshots/plan-detail.png")
+        compose.onAllNodesWithText("Lernhilfen ▾")[1].performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Lösung zeigen")[0].performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/plan-extras.png")
         compose.onNodeWithText("Lernplan", substring = false).performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Wiederholen").performClick()

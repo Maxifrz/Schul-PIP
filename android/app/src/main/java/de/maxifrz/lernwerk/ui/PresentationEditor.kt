@@ -182,7 +182,7 @@ fun PresentationEditorScreen(app: AppState, presentationId: String, openAssistan
                     target.writeBytes(bytes)
                     target
                 }
-                share(context, file, if (pptx) "application/vnd.openxmlformats-officedocument.presentationml.presentation" else "application/pdf")
+                shareFile(context, file, if (pptx) "application/vnd.openxmlformats-officedocument.presentationml.presentation" else "application/pdf")
             } catch (error: Exception) {
                 errorMessage = "Export fehlgeschlagen: ${error.message}"
             } finally {
@@ -314,7 +314,8 @@ private object LocalPainterHolder {
     fun painter(context: Context) = painter ?: de.maxifrz.lernwerk.present.SlidePainter(context.applicationContext).also { painter = it }
 }
 
-private fun share(context: Context, file: File, mime: String) {
+/** Opens the share sheet for a file in the exports cache. */
+fun shareFile(context: Context, file: File, mime: String) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = mime

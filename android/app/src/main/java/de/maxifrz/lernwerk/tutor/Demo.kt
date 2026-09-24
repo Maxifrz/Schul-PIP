@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /** Bundled sample material and canned answers so the app can be tried without an API key. */
@@ -200,11 +201,35 @@ object DemoContent {
         return buildJsonObject { put("notes", JsonArray(notes)) }.toString()
     }
 
+    /** Exercises or flashcards for a topic, whichever the request's schema asks for. */
+    fun studyAid(request: LlmRequest): String =
+        if (request.jsonSchema?.get("properties")?.jsonObject?.containsKey("exercises") == true) EXERCISES else CARDS
+
+    private val EXERCISES = """
+        {"exercises":[
+        {"question":"Nenne innere und äußere Funktion von f(x) = (3x + 1)⁵.","hint":"Was wird zuerst berechnet, wenn du eine Zahl einsetzt?","solution":"Innere Funktion: g(x) = 3x + 1. Äußere Funktion: h(u) = u⁵."},
+        {"question":"Leite f(x) = (3x + 1)⁵ ab.","hint":"Äußere Ableitung mal innere Ableitung.","solution":"f′(x) = 5 · (3x + 1)⁴ · 3 = 15 · (3x + 1)⁴"},
+        {"question":"Leite f(x) = sin(x²) ab.","hint":"Die innere Funktion ist x².","solution":"f′(x) = cos(x²) · 2x"},
+        {"question":"Leite f(x) = e^(sin x) ab und erkläre, warum die Kettenregel hier zweimal gedacht werden muss.","hint":"Die äußere Funktion ist die e-Funktion, die innere sin x.","solution":"f′(x) = e^(sin x) · cos x. Die e-Funktion bleibt beim Ableiten gleich, dann kommt die innere Ableitung cos x dazu."}
+        ]}
+    """.trimIndent()
+
+    private val CARDS = """
+        {"cards":[
+        {"front":"Wie lautet die Kettenregel?","back":"f(x) = h(g(x)) ⇒ f′(x) = h′(g(x)) · g′(x): äußere mal innere Ableitung."},
+        {"front":"Was ist die innere Funktion von (2x − 7)³?","back":"g(x) = 2x − 7"},
+        {"front":"Ableitung von e^(3x)?","back":"3 · e^(3x)"},
+        {"front":"Ableitung von √(x² + 1)?","back":"x / √(x² + 1)"},
+        {"front":"Woran erkennst du eine Verkettung?","back":"Eine Funktion wird auf das Ergebnis einer anderen angewendet, z. B. sin(x²)."},
+        {"front":"Ableitung von sin(4x)?","back":"4 · cos(4x)"}
+        ]}
+    """.trimIndent()
+
     val planJson = """
         {"topics":[
-        {"title":"Verkettete Funktionen erkennen","summary":"Du kannst bei einer Funktion innere und äußere Funktion benennen.","prerequisites":[],"materialIndex":0,"sourcePages":[1],"estimatedMinutes":20},
-        {"title":"Kettenregel anwenden","summary":"Du leitest verkettete Funktionen mit äußerer mal innerer Ableitung ab.","prerequisites":["Verkettete Funktionen erkennen"],"materialIndex":0,"sourcePages":[1],"estimatedMinutes":30},
-        {"title":"Übungsaufgaben zur Kettenregel","summary":"Du löst gemischte Aufgaben mit Potenz-, Sinus-, e- und Wurzelfunktionen.","prerequisites":["Kettenregel anwenden"],"materialIndex":0,"sourcePages":[2],"estimatedMinutes":45}
+        {"title":"Verkettete Funktionen erkennen","summary":"Du kannst bei einer Funktion innere und äußere Funktion benennen.","prerequisites":[],"materialIndex":0,"sourcePages":[1],"estimatedMinutes":20,"videoQuery":"Verkettete Funktionen innere äußere Funktion erklärt"},
+        {"title":"Kettenregel anwenden","summary":"Du leitest verkettete Funktionen mit äußerer mal innerer Ableitung ab.","prerequisites":["Verkettete Funktionen erkennen"],"materialIndex":0,"sourcePages":[1],"estimatedMinutes":30,"videoQuery":"Kettenregel Ableitung einfach erklärt"},
+        {"title":"Übungsaufgaben zur Kettenregel","summary":"Du löst gemischte Aufgaben mit Potenz-, Sinus-, e- und Wurzelfunktionen.","prerequisites":["Kettenregel anwenden"],"materialIndex":0,"sourcePages":[2],"estimatedMinutes":45,"videoQuery":"Kettenregel Übungsaufgaben mit Lösungen"}
         ]}
     """.trimIndent()
 }
@@ -228,6 +253,7 @@ class DemoLlmClient(private val latencyMillis: Long = 700) : LlmClient {
             LlmPurpose.PresentationFeedback -> DemoContent.FEEDBACK
             LlmPurpose.PresentationChat -> DemoContent.chat(request)
             LlmPurpose.PresentationCritique -> DemoContent.critique(request)
+            LlmPurpose.StudyAid -> DemoContent.studyAid(request)
         }
         return LlmResponse(text, "end_turn", "demo")
     }

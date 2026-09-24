@@ -16,6 +16,7 @@ data class TopicDraft(
     val materialIndex: Int = 0,
     val sourcePages: List<Int> = emptyList(),
     val estimatedMinutes: Int = 30,
+    val videoQuery: String = "",
 ) {
     companion object {
         /** Models without schema enforcement drop fields or send numbers as strings; only the title is mandatory. */
@@ -29,6 +30,7 @@ data class TopicDraft(
                 materialIndex = obj["materialIndex"].lenientInt() ?: 0,
                 sourcePages = (obj["sourcePages"] as? JsonArray)?.mapNotNull { it.lenientInt() } ?: emptyList(),
                 estimatedMinutes = obj["estimatedMinutes"].lenientInt() ?: 30,
+                videoQuery = obj.string("videoQuery")?.trim() ?: "",
             )
         }
 
