@@ -16,6 +16,6 @@ struct LernwerkApp: App {
                 .environmentObject(settings)
                 .environmentObject(presentations)
         }
-        .modelContainer(for: [StudyMaterial.self, StudyPlan.self, PlanTopic.self, ReviewCard.self])
+        .modelContainer(for: [StudyMaterial.self, MaterialFolder.self, StudyPlan.self, PlanTopic.self, ReviewCard.self])
     }
 }

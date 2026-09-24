@@ -200,7 +200,8 @@ struct PresentationCreateView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: PresentationStore
-    @Query(sort: \StudyMaterial.createdAt) private var materials: [StudyMaterial]
+    @Query(sort: \StudyMaterial.createdAt) private var allMaterials: [StudyMaterial]
+    private var materials: [StudyMaterial] { allMaterials.filter { !$0.isTrashed } }
 
     @State private var selection = Set<UUID>()
     @State private var topic = ""

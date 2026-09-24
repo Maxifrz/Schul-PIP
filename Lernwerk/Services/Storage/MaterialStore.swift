@@ -64,6 +64,7 @@ enum MaterialStore {
     }
 
     static func delete(fileName: String) {
+        MaterialTextIndex.remove(fileName: fileName)
         try? FileManager.default.removeItem(at: url(for: fileName))
         try? FileManager.default.removeItem(at: drawingsURL(for: fileName))
     }

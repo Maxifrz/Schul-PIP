@@ -145,7 +145,8 @@ struct AssistantPanel: View {
     let onClose: () -> Void
 
     @EnvironmentObject private var settings: AppSettings
-    @Query(sort: \StudyMaterial.createdAt) private var materials: [StudyMaterial]
+    @Query(sort: \StudyMaterial.createdAt) private var allMaterials: [StudyMaterial]
+    private var materials: [StudyMaterial] { allMaterials.filter { !$0.isTrashed } }
     @State private var draft = ""
 
     var body: some View {
