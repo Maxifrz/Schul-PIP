@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="quill_bg">#FAF9F6</color>
+    <color name="quill_accent">#7FA98C</color>
+    <color name="quill_ink">#16150F</color>
+</resources>

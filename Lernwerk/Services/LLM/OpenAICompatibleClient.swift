@@ -87,6 +87,9 @@ struct OpenAICompatibleClient: LLMClient {
             case .openRouter:
                 let reasoning: [String: Any] = ["effort": "low"]
                 body["reasoning"] = reasoning
+            case .google:
+                // Gemini 3 cannot switch thinking off; "low" is the shortest it allows.
+                body["reasoning_effort"] = "low"
             case .anthropic:
                 break
             }
@@ -157,7 +160,9 @@ struct OpenAICompatibleClient: LLMClient {
     }
 
     static func parse(data: Data, status: Int, expectsJSON: Bool, sentImages: Bool) throws -> LLMResponse {
-        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        // Gemini's compatibility endpoint wraps errors in a one-element array.
+        let parsed = try? JSONSerialization.jsonObject(with: data)
+        let object = (parsed as? [String: Any]) ?? (parsed as? [[String: Any]])?.first
         let apiError = object?["error"] as? [String: Any]
 
         if !(200..<300).contains(status) || apiError != nil {
