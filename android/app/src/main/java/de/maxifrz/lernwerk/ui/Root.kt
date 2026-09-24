@@ -175,7 +175,7 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
         ) {
             if (regular) {
                 Box(Modifier.weight(1f)) {
-                    QText("LERNWERK", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
+                    QText("SCHUL-PIP", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
                 }
             }
             Row(

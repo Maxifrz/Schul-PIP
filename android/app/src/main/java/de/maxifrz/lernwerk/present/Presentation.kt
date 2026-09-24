@@ -97,6 +97,10 @@ data class Slide(
     val notes: String = "",
     /** Pages of the source material this slide is based on, as "material:page" references for the source slide. */
     val sources: List<SourceRef> = emptyList(),
+    /** Text found on an imported slide picture (PDF import); not drawn, only given to the AI. */
+    val extractedText: String = "",
+    /** "#RRGGBB" for a slide with its own background (imported decks); empty means the theme's. */
+    val background: String = "",
 )
 
 @Serializable

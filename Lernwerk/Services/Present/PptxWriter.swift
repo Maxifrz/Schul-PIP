@@ -84,8 +84,8 @@ enum PptxWriter {
         add("ppt/slideLayouts/_rels/slideLayout1.xml.rels", relationships([
             Relation(id: "rId1", type: "\(rel)/slideMaster", target: "../slideMasters/slideMaster1.xml"),
         ]))
-        add("ppt/theme/theme1.xml", themeXML(theme, name: "Lernwerk \(theme.name)"))
-        add("ppt/theme/theme2.xml", themeXML(.paper, name: "Lernwerk Notizen"))
+        add("ppt/theme/theme1.xml", themeXML(theme, name: "Schul-PIP \(theme.name)"))
+        add("ppt/theme/theme2.xml", themeXML(.paper, name: "Schul-PIP Notizen"))
         add("ppt/notesMasters/notesMaster1.xml", notesMaster())
         add("ppt/notesMasters/_rels/notesMaster1.xml.rels", relationships([
             Relation(id: "rId1", type: "\(rel)/theme", target: "../theme/theme2.xml"),
@@ -128,12 +128,12 @@ enum PptxWriter {
 
     private static func core(_ title: String) -> String {
         head + #"<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">"#
-            + "<dc:title>\(escape(title))</dc:title><dc:creator>Lernwerk</dc:creator></cp:coreProperties>"
+            + "<dc:title>\(escape(title))</dc:title><dc:creator>Schul-PIP</dc:creator></cp:coreProperties>"
     }
 
     private static func app(_ slides: Int) -> String {
         head + #"<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">"#
-            + "<Application>Lernwerk</Application><Slides>\(slides)</Slides></Properties>"
+            + "<Application>Schul-PIP</Application><Slides>\(slides)</Slides></Properties>"
     }
 
     private static func presentationXML(_ slides: Int) -> String {
@@ -295,9 +295,9 @@ enum PptxWriter {
             + srgb("accent1", theme.accent) + srgb("accent2", 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55)
             + srgb("accent5", 0x6F8FB0) + srgb("accent6", 0x9A968B) + srgb("hlink", 0x4F7A63) + srgb("folHlink", 0x6E6B62)
             + "</a:clrScheme>"
-            + #"<a:fontScheme name="Lernwerk"><a:majorFont><a:latin typeface="\#(font)"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>"#
+            + #"<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="\#(font)"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>"#
             + #"<a:minorFont><a:latin typeface="\#(font)"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>"#
-            + #"<a:fmtScheme name="Lernwerk">"#
+            + #"<a:fmtScheme name="Schul-PIP">"#
             + "<a:fillStyleLst>\(fillStyle)\(fillStyle)\(fillStyle)</a:fillStyleLst>"
             + "<a:lnStyleLst>\(lineStyle)\(lineStyle)\(lineStyle)</a:lnStyleLst>"
             + "<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle>"

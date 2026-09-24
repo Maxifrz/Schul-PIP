@@ -22,6 +22,8 @@ sealed interface LlmPurpose {
     data object SlideRewrite : LlmPurpose
     data object SpeakerNotes : LlmPurpose
     data object PresentationFeedback : LlmPurpose
+    data object PresentationChat : LlmPurpose
+    data object PresentationCritique : LlmPurpose
 
     /** Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence. */
     val timeoutSeconds: Long
@@ -31,11 +33,12 @@ sealed interface LlmPurpose {
             StudyPlan, Presentation -> 600
             SlideRewrite -> 90
             SpeakerNotes -> 180
-            PresentationFeedback -> 120
+            PresentationFeedback, PresentationChat -> 120
+            PresentationCritique -> 600
         }
 
-    /** Reading whole materials benefits from reasoning; everything else is answered while the student waits. */
-    val needsDepth: Boolean get() = this == StudyPlan || this == Presentation
+    /** Reading whole materials and critical review benefit from reasoning; the rest is answered while the student waits. */
+    val needsDepth: Boolean get() = this == StudyPlan || this == Presentation || this == PresentationCritique
 }
 
 enum class LlmEffort(val wire: String) { LOW("low"), MEDIUM("medium"), HIGH("high") }
