@@ -45,7 +45,7 @@ class SlidePainter(context: Context) {
         skipElementId: String? = null,
     ) {
         // A rectangle, not drawColor: the canvas of a Compose view is not clipped to the slide.
-        fillPaint.color = argb(theme.background)
+        fillPaint.color = argb(theme.color(slide.background) ?: theme.background)
         canvas.drawRect(0f, 0f, SlideSize.WIDTH * scale, SlideSize.HEIGHT * scale, fillPaint)
         for (element in slide.elements) {
             if (element.id == skipElementId) continue

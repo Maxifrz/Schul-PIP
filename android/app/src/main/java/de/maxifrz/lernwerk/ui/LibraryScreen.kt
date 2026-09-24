@@ -87,7 +87,7 @@ fun LibraryScreen(app: AppState) {
                 PixelCaption("Bibliothek")
                 QText("Noch kein Material", work(34f, FontWeight.Light, tracking = -0.85f), Quill.colors.ink, Modifier.padding(top = 16.dp))
                 QText(
-                    "Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF oder Foto. Du kannst sie auch aus der Galerie oder einer Dateien-App an Lernwerk teilen.",
+                    "Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF oder Foto. Du kannst sie auch aus der Galerie oder einer Dateien-App an Schul-PIP teilen.",
                     work(15.5f, lineHeight = 23f),
                     Quill.colors.muted,
                     Modifier.padding(top = 14.dp, bottom = 30.dp),

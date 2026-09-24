@@ -195,6 +195,7 @@ object PresentationPrompt {
             .sortedWith(compareBy({ it.y }, { it.x }))
         texts.forEach { appendLine(it.text.trim()) }
         if (slide.elements.any { it.kind == ElementKind.IMAGE }) appendLine("[picture]")
+        if (slide.extractedText.isNotBlank()) appendLine("Text in the slide picture: ${slide.extractedText.trim().take(1500)}")
         if (includeNotes && slide.notes.isNotBlank()) appendLine("Notes: ${slide.notes.trim()}")
     }
 

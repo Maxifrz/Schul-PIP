@@ -6,6 +6,10 @@ struct PresentationListView: View {
     @EnvironmentObject private var store: PresentationStore
     @State private var isCreating = false
     @State private var openID: String?
+    @State private var openAssistant: AssistantTab?
+    @State private var isImporting = false
+    @State private var importing = false
+    @State private var importError: String?
 
     private let columns = [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 28, alignment: .top)]
 
@@ -17,13 +21,18 @@ struct PresentationListView: View {
                 } else {
                     PageHeader(caption: countLabel, title: "Präsentation") {
                         HStack(spacing: 10) {
+                            Button("Importieren") { isImporting = true }
+                                .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
+                                .disabled(importing)
                             Button("Leer", action: createBlank)
                                 .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
                             Button("Mit KI erstellen") { isCreating = true }
                                 .buttonStyle(QuillPrimaryButtonStyle())
                         }
                     }
-                    .padding(.bottom, 30)
+                    .padding(.bottom, importing || importError != nil ? 16 : 30)
+                    importStatus
+                        .padding(.bottom, importing || importError != nil ? 24 : 0)
 
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 30) {
                         ForEach(store.presentations) { presentation in
@@ -53,7 +62,40 @@ struct PresentationListView: View {
             }
         }
         .navigationDestination(item: $openID) { id in
-            PresentationEditorRoute(id: id)
+            PresentationEditorRoute(id: id, openAssistant: openAssistant)
+        }
+        .fileImporter(isPresented: $isImporting, allowedContentTypes: PresentationImport.contentTypes) { result in
+            guard case let .success(url) = result else { return }
+            importing = true
+            importError = nil
+            Task { @MainActor in
+                defer { importing = false }
+                do {
+                    let imported = try await PresentationImport.run(url, store: store)
+                    openAssistant = .critic
+                    openID = imported.presentation.id
+                } catch {
+                    importError = error.localizedDescription
+                }
+            }
+        }
+        .onChange(of: openID) { _, id in
+            if id == nil { openAssistant = nil }
+        }
+    }
+
+    @ViewBuilder
+    private var importStatus: some View {
+        if importing {
+            HStack(spacing: 10) {
+                PulsingDots()
+                Text("Importiere …").font(.work(13)).foregroundStyle(Quill.faint)
+            }
+        } else if let importError {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                StatusDot(color: Quill.warn)
+                Text(importError).font(.work(14)).foregroundStyle(Quill.ink2).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -81,9 +123,18 @@ struct PresentationListView: View {
                     .buttonStyle(QuillPrimaryButtonStyle(height: 48, fontSize: 15.5))
                 Button("Leere Präsentation", action: createBlank)
                     .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
+                Button("Importieren") { isImporting = true }
+                    .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
+                    .disabled(importing)
             }
+            Text("Importieren: PowerPoint (.pptx) oder PDF – danach prüft der Kritiker deine Präsentation.")
+                .font(.work(13))
+                .foregroundStyle(Quill.faint)
+                .padding(.top, 14)
+            importStatus
+                .padding(.top, 16)
         }
-        .frame(maxWidth: 520, alignment: .leading)
+        .frame(maxWidth: 620, alignment: .leading)
         .padding(.top, 70)
     }
 
@@ -130,10 +181,11 @@ private struct PresentationTile: View {
 struct PresentationEditorRoute: View {
     @EnvironmentObject private var store: PresentationStore
     let id: String
+    var openAssistant: AssistantTab?
 
     var body: some View {
         if let presentation = store.presentation(id) {
-            PresentationEditorView(presentation: presentation, store: store)
+            PresentationEditorView(presentation: presentation, store: store, openAssistant: openAssistant)
         } else {
             Text("Diese Präsentation gibt es nicht mehr.")
                 .font(.work(15))

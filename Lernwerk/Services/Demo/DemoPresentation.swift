@@ -57,6 +57,75 @@ enum DemoPresentation {
         return encode(["notes": notes])
     }
 
+    private static func slideIDs(_ request: LLMRequest) -> [String] {
+        let text = prompt(of: request)
+        let pattern = try? NSRegularExpression(pattern: #"<slide number="\d+" id="([^"]+)""#)
+        return (pattern?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).compactMap { match in
+            Range(match.range(at: 1), in: text).map { String(text[$0]) }
+        }
+    }
+
+    static func chat(_ request: LLMRequest) -> String {
+        var changes: [[String: Any]] = []
+        if let last = slideIDs(request).last {
+            changes.append([
+                "action": "set_notes",
+                "summary": "Notizen der letzten Folie ergänzt",
+                "slideId": last,
+                "notes": "Demo: Hier würde die KI deine Anweisung umsetzen. Mit einem echten Modell ändert sie Texte, Folien, Reihenfolge oder Design.",
+            ])
+        }
+        return encode([
+            "message": "Im Demo-Modus verstehe ich deine Anweisung nicht wirklich – als Beispiel habe ich die Notizen der letzten Folie ergänzt. Rückgängig geht oben links.",
+            "changes": changes,
+        ])
+    }
+
+    static func critique(_ request: LLMRequest) -> String {
+        let ids = slideIDs(request)
+        var findings: [[String: Any]] = []
+        if ids.count > 1 {
+            findings.append([
+                "severity": "high",
+                "slideId": ids[1],
+                "problem": "Die Folie behauptet etwas, ohne es zu begründen oder ein Beispiel zu zeigen.",
+                "suggestion": "Ergänze in den Notizen ein kurzes Rechenbeispiel, das du beim Vortrag erklärst.",
+                "changes": [[
+                    "action": "set_notes",
+                    "summary": "Rechenbeispiel in die Notizen",
+                    "slideId": ids[1],
+                    "notes": "Beispiel: f(x) = (2x + 1)³ → f'(x) = 3(2x + 1)² · 2 = 6(2x + 1)². Innen ableiten nicht vergessen!",
+                ]],
+            ])
+        }
+        findings.append([
+            "severity": "medium",
+            "problem": "Es fehlt eine Übungsfolie, auf der die Klasse selbst etwas ausprobiert.",
+            "suggestion": "Füge vor dem Fazit eine Folie mit einer kurzen Aufgabe ein.",
+            "changes": [[
+                "action": "insert_slide",
+                "summary": "Übungsfolie vor dem Fazit einfügen",
+                "afterSlideId": ids.isEmpty ? "" : ids[max(0, ids.count - 3)],
+                "slide": [
+                    "layout": "BULLETS",
+                    "title": "Probier es selbst",
+                    "bullets": ["Leite ab: (5x − 1)⁴", "Zeit: 1 Minute"],
+                    "notes": "Gib der Klasse eine Minute und löse dann gemeinsam.",
+                ] as [String: Any],
+            ]],
+        ])
+        findings.append([
+            "severity": "low",
+            "problem": "Im Demo-Modus prüft kein echtes Modell deine Folien.",
+            "suggestion": "Hinterlege in den Einstellungen einen API-Key für eine echte Kritik.",
+            "changes": [] as [Any],
+        ])
+        return encode([
+            "verdict": "Demo-Kritik: Der Aufbau ist nachvollziehbar, aber Belege und Beteiligung der Klasse fehlen. Mit einem echten Modell wird die Kritik deutlich genauer.",
+            "findings": findings,
+        ])
+    }
+
     private static func encode(_ object: Any) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: object) else { return "{}" }
         return String(decoding: data, as: UTF8.self)

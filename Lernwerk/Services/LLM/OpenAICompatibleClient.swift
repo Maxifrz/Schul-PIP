@@ -44,7 +44,7 @@ struct OpenAICompatibleClient: LLMClient {
         urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization")
         if provider == .openRouter {
-            urlRequest.setValue("Lernwerk", forHTTPHeaderField: "X-Title")
+            urlRequest.setValue("Schul-PIP", forHTTPHeaderField: "X-Title")
         }
 
         var body = Self.body(for: request, model: model, provider: provider, sendsImages: sendsImages)

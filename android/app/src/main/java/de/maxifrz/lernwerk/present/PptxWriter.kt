@@ -114,8 +114,8 @@ object PptxWriter {
             "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
             relationships(listOf(Relation("rId1", "$REL/slideMaster", "../slideMasters/slideMaster1.xml"))),
         )
-        add("ppt/theme/theme1.xml", themeXml(theme, "Lernwerk ${theme.name}"))
-        add("ppt/theme/theme2.xml", themeXml(SlideTheme.PAPER, "Lernwerk Notizen"))
+        add("ppt/theme/theme1.xml", themeXml(theme, "Schul-PIP ${theme.name}"))
+        add("ppt/theme/theme2.xml", themeXml(SlideTheme.PAPER, "Schul-PIP Notizen"))
         add("ppt/notesMasters/notesMaster1.xml", notesMaster())
         add(
             "ppt/notesMasters/_rels/notesMaster1.xml.rels",
@@ -174,11 +174,11 @@ object PptxWriter {
         """<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" """ +
         """xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" """ +
         """xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">""" +
-        "<dc:title>${escape(title)}</dc:title><dc:creator>Lernwerk</dc:creator></cp:coreProperties>"
+        "<dc:title>${escape(title)}</dc:title><dc:creator>Schul-PIP</dc:creator></cp:coreProperties>"
 
     private fun app(slides: Int) = XML_HEAD +
         """<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">""" +
-        "<Application>Lernwerk</Application><Slides>$slides</Slides></Properties>"
+        "<Application>Schul-PIP</Application><Slides>$slides</Slides></Properties>"
 
     private fun presentationXml(slides: Int) = buildString {
         append(XML_HEAD)
@@ -238,7 +238,8 @@ object PptxWriter {
 
     private fun slide(slide: Slide, theme: SlideTheme, images: Map<String, String>) = buildString {
         append(XML_HEAD)
-        append("<p:sld $NS><p:cSld><p:bg><p:bgPr>${solid(theme.background)}<a:effectLst/></p:bgPr></p:bg><p:spTree>$EMPTY_TREE")
+        val background = theme.color(slide.background) ?: theme.background
+        append("<p:sld $NS><p:cSld><p:bg><p:bgPr>${solid(background)}<a:effectLst/></p:bgPr></p:bg><p:spTree>$EMPTY_TREE")
         slide.elements.forEachIndexed { index, element ->
             val id = index + 2
             when (element.kind) {
@@ -351,9 +352,9 @@ object PptxWriter {
             srgb("accent1", theme.accent) + srgb("accent2", 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55) +
             srgb("accent5", 0x6F8FB0) + srgb("accent6", 0x9A968B) + srgb("hlink", 0x4F7A63) + srgb("folHlink", 0x6E6B62) +
             "</a:clrScheme>" +
-            """<a:fontScheme name="Lernwerk"><a:majorFont><a:latin typeface="$FONT"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>""" +
+            """<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="$FONT"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>""" +
             """<a:minorFont><a:latin typeface="$FONT"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>""" +
-            """<a:fmtScheme name="Lernwerk">""" +
+            """<a:fmtScheme name="Schul-PIP">""" +
             "<a:fillStyleLst>$fillStyle$fillStyle$fillStyle</a:fillStyleLst>" +
             "<a:lnStyleLst>$lineStyle$lineStyle$lineStyle</a:lnStyleLst>" +
             "<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle>" +

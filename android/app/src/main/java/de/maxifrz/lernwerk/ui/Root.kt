@@ -63,7 +63,7 @@ sealed interface Route {
     data class Document(val materialId: String, val startPage: Int?, val backTitle: String) : Route
     data class Plan(val planId: String) : Route
     data object CreatePlan : Route
-    data class PresentationEditor(val presentationId: String) : Route
+    data class PresentationEditor(val presentationId: String, val openAssistant: AssistantTab? = null) : Route
     data object CreatePresentation : Route
     data class Present(val presentationId: String, val startSlide: Int) : Route
 }
@@ -154,7 +154,7 @@ fun RootScreen(
                 is Route.Document -> DocumentScreen(app, route)
                 is Route.Plan -> PlanDetailScreen(app, route.planId)
                 Route.CreatePlan -> PlanCreateScreen(app)
-                is Route.PresentationEditor -> PresentationEditorScreen(app, route.presentationId)
+                is Route.PresentationEditor -> PresentationEditorScreen(app, route.presentationId, route.openAssistant)
                 Route.CreatePresentation -> PresentationCreateScreen(app)
                 is Route.Present -> PresentScreen(app, route.presentationId, route.startSlide)
             }
@@ -175,7 +175,7 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
         ) {
             if (regular) {
                 Box(Modifier.weight(1f)) {
-                    QText("LERNWERK", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
+                    QText("SCHUL-PIP", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
                 }
             }
             Row(

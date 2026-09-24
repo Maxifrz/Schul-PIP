@@ -91,7 +91,7 @@ private struct TopTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             if sizeClass == .regular {
-                Text("LERNWERK")
+                Text("SCHUL-PIP")
                     .font(.pixel(13))
                     .tracking(1.8)
                     .foregroundStyle(Quill.accent)

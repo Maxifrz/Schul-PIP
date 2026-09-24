@@ -159,6 +159,10 @@ struct DemoLLMClient: LLMClient {
             text = DemoPresentation.speakerNotes(request)
         case .presentationFeedback:
             text = DemoPresentation.feedback
+        case .presentationChat:
+            text = DemoPresentation.chat(request)
+        case .presentationCritique:
+            text = DemoPresentation.critique(request)
         }
         return LLMResponse(text: text, stopReason: "end_turn", model: "demo")
     }

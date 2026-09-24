@@ -44,7 +44,7 @@ class OpenAiCompatibleClient(
         val headers = buildMap {
             put("content-type", "application/json")
             put("authorization", "Bearer $apiKey")
-            if (provider == LlmProvider.OPEN_ROUTER) put("X-Title", "Lernwerk")
+            if (provider == LlmProvider.OPEN_ROUTER) put("X-Title", "Schul-PIP")
         }
         val timeout = request.purpose.timeoutSeconds
         var body = body(request, model, provider, sendsImages, compressImage)

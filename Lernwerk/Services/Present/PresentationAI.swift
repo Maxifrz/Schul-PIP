@@ -176,6 +176,7 @@ enum PresentationPrompt {
             .sorted { ($0.y, $0.x) < ($1.y, $1.x) }
             .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
         if slide.elements.contains(where: { $0.kind == .image }) { lines.append("[picture]") }
+        if !slide.extractedText.isBlank { lines.append("Text in the slide picture: \(String(slide.extractedText.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1500)))") }
         if includeNotes, !slide.notes.isBlank { lines.append("Notes: \(slide.notes.trimmingCharacters(in: .whitespacesAndNewlines))") }
         return lines.map { $0 + "\n" }.joined()
     }
@@ -202,7 +203,7 @@ enum PresentationPrompt {
         object(text).flatMap(parseSlide)
     }
 
-    private static func parseSlide(_ object: [String: Any]) -> SlideDraft? {
+    static func parseSlide(_ object: [String: Any]) -> SlideDraft? {
         let layout = (object["layout"] as? String).flatMap { SlideLayout(rawValue: $0.uppercased()) } ?? .bullets
         let draft = SlideDraft(
             layout: layout,
@@ -230,7 +231,7 @@ enum PresentationPrompt {
     }
 
     /// Numbers may arrive as numbers or as strings from models without schema enforcement.
-    private static func int(_ value: Any?) -> Int? {
+    static func int(_ value: Any?) -> Int? {
         // No check for Bool: JSON numbers 0 and 1 bridge to Bool as well, and a boolean here is meaningless anyway.
         if let number = value as? Int { return number }
         if let number = value as? Double { return Int(number) }

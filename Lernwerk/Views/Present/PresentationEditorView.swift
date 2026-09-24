@@ -16,10 +16,12 @@ struct PresentationEditorView: View {
     @EnvironmentObject private var store: PresentationStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: PresentationEditorModel
+    @StateObject private var assistant: AssistantState
 
     @State private var busy: String?
     @State private var errorMessage: String?
-    @State private var feedback: String?
+    @State private var isAssistantOpen: Bool
+    @State private var assistantTab: AssistantTab
     @State private var exported: ExportedFile?
     @State private var isPresenting = false
     @State private var isRenaming = false
@@ -27,8 +29,11 @@ struct PresentationEditorView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var isPickingPage = false
 
-    init(presentation: Presentation, store: PresentationStore) {
+    init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
+        _assistant = StateObject(wrappedValue: AssistantState(materialIDs: presentation.materialIds))
+        _isAssistantOpen = State(initialValue: openAssistant != nil)
+        _assistantTab = State(initialValue: openAssistant ?? .chat)
     }
 
     private var images: [String: UIImage] { store.images(for: model.presentation.slides) }
@@ -43,17 +48,20 @@ struct PresentationEditorView: View {
                             Text(busy).font(.work(13)).foregroundStyle(Quill.faint)
                         }
                     }
+                    Button(isAssistantOpen ? "Assistent ✓" : "Assistent") {
+                        model.finishEditing()
+                        isAssistantOpen.toggle()
+                    }
+                    .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
                     Menu {
                         Button("Sprechernotizen schreiben") {
                             runAI("Sprechernotizen") { assistant in
                                 model.replacePresentation(try await assistant.speakerNotes(model.presentation))
                             }
                         }
-                        Button("Feedback zur Präsentation") {
-                            runAI("Feedback") { assistant in
-                                feedback = try await assistant.feedback(model.presentation)
-                            }
-                        }
+                        Button("Chat: Änderungen ansagen") { openAssistant(.chat) }
+                        Button("Kritiker") { openAssistant(.critic) }
+                        Button("Feedback zur Präsentation") { openAssistant(.feedback) }
                     } label: { menuLabel("KI") }
                     .disabled(busy != nil)
                     Menu {
@@ -104,10 +112,10 @@ struct PresentationEditorView: View {
                     notesBar
                 }
                 .background(Quill.canvas)
-                if let feedback {
+                if isAssistantOpen {
                     Rectangle().fill(Quill.line).frame(width: 1)
-                    feedbackPanel(feedback)
-                        .frame(width: 360)
+                    AssistantPanel(model: model, state: assistant, tab: $assistantTab) { isAssistantOpen = false }
+                        .frame(width: 380)
                         .transition(.move(edge: .trailing))
                 }
             }
@@ -142,7 +150,7 @@ struct PresentationEditorView: View {
                 insertPicture(image)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: feedback != nil)
+        .animation(.easeInOut(duration: 0.25), value: isAssistantOpen)
     }
 
     private func menuLabel(_ title: String) -> some View {
@@ -152,6 +160,12 @@ struct PresentationEditorView: View {
             .padding(.horizontal, 14)
             .frame(height: 34)
             .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+    }
+
+    private func openAssistant(_ tab: AssistantTab) {
+        model.finishEditing()
+        assistantTab = tab
+        isAssistantOpen = true
     }
 
     private func leave() {
@@ -398,33 +412,6 @@ struct PresentationEditorView: View {
         .padding(.vertical, 10)
         .background(Quill.bg)
         .overlay(alignment: .top) { QuillDivider(color: Quill.lineSoft) }
-    }
-
-    private func feedbackPanel(_ text: String) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Feedback").font(.work(17, .medium)).foregroundStyle(Quill.ink)
-                Spacer()
-                Button("Schließen") { feedback = nil }
-                    .buttonStyle(QuillOutlineButtonStyle(height: 32, weight: .medium))
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .overlay(alignment: .bottom) { QuillDivider(color: Quill.lineSoft) }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 9) {
-                    PixelCaption(text: "Lernhilfe · Präsentation", size: 9)
-                    Text((try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text))
-                        .font(.work(15))
-                        .lineSpacing(8)
-                        .foregroundStyle(Quill.ink2)
-                        .textSelection(.enabled)
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .background(Quill.bg)
     }
 }
 

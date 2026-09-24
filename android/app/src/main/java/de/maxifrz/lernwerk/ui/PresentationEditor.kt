@@ -119,7 +119,7 @@ private sealed interface Drag {
 }
 
 @Composable
-fun PresentationEditorScreen(app: AppState, presentationId: String) {
+fun PresentationEditorScreen(app: AppState, presentationId: String, openAssistant: AssistantTab? = null) {
     val store = app.presentations
     val initial = store.presentation(presentationId)
     if (initial == null) {
@@ -136,7 +136,11 @@ fun PresentationEditorScreen(app: AppState, presentationId: String) {
 
     var busy by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var feedback by remember { mutableStateOf<String?>(null) }
+    var assistant by remember { mutableStateOf(openAssistant) }
+    val assistantModels = rememberAssistantModels(app, state)
+    // Keeps the panel's content while it slides out.
+    var lastTab by remember { mutableStateOf(openAssistant ?: AssistantTab.CHAT) }
+    LaunchedEffect(assistant) { assistant?.let { lastTab = it } }
     var renaming by remember { mutableStateOf(false) }
     var pickingMaterial by remember { mutableStateOf(false) }
 
@@ -212,15 +216,18 @@ fun PresentationEditorScreen(app: AppState, presentationId: String) {
                         QText(it, work(13f), colors.faint)
                     }
                 }
+                OutlineButton(
+                    if (assistant == null) "Assistent" else "Assistent ✓",
+                    { assistant = if (assistant == null) AssistantTab.CHAT else null },
+                    weight = FontWeight.Medium,
+                )
                 MenuButton("KI", enabled = busy == null) { close ->
                     MenuItem("Sprechernotizen schreiben") {
                         close()
                         runAi("Sprechernotizen") { state.replacePresentation(it.speakerNotes(state.presentation)) }
                     }
-                    MenuItem("Feedback zur Präsentation") {
-                        close()
-                        runAi("Feedback") { feedback = it.feedback(state.presentation) }
-                    }
+                    MenuItem("Kritiker") { close(); assistant = AssistantTab.CRITIC }
+                    MenuItem("Feedback") { close(); assistant = AssistantTab.FEEDBACK }
                 }
                 MenuButton("Export", enabled = busy == null) { close ->
                     MenuItem("PowerPoint (.pptx)") { close(); export(pptx = true) }
@@ -266,10 +273,15 @@ fun PresentationEditorScreen(app: AppState, presentationId: String) {
                     }
                 }
             }
-            AnimatedVisibility(feedback != null, enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
+            AnimatedVisibility(assistant != null, enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
                 Row {
                     Box(Modifier.width(1.dp).fillMaxHeight().background(colors.line))
-                    FeedbackPanel(feedback ?: "", onClose = { feedback = null })
+                    AssistantPanel(
+                        app, state, assistantModels, assistant ?: lastTab,
+                        onTab = { assistant = it },
+                        onClose = { assistant = null },
+                        modifier = Modifier.width(380.dp).fillMaxHeight(),
+                    )
                 }
             }
         }
@@ -517,22 +529,6 @@ private fun NotesBar(state: EditorState, aiEnabled: Boolean, onAi: (Presentation
         MenuButton("Folie mit KI", enabled = aiEnabled) { close ->
             PresentationPrompt.Rewrite.entries.forEach { rewrite -> MenuItem(rewrite.label) { close(); onAi(rewrite) } }
             MenuItem("Neu gestalten") { close(); onAi(null) }
-        }
-    }
-}
-
-@Composable
-private fun FeedbackPanel(text: String, onClose: () -> Unit) {
-    val colors = Quill.colors
-    Column(Modifier.width(360.dp).fillMaxHeight().background(colors.bg)) {
-        Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            QText("Feedback", work(17f, FontWeight.Medium, tracking = -0.25f), colors.ink, Modifier.weight(1f))
-            OutlineButton("Schließen", onClose, height = 32.dp, weight = FontWeight.Medium)
-        }
-        QuillDivider(colors.lineSoft)
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-            PixelCaption("Lernhilfe · Präsentation", size = 9f)
-            BasicText(markdown(text, colors.ink), Modifier.padding(top = 9.dp), style = work(15f, lineHeight = 23f).copy(color = colors.ink2))
         }
     }
 }

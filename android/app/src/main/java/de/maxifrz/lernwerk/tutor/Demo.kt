@@ -105,6 +105,81 @@ object DemoContent {
         return buildJsonObject { put("texts", JsonArray(texts)) }.toString()
     }
 
+    private fun slideIds(request: de.maxifrz.lernwerk.llm.LlmRequest): List<String> {
+        val prompt = request.messages.flatMap { it.content }.filterIsInstance<de.maxifrz.lernwerk.llm.LlmContent.Text>().joinToString("\n") { it.text }
+        return Regex("<slide number=\"\\d+\" id=\"([^\"]+)\"").findAll(prompt).map { it.groupValues[1] }.toList()
+    }
+
+    fun chat(request: de.maxifrz.lernwerk.llm.LlmRequest): String {
+        val first = slideIds(request).lastOrNull()
+        val changes = if (first == null) JsonArray(emptyList()) else JsonArray(
+            listOf(
+                buildJsonObject {
+                    put("action", "set_notes")
+                    put("summary", "Notizen der letzten Folie ergänzt")
+                    put("slideId", first)
+                    put("notes", "Demo: Hier würde die KI deine Anweisung umsetzen. Mit einem echten Modell ändert sie Texte, Folien, Reihenfolge oder Design.")
+                },
+            ),
+        )
+        return buildJsonObject {
+            put("message", "Im Demo-Modus verstehe ich deine Anweisung nicht wirklich – als Beispiel habe ich die Notizen der letzten Folie ergänzt. Rückgängig geht oben links.")
+            put("changes", changes)
+        }.toString()
+    }
+
+    fun critique(request: de.maxifrz.lernwerk.llm.LlmRequest): String {
+        val ids = slideIds(request)
+        val findings = buildList {
+            ids.getOrNull(1)?.let { id ->
+                add(
+                    buildJsonObject {
+                        put("severity", "high")
+                        put("slideId", id)
+                        put("problem", "Die Folie behauptet etwas, ohne es zu begründen oder ein Beispiel zu zeigen.")
+                        put("suggestion", "Ergänze in den Notizen ein kurzes Rechenbeispiel, das du beim Vortrag erklärst.")
+                        put("changes", JsonArray(listOf(buildJsonObject {
+                            put("action", "set_notes")
+                            put("summary", "Rechenbeispiel in die Notizen")
+                            put("slideId", id)
+                            put("notes", "Beispiel: f(x) = (2x + 1)³ → f'(x) = 3(2x + 1)² · 2 = 6(2x + 1)². Innen ableiten nicht vergessen!")
+                        })))
+                    },
+                )
+            }
+            add(
+                buildJsonObject {
+                    put("severity", "medium")
+                    put("problem", "Es fehlt eine Übungsfolie, auf der die Klasse selbst etwas ausprobiert.")
+                    put("suggestion", "Füge vor dem Fazit eine Folie mit einer kurzen Aufgabe ein.")
+                    put("changes", JsonArray(listOf(buildJsonObject {
+                        put("action", "insert_slide")
+                        put("summary", "Übungsfolie vor dem Fazit einfügen")
+                        put("afterSlideId", ids.getOrNull(maxOf(0, ids.size - 3)) ?: "")
+                        put("slide", buildJsonObject {
+                            put("layout", "BULLETS")
+                            put("title", "Probier es selbst")
+                            put("bullets", JsonArray(listOf(kotlinx.serialization.json.JsonPrimitive("Leite ab: (5x − 1)⁴"), kotlinx.serialization.json.JsonPrimitive("Zeit: 1 Minute"))))
+                            put("notes", "Gib der Klasse eine Minute und löse dann gemeinsam.")
+                        })
+                    })))
+                },
+            )
+            add(
+                buildJsonObject {
+                    put("severity", "low")
+                    put("problem", "Im Demo-Modus prüft kein echtes Modell deine Folien.")
+                    put("suggestion", "Hinterlege in den Einstellungen einen API-Key für eine echte Kritik.")
+                    put("changes", JsonArray(emptyList()))
+                },
+            )
+        }
+        return buildJsonObject {
+            put("verdict", "Demo-Kritik: Der Aufbau ist nachvollziehbar, aber Belege und Beteiligung der Klasse fehlen. Mit einem echten Modell wird die Kritik deutlich genauer.")
+            put("findings", JsonArray(findings))
+        }.toString()
+    }
+
     fun speakerNotes(request: de.maxifrz.lernwerk.llm.LlmRequest): String {
         val prompt = request.messages.flatMap { it.content }.filterIsInstance<de.maxifrz.lernwerk.llm.LlmContent.Text>().joinToString("\n") { it.text }
         val count = Regex("<slide number=").findAll(prompt).count()
@@ -142,6 +217,8 @@ class DemoLlmClient(private val latencyMillis: Long = 700) : LlmClient {
             LlmPurpose.SlideRewrite -> DemoContent.slideEdit(request)
             LlmPurpose.SpeakerNotes -> DemoContent.speakerNotes(request)
             LlmPurpose.PresentationFeedback -> DemoContent.FEEDBACK
+            LlmPurpose.PresentationChat -> DemoContent.chat(request)
+            LlmPurpose.PresentationCritique -> DemoContent.critique(request)
         }
         return LlmResponse(text, "end_turn", "demo")
     }

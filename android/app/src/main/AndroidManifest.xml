@@ -7,7 +7,7 @@
         android:name=".LernwerkApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="Lernwerk"
+        android:label="Schul-PIP"
         android:supportsRtl="true"
         android:theme="@style/Theme.Lernwerk">
         <activity

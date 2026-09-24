@@ -7,6 +7,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performTextInput
+import de.maxifrz.lernwerk.ui.AssistantTab
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -156,6 +161,47 @@ class ScreenshotTest {
         withApp { PresentationEditorScreen(it, deck.id) }
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screenshots/editor-dark.png")
+    }
+
+    private fun waitForText(text: String) {
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun presentationChat() {
+        app.settings.updateDemoMode(true)
+        val deck = demoDeck()
+        app.presentations.add(deck)
+        // Pip animates forever, so the clock is stepped by hand.
+        compose.mainClock.autoAdvance = false
+        withApp { PresentationEditorScreen(it, deck.id, AssistantTab.CHAT) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onAllNodes(hasSetTextAction()).onLast().performTextInput("Schreib mir eine Abschlussnotiz")
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithText("Senden").performClick()
+        repeat(100) {
+            if (compose.onAllNodesWithText("Notizen der letzten Folie", substring = true).fetchSemanticsNodes().isEmpty()) {
+                compose.mainClock.advanceTimeBy(100)
+                Thread.sleep(20)
+            }
+        }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.onRoot().captureRoboImage("build/screenshots/assistant-chat.png")
+    }
+
+    @Test
+    fun presentationCritic() {
+        app.settings.updateDemoMode(true)
+        val deck = demoDeck()
+        app.presentations.add(deck)
+        withApp { PresentationEditorScreen(it, deck.id, AssistantTab.CRITIC) }
+        compose.onNodeWithText("Kritik starten").performClick()
+        waitForText("Vorschläge übernehmen")
+        compose.onRoot().captureRoboImage("build/screenshots/assistant-critic.png")
+        compose.onAllNodesWithText("Übernehmen")[0].performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/assistant-critic-applied.png")
     }
 
     @Test
