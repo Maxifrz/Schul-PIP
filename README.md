@@ -1,4 +1,6 @@
-# Lernwerk
+# Schul-PIP
+
+Named after Pip, the pixel cat that lives in the app. The code, bundle ids and build artifacts still use the working title *Lernwerk*, so updates install over earlier builds and keep their data.
 
 An iPad and Android-tablet study app that teaches instead of answering. Import your own PDFs, annotate them with Apple Pencil, and mark any passage you are stuck on: a Socratic AI tutor answers with a guiding question first and only reveals more when you ask for it. Everything you needed help with becomes a spaced-repetition flashcard, and the AI turns your material into a day-by-day study plan up to your exam.
 
@@ -13,9 +15,11 @@ Built as a personal study tool for Abitur preparation and as a portfolio project
 | **Hint ladder** | Question → hint → full explanation. The student decides when to escalate; "Sag's mir einfach" is the escape hatch. |
 | **Study plan** | The AI reads the PDFs, splits them into topics with prerequisites and page references; a local scheduler orders and spreads them until the exam date and can reschedule after missed days. |
 | **Presentations** | The AI turns selected materials into a school presentation (layouts, speaker notes, sources with page numbers); a free canvas editor like Keynote (move, resize, rotate, snap guides, undo) with four designs, pictures from photos or material pages, per-slide AI (shorter, simpler, more detail, redesign) and Socratic feedback on the whole talk. Present full screen with notes, timer and laser pointer, or export as PowerPoint (.pptx, fully editable) or PDF. |
+| **Presentation assistant** | A chat that carries out instructions on the open deck ("Mach Folie 3 kürzer", "Füge nach Folie 2 ein Beispiel ein", "Stell auf Kreide um"); every instruction is one undo step. A sceptical critic reviews the talk like a strict teacher, optionally against the source material, and lists findings with severity and concrete changes that are applied only after approval, one by one or all at once. |
+| **Import** | Existing PowerPoint files (.pptx) become editable slides: text boxes and placeholders, shapes, lines and arrows, pictures, groups, tables as text, backgrounds and speaker notes. PDFs (e.g. exported from Keynote or Google Slides) become one picture slide per page, with the page text kept for the AI. After an import the critic opens right away. |
 | **Spaced repetition** | Every finished help session is turned into a flashcard and scheduled with SM-2. |
 | **Demo mode** | Bundled sample material and canned answers, so the app can be tried without an API key. |
-| **Share to Lernwerk** | PDFs and images shared from Files or other apps (on Android also from the gallery) land in the library and open right away; photos become one-page PDFs. |
+| **Share to Schul-PIP** | PDFs and images shared from Files or other apps (on Android also from the gallery) land in the library and open right away; photos become one-page PDFs. |
 
 ## Design
 
@@ -42,7 +46,8 @@ Lernwerk/
 │   ├── LLM/        LLMClient protocol, providers, ClaudeClient, OpenAICompatibleClient, StructuredOutput
 │   ├── Tutor/      HintLevel, TutorPrompt, TutorSession, Flashcard
 │   ├── Plan/       PlanGenerator (PDF → topics), PlanScheduler (topological order + day packing)
-│   ├── Present/    slide model and geometry, layouts, PresentationAssistant, PptxWriter (own ZIP + CRC32)
+│   ├── Present/    slide model and geometry, layouts, PresentationAssistant, chat and critic (PresentationEdits),
+│   │               PptxWriter (own ZIP + CRC32), PptxReader (own ZIP + DEFLATE reader, small XML tree)
 │   ├── Review/     SpacedRepetition (SM-2)
 │   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore, TextRecognizer (Apple Vision OCR)
 │   └── Demo/       sample PDF and DemoLLMClient
@@ -55,7 +60,8 @@ android/app/src/main/java/de/maxifrz/lernwerk/
 ├── tutor/          HintLevel, TutorPrompt, TutorSession, demo content
 ├── plan/           PlanGenerator, PlanScheduler
 ├── review/         SpacedRepetition (SM-2)
-├── present/        the same slide model, AI assistant and PptxWriter, SlidePainter for editor, presenting and PDF
+├── present/        the same slide model, AI assistant, chat and critic, PptxWriter and PptxReader, import,
+│                   SlidePainter for editor, presenting and PDF
 ├── data/           JSON repository, Keystore-encrypted API keys, OkHttp transport, settings
 ├── pdf/            PdfRenderer pages, PdfBox text layer, ML Kit OCR, demo PDF
 └── ui/             Jetpack Compose screens in the Quill design, Pip
@@ -73,6 +79,8 @@ Design decisions:
 - **On-device OCR before the cloud.** Apple Vision is free, offline and reads handwriting, so text-only models can help with handwritten notes too. OCR mangles formulas, so vision models still get the image and are told to trust it over the recognized text.
 - **Slides as free elements, layouts only as a starting point.** The AI answers with small layout descriptions (title, bullets, image + text, two columns, quote); the app turns them into freely placed elements, so AI output stays robust and every slide stays editable. Slides are 960 × 540 pt, exactly PowerPoint's widescreen size, so the export needs no conversion.
 - **PowerPoint written by hand.** `PptxWriter` produces Office Open XML directly: native text boxes, shapes, lines and pictures with rotation, bullets and notes pages. The Swift and Kotlin writers produce byte-identical XML; the output is checked with python-pptx and a LibreOffice render.
+- **Edits as data, applied by the app.** Chat and critic do not return a new deck; they return a short list of changes (update texts, replace, insert, move or delete a slide, notes, design, title) that address slides and text boxes by id. The app applies them, skips any whose slide no longer exists instead of guessing, and records one undo step. The model sees the current state with ids before every answer, earlier chat turns only as short summaries.
+- **PowerPoint read by hand, too.** `PptxReader` resolves placeholders through layout and master, theme colors with luminance modifiers, groups, flips and rotation, then fits any slide size into 960 × 540. iOS has no public ZIP API, so the Swift version brings its own ZIP reader and DEFLATE decoder (Apple's Compression framework when available); both readers are tested against the same python-pptx and LibreOffice files.
 - **The model decides content, the app decides time.** The model extracts topics and prerequisites; ordering and scheduling are deterministic Swift code with tests.
 
 ## Building without a Mac
@@ -104,10 +112,10 @@ Free tiers may log prompts. That is fine for school material, less so for privat
 ## Using it
 
 1. **Einstellungen**: create a key at [build.nvidia.com](https://build.nvidia.com), [openrouter.ai](https://openrouter.ai) and/or [aistudio.google.com](https://aistudio.google.com/apikey), paste it in, or enable the demo mode.
-2. **Bibliothek**: import PDFs or photos (or load the demo material) and open one. Sharing a PDF or image to Lernwerk from another app works too.
+2. **Bibliothek**: import PDFs or photos (or load the demo material) and open one. Sharing a PDF or image to Schul-PIP from another app works too.
 3. Use the toolbar at the bottom: Lesen, Stift, Marker, Radierer, and Hilfe to mark a passage.
 4. **Lernplan**: pick materials, exam date and daily study time.
-5. **Präsentation**: pick materials, topic, slide count and talk length; edit the slides, let the AI write speaker notes, present or export.
+5. **Präsentation**: pick materials, topic, slide count and talk length, or import a .pptx or PDF; edit the slides, open "Assistent" to give the chat instructions or let the critic review the talk, present or export.
 6. **Wiederholen**: review the cards created from your help sessions.
 
 ## Android
@@ -120,7 +128,7 @@ The Android version targets tablets (Android 10 or newer) and builds on GitHub A
 
 The artifact `Lernwerk-android-screenshots` contains the main screens rendered on the JVM with Robolectric and Roborazzi, in light and dark.
 
-On Android, Lernwerk shows up under "Teilen" and "Öffnen mit" for PDFs and images from any files app or the gallery. On iOS it appears in the share sheet of Files and other apps; the Photos app only offers apps with a share extension, so the library has an "Aus Fotos" button instead.
+On Android, Schul-PIP shows up under "Teilen" and "Öffnen mit" for PDFs and images from any files app or the gallery. On iOS it appears in the share sheet of Files and other apps; the Photos app only offers apps with a share extension, so the library has an "Aus Fotos" button instead.
 
 ```
 cd android
@@ -136,9 +144,9 @@ xcodebuild test -project Lernwerk.xcodeproj -scheme Lernwerk -destination 'platf
 
 Android: `./gradlew testDebugUnitTest` runs the same logic tests on the JVM plus the screenshot tests.
 
-Without a Mac, the Foundation-only Swift code (LLM types, presentation model, AI assistant, PPTX writer, editor model) was additionally compiled and exercised with the Swift toolchain on Linux before pushing.
+Without a Mac, the Foundation-only Swift code (LLM types, presentation model, AI assistant, chat and critic, PPTX writer and reader with the ZIP/DEFLATE code, editor model) was additionally compiled and exercised with the Swift toolchain on Linux before pushing.
 
-Covered: SM-2 scheduling, prerequisite ordering and day packing, request encoding and response parsing for both API formats (refusals, truncation, rate limits, missing credits, reasoning tags), tolerant JSON extraction with retry, local PDF extraction and scanned-page detection, on-device OCR (real Vision run plus the fallback order), image compression for NIM, prompt construction, demo content.
+Covered: SM-2 scheduling, prerequisite ordering and day packing, request encoding and response parsing for both API formats (refusals, truncation, rate limits, missing credits, reasoning tags), tolerant JSON extraction with retry, local PDF extraction and scanned-page detection, on-device OCR (real Vision run plus the fallback order), image compression for NIM, prompt construction, applying chat and critic changes, PPTX import against python-pptx and LibreOffice files and a round trip through the own writer, demo content.
 
 ## Known limitations
 
@@ -147,6 +155,7 @@ Covered: SM-2 scheduling, prerequisite ordering and day packing, request encodin
 - No iCloud sync; data stays on the device.
 - Exported PowerPoint files use the Work Sans font; on a computer without it, PowerPoint substitutes a similar font. The PDF export embeds it.
 - Slide text boxes do not shrink text automatically; long AI texts can overflow until shortened (the "Kürzen" action helps).
+- PowerPoint import leaves out charts, SmartArt, animations and vector pictures (EMF, SVG); text keeps the style of its first line only. Old .ppt files have to be saved as .pptx first. PDF slides stay pictures; the AI reads their text but can only change them by replacing the slide.
 - Math is rendered as Unicode text, not LaTeX, and on-device OCR often misreads formulas.
 - Study-plan generation is capped at about 22 MB of PDF or 400,000 characters of extracted text per request.
 - The quality of the Socratic tutor depends on the model; small free models give the answer away more often.
