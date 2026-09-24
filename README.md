@@ -12,11 +12,14 @@ Built as a personal study tool for Abitur preparation and as a portfolio project
 | **Context help** | Drag a rectangle around a passage. The app runs on-device OCR (Apple Vision) on it, which also reads your handwriting, and sends the recognized text, the region as an image, the text layer under it, the surrounding page, the matching study-plan topic and your weakest flashcards. |
 | **Hint ladder** | Question → hint → full explanation. The student decides when to escalate; "Sag's mir einfach" is the escape hatch. |
 | **Study plan** | The AI reads the PDFs, splits them into topics with prerequisites and page references; a local scheduler orders and spreads them until the exam date and can reschedule after missed days. |
+| **Presentations** | The AI turns selected materials into a school presentation (layouts, speaker notes, sources with page numbers); a free canvas editor like Keynote (move, resize, rotate, snap guides, undo) with four designs, pictures from photos or material pages, per-slide AI (shorter, simpler, more detail, redesign) and Socratic feedback on the whole talk. Present full screen with notes, timer and laser pointer, or export as PowerPoint (.pptx, fully editable) or PDF. |
 | **Spaced repetition** | Every finished help session is turned into a flashcard and scheduled with SM-2. |
 | **Demo mode** | Bundled sample material and canned answers, so the app can be tried without an API key. |
 | **Share to Lernwerk** | PDFs and images shared from Files or other apps (on Android also from the gallery) land in the library and open right away; photos become one-page PDFs. |
 
 ## Design
+
+The app icon is Pip, generated from the same pixel grid the app draws (`scripts/make-icons.py`): light and dark on iOS, adaptive and themed on Android.
 
 The interface follows **Quill**, a small design system: warm neutrals, a single sage accent, Work Sans for text and the Silkscreen pixel font for labels, in light and dark. The tabs sit in a capsule at the top, the library shows documents as covers like the Files and Books apps, and **Pip**, a pixel cat, walks along the tutor's input bar — it thinks while the model is answering and can be poked or picked up. Tokens and shared components live in `Lernwerk/Theme/`; the fonts are bundled under the SIL Open Font License.
 
@@ -39,18 +42,20 @@ Lernwerk/
 │   ├── LLM/        LLMClient protocol, providers, ClaudeClient, OpenAICompatibleClient, StructuredOutput
 │   ├── Tutor/      HintLevel, TutorPrompt, TutorSession, Flashcard
 │   ├── Plan/       PlanGenerator (PDF → topics), PlanScheduler (topological order + day packing)
+│   ├── Present/    slide model and geometry, layouts, PresentationAssistant, PptxWriter (own ZIP + CRC32)
 │   ├── Review/     SpacedRepetition (SM-2)
 │   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore, TextRecognizer (Apple Vision OCR)
 │   └── Demo/       sample PDF and DemoLLMClient
 ├── Theme/          Quill tokens (colors, fonts) and shared components
 ├── Resources/      bundled fonts (Work Sans, Silkscreen) with their licenses
-└── Views/          Library, Document (PDF canvas, marking overlay), Tutor with Pip, Plan, Review, Settings
+└── Views/          Library, Document (PDF canvas, marking overlay), Tutor with Pip, Plan, Presentation, Review, Settings
 
 android/app/src/main/java/de/maxifrz/lernwerk/
 ├── llm/            the same clients, providers and StructuredOutput in Kotlin, behind an HttpTransport
 ├── tutor/          HintLevel, TutorPrompt, TutorSession, demo content
 ├── plan/           PlanGenerator, PlanScheduler
 ├── review/         SpacedRepetition (SM-2)
+├── present/        the same slide model, AI assistant and PptxWriter, SlidePainter for editor, presenting and PDF
 ├── data/           JSON repository, Keystore-encrypted API keys, OkHttp transport, settings
 ├── pdf/            PdfRenderer pages, PdfBox text layer, ML Kit OCR, demo PDF
 └── ui/             Jetpack Compose screens in the Quill design, Pip
@@ -66,6 +71,8 @@ Design decisions:
 - **JSON from any model.** Claude gets an enforced schema (`output_config.format`). OpenRouter rejects schema requests for models that lack support, so the OpenAI-compatible path puts the schema into the system prompt, parses tolerantly (code fences, reasoning tags, numbers as strings) and retries once with the invalid answer in context.
 - **The cheapest way into a PDF.** Claude reads PDFs natively. For the other providers the app extracts the text itself with PDFKit, labelled with page markers so topics keep exact page numbers. Scanned pages are read on the device with Apple Vision first; only pages that stay unreadable go to OpenRouter's OCR or, on NIM, are sent as page images to vision models.
 - **On-device OCR before the cloud.** Apple Vision is free, offline and reads handwriting, so text-only models can help with handwritten notes too. OCR mangles formulas, so vision models still get the image and are told to trust it over the recognized text.
+- **Slides as free elements, layouts only as a starting point.** The AI answers with small layout descriptions (title, bullets, image + text, two columns, quote); the app turns them into freely placed elements, so AI output stays robust and every slide stays editable. Slides are 960 × 540 pt, exactly PowerPoint's widescreen size, so the export needs no conversion.
+- **PowerPoint written by hand.** `PptxWriter` produces Office Open XML directly: native text boxes, shapes, lines and pictures with rotation, bullets and notes pages. The Swift and Kotlin writers produce byte-identical XML; the output is checked with python-pptx and a LibreOffice render.
 - **The model decides content, the app decides time.** The model extracts topics and prerequisites; ordering and scheduling are deterministic Swift code with tests.
 
 ## Building without a Mac
@@ -100,7 +107,8 @@ Free tiers may log prompts. That is fine for school material, less so for privat
 2. **Bibliothek**: import PDFs or photos (or load the demo material) and open one. Sharing a PDF or image to Lernwerk from another app works too.
 3. Use the toolbar at the bottom: Lesen, Stift, Marker, Radierer, and Hilfe to mark a passage.
 4. **Lernplan**: pick materials, exam date and daily study time.
-5. **Wiederholen**: review the cards created from your help sessions.
+5. **Präsentation**: pick materials, topic, slide count and talk length; edit the slides, let the AI write speaker notes, present or export.
+6. **Wiederholen**: review the cards created from your help sessions.
 
 ## Android
 
@@ -128,6 +136,8 @@ xcodebuild test -project Lernwerk.xcodeproj -scheme Lernwerk -destination 'platf
 
 Android: `./gradlew testDebugUnitTest` runs the same logic tests on the JVM plus the screenshot tests.
 
+Without a Mac, the Foundation-only Swift code (LLM types, presentation model, AI assistant, PPTX writer, editor model) was additionally compiled and exercised with the Swift toolchain on Linux before pushing.
+
 Covered: SM-2 scheduling, prerequisite ordering and day packing, request encoding and response parsing for both API formats (refusals, truncation, rate limits, missing credits, reasoning tags), tolerant JSON extraction with retry, local PDF extraction and scanned-page detection, on-device OCR (real Vision run plus the fallback order), image compression for NIM, prompt construction, demo content.
 
 ## Known limitations
@@ -135,6 +145,8 @@ Covered: SM-2 scheduling, prerequisite ordering and day packing, request encodin
 - In pen mode a finger draws instead of scrolling; switch back to reading mode to scroll.
 - Android: no pinch-to-zoom on pages yet, and ML Kit reads handwriting far worse than Apple Vision; a vision model makes up for it.
 - No iCloud sync; data stays on the device.
+- Exported PowerPoint files use the Work Sans font; on a computer without it, PowerPoint substitutes a similar font. The PDF export embeds it.
+- Slide text boxes do not shrink text automatically; long AI texts can overflow until shortened (the "Kürzen" action helps).
 - Math is rendered as Unicode text, not LaTeX, and on-device OCR often misreads formulas.
 - Study-plan generation is capped at about 22 MB of PDF or 400,000 characters of extracted text per request.
 - The quality of the Socratic tutor depends on the model; small free models give the answer away more often.
