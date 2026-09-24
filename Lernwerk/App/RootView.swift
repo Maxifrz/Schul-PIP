@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case library, plans, review, settings
+    case library, plans, presentations, review, settings
 
     var id: String { rawValue }
 
@@ -10,6 +10,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .library: return "Bibliothek"
         case .plans: return "Lernplan"
+        case .presentations: return "Präsentation"
         case .review: return "Wiederholen"
         case .settings: return "Einstellungen"
         }
@@ -19,6 +20,7 @@ enum AppTab: String, CaseIterable, Identifiable {
 enum Route: Hashable {
     case document(StudyMaterial, startPage: Int?, backTitle: String)
     case plan(StudyPlan)
+    case presentation(String)
 }
 
 struct RootView: View {
@@ -40,6 +42,7 @@ struct RootView: View {
                     switch tab {
                     case .library: LibraryView()
                     case .plans: PlanListView()
+                    case .presentations: PresentationListView()
                     case .review: ReviewView()
                     case .settings: SettingsView()
                     }
@@ -56,6 +59,8 @@ struct RootView: View {
                     DocumentScreen(material: material, startPage: startPage, backTitle: backTitle)
                 case let .plan(plan):
                     PlanDetailView(plan: plan)
+                case let .presentation(id):
+                    PresentationEditorRoute(id: id)
                 }
             }
         }

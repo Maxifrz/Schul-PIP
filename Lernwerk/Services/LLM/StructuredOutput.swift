@@ -35,6 +35,27 @@ enum StructuredOutput {
         try? JSONDecoder().decode(type, from: Data(extractJSON(from: text).utf8))
     }
 
+    /// Like the Decodable version, but with a hand-written parser for answers that need lenient reading.
+    static func complete<T>(
+        request: LLMRequest,
+        client: any LLMClient,
+        parse: (String) -> T?,
+        isValid: (T) -> Bool = { _ in true }
+    ) async throws -> T {
+        let first = try await client.complete(request)
+        if let value = parse(extractJSON(from: first.text)), isValid(value) {
+            return value
+        }
+        var retry = request
+        retry.messages.append(LLMMessage(role: .assistant, content: [.text(first.text)]))
+        retry.messages.append(LLMMessage(role: .user, content: [.text(retryInstruction)]))
+        let second = try await client.complete(retry)
+        guard let value = parse(extractJSON(from: second.text)), isValid(value) else {
+            throw LLMError.invalidResponse
+        }
+        return value
+    }
+
     static func complete<T: Decodable>(
         _ type: T.Type,
         request: LLMRequest,

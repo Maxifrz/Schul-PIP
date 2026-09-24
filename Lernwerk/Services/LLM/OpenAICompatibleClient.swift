@@ -103,7 +103,7 @@ struct OpenAICompatibleClient: LLMClient {
 
     /// All suggested models reason before answering, which takes minutes on free tiers; only the study plan needs that depth.
     static func wantsFastAnswer(_ request: LLMRequest) -> Bool {
-        request.purpose != .studyPlan
+        !request.purpose.needsDepth
     }
 
     /// Not every hosted model enforces JSON schemas (OpenRouter rejects the request instead), so the schema goes into the prompt.
