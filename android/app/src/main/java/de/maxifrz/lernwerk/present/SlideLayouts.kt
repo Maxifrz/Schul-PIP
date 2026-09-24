@@ -33,12 +33,15 @@ data class SlideDraft(
     val sourcePages: List<Int> = emptyList(),
 )
 
+/** A picture for a layout: its media file name and width / height. */
+data class PlacedImage(val name: String, val aspect: Float)
+
 /** Turns layouts into freely editable elements; after this a slide is just a list of objects. */
 object SlideLayouts {
     private const val MARGIN = 64f
     private const val CONTENT_WIDTH = SlideSize.WIDTH - 2 * MARGIN
 
-    fun build(draft: SlideDraft, image: String? = null): List<SlideElement> = when (draft.layout) {
+    fun build(draft: SlideDraft, image: PlacedImage? = null): List<SlideElement> = when (draft.layout) {
         SlideLayout.TITLE -> listOfNotNull(
             text(draft.title, 80f, 150f, 800f, 150f, 52f, bold = true, align = TextAlign.CENTER, anchor = TextAnchor.BOTTOM),
             SlideElement(kind = ElementKind.SHAPE, x = 450f, y = 322f, width = 60f, height = 6f, shape = ShapeType.RECT, fill = "accent"),
@@ -79,8 +82,12 @@ object SlideLayouts {
         SlideElement(kind = ElementKind.SHAPE, x = MARGIN, y = 128f, width = 56f, height = 5f, shape = ShapeType.RECT, fill = "accent"),
     )
 
-    private fun imageOrPlaceholder(image: String?, x: Float, y: Float, w: Float, h: Float) = if (image != null) {
-        SlideElement(kind = ElementKind.IMAGE, x = x, y = y, width = w, height = h, image = image)
+    private fun imageOrPlaceholder(image: PlacedImage?, x: Float, y: Float, w: Float, h: Float) = if (image != null) {
+        // Pictures keep their aspect ratio: fitted into the box and centered.
+        val scale = minOf(w, h * image.aspect)
+        val fw = scale
+        val fh = scale / image.aspect
+        SlideElement(kind = ElementKind.IMAGE, x = x + (w - fw) / 2, y = y + (h - fh) / 2, width = fw, height = fh, image = image.name)
     } else {
         SlideElement(kind = ElementKind.SHAPE, x = x, y = y, width = w, height = h, shape = ShapeType.ROUNDED, fill = "surface")
     }

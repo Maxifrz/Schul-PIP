@@ -7,6 +7,7 @@ import de.maxifrz.lernwerk.llm.LlmPurpose
 import de.maxifrz.lernwerk.llm.OpenAiCompatibleClient
 import de.maxifrz.lernwerk.plan.MaterialDocument
 import de.maxifrz.lernwerk.present.ElementKind
+import de.maxifrz.lernwerk.present.PlacedImage
 import de.maxifrz.lernwerk.present.PptxWriter
 import de.maxifrz.lernwerk.present.Presentation
 import de.maxifrz.lernwerk.present.PresentationAssistant
@@ -14,6 +15,7 @@ import de.maxifrz.lernwerk.present.PresentationPrompt
 import de.maxifrz.lernwerk.present.ShapeType
 import de.maxifrz.lernwerk.present.Slide
 import de.maxifrz.lernwerk.present.SlideElement
+import de.maxifrz.lernwerk.present.SlideGeometry
 import de.maxifrz.lernwerk.present.SlideLayout
 import de.maxifrz.lernwerk.present.SlideLayouts
 import de.maxifrz.lernwerk.present.SlideTheme
@@ -60,6 +62,44 @@ class PresentationTest {
     }
 
     @Test
+    fun resizeKeepsTheOppositeCorner() {
+        val base = SlideElement(kind = ElementKind.SHAPE, x = 100f, y = 100f, width = 200f, height = 100f, rotation = 30f)
+        val anchor = SlideGeometry.corner(base, SlideGeometry.Corner.TOP_LEFT)
+        val (tx, ty) = base.toSlide(260f, 150f)
+        val resized = SlideGeometry.resize(base, SlideGeometry.Corner.BOTTOM_RIGHT, tx, ty, keepAspect = false)
+        assertEquals(260f, resized.width, 0.01f)
+        assertEquals(150f, resized.height, 0.01f)
+        val after = SlideGeometry.corner(resized, SlideGeometry.Corner.TOP_LEFT)
+        assertEquals(anchor.first, after.first, 0.01f)
+        assertEquals(anchor.second, after.second, 0.01f)
+
+        val image = base.copy(kind = ElementKind.IMAGE, rotation = 0f)
+        val scaled = SlideGeometry.resize(image, SlideGeometry.Corner.BOTTOM_RIGHT, 500f, 150f, keepAspect = true)
+        assertEquals(2f, scaled.width / scaled.height, 0.001f)
+        // Never collapses to nothing.
+        assertEquals(SlideGeometry.MIN_SIZE, SlideGeometry.resize(base.copy(rotation = 0f), SlideGeometry.Corner.BOTTOM_RIGHT, 0f, 0f, false).width, 0.01f)
+    }
+
+    @Test
+    fun linesRotateAndSnap() {
+        val line = SlideElement(kind = ElementKind.SHAPE, x = 100f, y = 90f, width = 200f, height = 20f, shape = ShapeType.ARROW)
+        val moved = SlideGeometry.moveLineEnd(line, start = false, px = 100f, py = 300f)
+        assertEquals(90f, moved.rotation, 0.01f)
+        assertEquals(200f, moved.width, 0.01f)
+        val (sx, sy) = moved.toSlide(0f, moved.height / 2)
+        assertEquals(100f, sx, 0.01f)
+        assertEquals(100f, sy, 0.01f)
+
+        val box = SlideElement(kind = ElementKind.SHAPE, x = 380f, y = 200f, width = 200f, height = 100f)
+        assertEquals(0f, SlideGeometry.rotation(box, 482f, 0f), 0.01f)
+        assertEquals(90f, SlideGeometry.rotation(box, 800f, 252f), 0.01f)
+
+        val snap = SlideGeometry.snap(box.copy(x = 377f), emptyList(), 6f)
+        assertEquals(3f, snap.dx, 0.01f)
+        assertEquals(listOf(480f), snap.verticalGuides)
+    }
+
+    @Test
     fun deckParsingIsLenient() {
         val deck = PresentationPrompt.parseDeck(
             """{"title":"T","slides":[{"layout":"bullets","title":"A","bullets":["x",""," y "],"imagePage":"0","sourcePages":["2",3]},{"layout":"UNKNOWN","title":""},{"layout":"QUOTE","quote":"Q"}]}""",
@@ -87,7 +127,7 @@ class PresentationTest {
             minutes = 10,
             themeId = SlideTheme.CHALK.id,
             openDocument = { FakeDocument(listOf(text, text)) },
-            pageImage = { material, page -> requested += material to page; "page-$page.png" },
+            pageImage = { material, page -> requested += material to page; PlacedImage("page-$page.png", 0.75f) },
         )
         val request = client.requests.single()
         assertEquals(LlmPurpose.Presentation, request.purpose)
@@ -99,7 +139,11 @@ class PresentationTest {
         assertEquals("Ableiten", presentation.title)
         assertEquals("kreide", presentation.themeId)
         assertEquals(listOf(0 to 2), requested)
-        assertEquals("page-2.png", presentation.slides[1].elements.single { it.kind == ElementKind.IMAGE }.image)
+        val picture = presentation.slides[1].elements.single { it.kind == ElementKind.IMAGE }
+        assertEquals("page-2.png", picture.image)
+        // Fitted into the 400 × 340 box with the page's aspect ratio.
+        assertEquals(0.75f, picture.width / picture.height, 0.001f)
+        assertEquals(340f, picture.height, 0.01f)
         // An image layout without a page falls back to bullets.
         assertTrue(presentation.slides[2].elements.none { it.kind == ElementKind.IMAGE || it.shape == ShapeType.ROUNDED && it.kind == ElementKind.SHAPE })
         assertEquals("m1", presentation.slides[1].sources.single().materialId)

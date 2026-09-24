@@ -16,6 +16,19 @@ import de.maxifrz.lernwerk.data.StudyPlan
 import de.maxifrz.lernwerk.tutor.DemoLlmClient
 import de.maxifrz.lernwerk.tutor.TutorContext
 import de.maxifrz.lernwerk.tutor.TutorSession
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import de.maxifrz.lernwerk.present.PresentationAssistant
+import de.maxifrz.lernwerk.present.SlidePainter
+import de.maxifrz.lernwerk.present.SlideTheme
+import de.maxifrz.lernwerk.ui.AppState
+import de.maxifrz.lernwerk.ui.LocalSlidePainter
+import de.maxifrz.lernwerk.ui.PresentScreen
+import de.maxifrz.lernwerk.ui.PresentationCreateScreen
+import de.maxifrz.lernwerk.ui.PresentationEditorScreen
+import androidx.compose.foundation.background
 import de.maxifrz.lernwerk.ui.QuillTheme
 import de.maxifrz.lernwerk.ui.RootScreen
 import de.maxifrz.lernwerk.ui.TutorPanel
@@ -40,7 +53,7 @@ class ScreenshotTest {
     private val app get() = ApplicationProvider.getApplicationContext<LernwerkApp>()
 
     private fun root() {
-        compose.setContent { QuillTheme { RootScreen(app.repository, app.settings, MutableStateFlow(null)) } }
+        compose.setContent { QuillTheme { RootScreen(app.repository, app.settings, app.presentations, MutableStateFlow(null)) } }
     }
 
     @Test
@@ -96,6 +109,85 @@ class ScreenshotTest {
         compose.onNodeWithText("Antwort zeigen").performClick()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/screenshots/review.png")
+    }
+
+    private fun demoDeck() = runBlocking {
+        PresentationAssistant(DemoLlmClient(0)).generate(
+            listOf(PresentationAssistant.Material("m", "Demo", byteArrayOf(1))), "", 6, 5, SlideTheme.QUILL.id, { null }, { _, _ -> null },
+        )
+    }
+
+    private fun withApp(content: @Composable (AppState) -> Unit) {
+        compose.setContent {
+            QuillTheme {
+                val context = LocalContext.current
+                val state = remember { AppState(app.repository, app.settings, app.presentations) }
+                CompositionLocalProvider(LocalSlidePainter provides remember { SlidePainter(context) }) { content(state) }
+            }
+        }
+    }
+
+    @Test
+    fun presentations() {
+        val deck = demoDeck()
+        app.presentations.add(deck)
+        app.presentations.add(deck.copy(id = "zwei", title = "Kreide-Design", themeId = SlideTheme.CHALK.id))
+        root()
+        compose.onNodeWithText("Präsentation").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/presentations.png")
+    }
+
+    @Test
+    fun presentationEditor() {
+        val deck = demoDeck()
+        app.presentations.add(deck)
+        withApp { PresentationEditorScreen(it, deck.id) }
+        compose.onNodeWithText("4").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/editor.png")
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun presentationEditorDarkWithChalk() {
+        val deck = demoDeck().copy(themeId = SlideTheme.CHALK.id)
+        app.presentations.add(deck)
+        withApp { PresentationEditorScreen(it, deck.id) }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/editor-dark.png")
+    }
+
+    @Test
+    fun presenting() {
+        val deck = demoDeck()
+        app.presentations.add(deck)
+        compose.mainClock.autoAdvance = false
+        withApp { PresentScreen(it, deck.id, 3) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText("Notizen").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.onRoot().captureRoboImage("build/screenshots/present.png")
+    }
+
+    @Test
+    fun presentationCreate() {
+        withApp { PresentationCreateScreen(it) }
+        compose.onRoot().captureRoboImage("build/screenshots/presentation-create.png")
+    }
+
+    @Test
+    fun appIcon() {
+        val context = ApplicationProvider.getApplicationContext<LernwerkApp>()
+        compose.setContent {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.width(216.dp).background(androidx.compose.ui.graphics.Color(0xFFFAF9F6)),
+            )
+        }
+        compose.onRoot().captureRoboImage("build/screenshots/app-icon.png")
+        check(context.packageName.isNotEmpty())
     }
 
     @Test

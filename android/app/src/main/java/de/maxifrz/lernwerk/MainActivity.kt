@@ -12,6 +12,7 @@ import androidx.core.content.IntentCompat
 import androidx.lifecycle.lifecycleScope
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import de.maxifrz.lernwerk.data.AppSettings
+import de.maxifrz.lernwerk.data.PresentationStore
 import de.maxifrz.lernwerk.data.Repository
 import de.maxifrz.lernwerk.ui.QuillTheme
 import de.maxifrz.lernwerk.ui.RootScreen
@@ -23,6 +24,8 @@ class LernwerkApp : Application() {
         private set
     lateinit var settings: AppSettings
         private set
+    lateinit var presentations: PresentationStore
+        private set
 
     /** Material that was just shared to the app and should open right away. */
     val openRequests = MutableStateFlow<String?>(null)
@@ -32,6 +35,7 @@ class LernwerkApp : Application() {
         PDFBoxResourceLoader.init(this)
         repository = Repository(this)
         settings = AppSettings(this)
+        presentations = PresentationStore(this)
     }
 }
 
@@ -42,7 +46,7 @@ class MainActivity : ComponentActivity() {
         val app = application as LernwerkApp
         setContent {
             QuillTheme {
-                RootScreen(app.repository, app.settings, app.openRequests)
+                RootScreen(app.repository, app.settings, app.presentations, app.openRequests)
             }
         }
         if (savedInstanceState == null) importShared(intent)

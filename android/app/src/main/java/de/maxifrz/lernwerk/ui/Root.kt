@@ -43,7 +43,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.maxifrz.lernwerk.data.AppSettings
+import de.maxifrz.lernwerk.data.PresentationStore
 import de.maxifrz.lernwerk.data.Repository
+import de.maxifrz.lernwerk.present.SlidePainter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,6 +54,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 enum class AppTab(val title: String) {
     LIBRARY("Bibliothek"),
     PLANS("Lernplan"),
+    PRESENT("Präsentation"),
     REVIEW("Wiederholen"),
     SETTINGS("Einstellungen"),
 }
@@ -60,10 +63,13 @@ sealed interface Route {
     data class Document(val materialId: String, val startPage: Int?, val backTitle: String) : Route
     data class Plan(val planId: String) : Route
     data object CreatePlan : Route
+    data class PresentationEditor(val presentationId: String) : Route
+    data object CreatePresentation : Route
+    data class Present(val presentationId: String, val startSlide: Int) : Route
 }
 
 /** What screens need to reach the app: data, settings and navigation. */
-class AppState(val repository: Repository, val settings: AppSettings) {
+class AppState(val repository: Repository, val settings: AppSettings, val presentations: PresentationStore) {
     val stack = mutableStateListOf<Route>()
 
     /** For work that has to outlive the screen that started it, like turning a finished help session into a card. */
@@ -76,11 +82,24 @@ class AppState(val repository: Repository, val settings: AppSettings) {
     fun pop() {
         if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
     }
+
+    /** Swaps the current screen, e.g. from the creation form to the new presentation. */
+    fun replace(route: Route) {
+        pop()
+        push(route)
+    }
 }
 
 @Composable
-fun RootScreen(repository: Repository, settings: AppSettings, openRequests: MutableStateFlow<String?>) {
-    val app = remember { AppState(repository, settings) }
+fun RootScreen(
+    repository: Repository,
+    settings: AppSettings,
+    presentations: PresentationStore,
+    openRequests: MutableStateFlow<String?>,
+) {
+    val app = remember { AppState(repository, settings, presentations) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val painter = remember { SlidePainter(context) }
     var tab by rememberSaveable { mutableStateOf(AppTab.LIBRARY) }
     val colors = Quill.colors
 
@@ -94,6 +113,8 @@ fun RootScreen(repository: Repository, settings: AppSettings, openRequests: Muta
     }
 
     BackHandler(enabled = app.stack.isNotEmpty()) { app.pop() }
+
+    androidx.compose.runtime.CompositionLocalProvider(LocalSlidePainter provides painter) {
 
     Box(
         Modifier
@@ -123,6 +144,7 @@ fun RootScreen(repository: Repository, settings: AppSettings, openRequests: Muta
                             when (it) {
                                 AppTab.LIBRARY -> LibraryScreen(app)
                                 AppTab.PLANS -> PlanListScreen(app)
+                                AppTab.PRESENT -> PresentationListScreen(app)
                                 AppTab.REVIEW -> ReviewScreen(app)
                                 AppTab.SETTINGS -> SettingsScreen(app)
                             }
@@ -132,8 +154,12 @@ fun RootScreen(repository: Repository, settings: AppSettings, openRequests: Muta
                 is Route.Document -> DocumentScreen(app, route)
                 is Route.Plan -> PlanDetailScreen(app, route.planId)
                 Route.CreatePlan -> PlanCreateScreen(app)
+                is Route.PresentationEditor -> PresentationEditorScreen(app, route.presentationId)
+                Route.CreatePresentation -> PresentationCreateScreen(app)
+                is Route.Present -> PresentScreen(app, route.presentationId, route.startSlide)
             }
         }
+    }
     }
 }
 

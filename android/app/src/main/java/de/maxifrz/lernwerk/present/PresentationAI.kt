@@ -274,7 +274,7 @@ class PresentationAssistant(private val client: LlmClient) {
         minutes: Int,
         themeId: String,
         openDocument: suspend (ByteArray) -> MaterialDocument?,
-        pageImage: suspend (materialIndex: Int, page: Int) -> String?,
+        pageImage: suspend (materialIndex: Int, page: Int) -> PlacedImage?,
     ): Presentation {
         val content = PlanGenerator.content(
             materials.map { PlanGenerator.Input(it.title, it.pdf) },
@@ -341,7 +341,8 @@ class PresentationAssistant(private val client: LlmClient) {
             jsonSchema = PresentationPrompt.slideSchema,
         )
         val draft = StructuredOutput.complete(request, client, PresentationPrompt::parseSlideDraft)
-        val image = slide.elements.firstOrNull { it.kind == ElementKind.IMAGE }?.image
+        val image = slide.elements.firstOrNull { it.kind == ElementKind.IMAGE && it.image != null }
+            ?.let { PlacedImage(it.image!!, it.width / maxOf(1f, it.height)) }
         val layout = if (draft.layout == SlideLayout.IMAGE_TEXT && image == null) SlideLayout.BULLETS else draft.layout
         return slide.copy(
             elements = SlideLayouts.build(draft.copy(layout = layout), image),
