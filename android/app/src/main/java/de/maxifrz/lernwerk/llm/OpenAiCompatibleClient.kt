@@ -109,7 +109,7 @@ class OpenAiCompatibleClient(
         }
 
         /** All suggested models reason before answering, which takes minutes on free tiers; only the study plan needs that depth. */
-        fun wantsFastAnswer(request: LlmRequest) = request.purpose != LlmPurpose.StudyPlan
+        fun wantsFastAnswer(request: LlmRequest) = !request.purpose.needsDepth
 
         /** Not every hosted model enforces JSON schemas (OpenRouter rejects the request instead), so the schema goes into the prompt. */
         fun systemPrompt(request: LlmRequest): String {

@@ -18,14 +18,24 @@ sealed interface LlmPurpose {
     data class Tutor(val level: HintLevel) : LlmPurpose
     data object Flashcard : LlmPurpose
     data object StudyPlan : LlmPurpose
+    data object Presentation : LlmPurpose
+    data object SlideRewrite : LlmPurpose
+    data object SpeakerNotes : LlmPurpose
+    data object PresentationFeedback : LlmPurpose
 
     /** Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence. */
     val timeoutSeconds: Long
         get() = when (this) {
             is Tutor -> 75
             Flashcard -> 90
-            StudyPlan -> 600
+            StudyPlan, Presentation -> 600
+            SlideRewrite -> 90
+            SpeakerNotes -> 180
+            PresentationFeedback -> 120
         }
+
+    /** Reading whole materials benefits from reasoning; everything else is answered while the student waits. */
+    val needsDepth: Boolean get() = this == StudyPlan || this == Presentation
 }
 
 enum class LlmEffort(val wire: String) { LOW("low"), MEDIUM("medium"), HIGH("high") }
