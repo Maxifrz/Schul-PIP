@@ -81,14 +81,7 @@ enum PresentationEdits {
     "afterSlideId": { "type": "string" },
     "position": { "type": "integer" },
     "texts": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "text": { "type": "string" } }, "required": ["id", "text"] } },
-    "slide": { "type": "object", "properties": {
-      "layout": { "type": "string", "enum": ["TITLE", "SECTION", "BULLETS", "IMAGE_TEXT", "TWO_COLUMNS", "QUOTE"] },
-      "title": { "type": "string" }, "subtitle": { "type": "string" },
-      "bullets": { "type": "array", "items": { "type": "string" } },
-      "leftTitle": { "type": "string" }, "left": { "type": "array", "items": { "type": "string" } },
-      "rightTitle": { "type": "string" }, "right": { "type": "array", "items": { "type": "string" } },
-      "quote": { "type": "string" }, "attribution": { "type": "string" }, "notes": { "type": "string" }
-    } },
+    "slide": { "type": "object", "properties": { \(PresentationPrompt.slideContentProperties) } },
     "notes": { "type": "string" },
     "theme": { "type": "string", "enum": ["quill", "nacht", "kreide", "papier"] },
     "title": { "type": "string" }
@@ -97,7 +90,7 @@ enum PresentationEdits {
     private static let changeRules = """
     Changes use these actions; slides and text boxes are addressed by the ids shown in the presentation:
     - update_texts: slideId and texts (every changed text box with its id and the complete new text; bullets are lines separated by \\n)
-    - replace_slide: slideId and slide (a new layout with content; keeps the slide's picture for IMAGE_TEXT)
+    - replace_slide: slideId and slide (a new slide type with content; keeps the slide's picture for IMAGE_TEXT and IMAGE_FULL)
     - insert_slide: afterSlideId ("" for the very beginning) and slide
     - delete_slide: slideId
     - move_slide: slideId and position (new 1-based position)
@@ -105,8 +98,9 @@ enum PresentationEdits {
     - set_theme: theme (quill, nacht, kreide or papier)
     - rename: title
     Every change gets a short German summary of what it does. Keep slides short (at most 5 bullets of at most
-    8 words), details go into the speaker notes. Write German, math in Unicode, never LaTeX.
-    """
+    8 words), details go into the speaker notes. Titles state the slide's message. Prefer a visual slide type
+    over bullets when the content allows it. Write German, math in Unicode, never LaTeX.
+    """ + "\n\n" + PresentationPrompt.layoutGuide
 
     static let chatSystem = """
     You edit a German school presentation together with the student who wrote it. They tell you what to change;
@@ -277,8 +271,8 @@ enum PresentationEdits {
                     ok = true
                 }
             case .insertSlide:
-                if var draft = change.draft {
-                    if draft.layout == .imageText { draft.layout = .bullets }
+                if let draft = change.draft {
+                    // A new slide has no picture, so picture layouts fall back in build().
                     let slide = Slide(elements: SlideLayouts.build(draft), notes: draft.notes)
                     let after = slides.firstIndex { $0.id == change.afterSlideID } ?? -1
                     slides.insert(slide, at: after + 1)
@@ -321,10 +315,8 @@ enum PresentationEdits {
     static func rebuild(_ slide: Slide, _ draft: SlideDraft) -> Slide {
         let image = slide.elements.first { $0.kind == .image && $0.image != nil }
             .map { PlacedImage(name: $0.image!, aspect: $0.width / max(1, $0.height)) }
-        var adjusted = draft
-        if adjusted.layout == .imageText, image == nil { adjusted.layout = .bullets }
         var result = slide
-        result.elements = SlideLayouts.build(adjusted, image: image)
+        result.elements = SlideLayouts.build(draft, image: image)
         if !draft.notes.isBlank { result.notes = draft.notes }
         return result
     }

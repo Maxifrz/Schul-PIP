@@ -842,9 +842,9 @@ private fun MaterialPageDialog(app: AppState, onDismiss: () -> Unit, onPick: (St
             val chosen = material
             if (chosen == null) {
                 PixelCaption("Material wählen", Modifier.padding(bottom = 10.dp))
-                if (app.repository.materials.isEmpty()) QText("Die Bibliothek ist noch leer.", work(15f), colors.faint)
+                if (app.repository.library.isEmpty()) QText("Die Bibliothek ist noch leer.", work(15f), colors.faint)
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                    app.repository.materials.forEach { item ->
+                    app.repository.library.forEach { item ->
                         QText(item.title, work(15.5f), colors.ink, Modifier.fillMaxWidth().pressable {
                             material = item
                             page = 1

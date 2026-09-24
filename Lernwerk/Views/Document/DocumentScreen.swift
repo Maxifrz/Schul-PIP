@@ -62,6 +62,7 @@ struct DocumentScreen: View {
             }
         }
         .task {
+            material.lastOpenedAt = .now
             loadDocument()
         }
     }

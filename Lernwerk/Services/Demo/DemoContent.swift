@@ -151,6 +151,8 @@ struct DemoLLMClient: LLMClient {
             text = DemoContent.flashcardJSON
         case .studyPlan:
             text = DemoContent.planJSON
+        case .presentationOutline:
+            text = DemoPresentation.outlineJSON
         case .presentation:
             text = DemoPresentation.deckJSON
         case .slideRewrite:

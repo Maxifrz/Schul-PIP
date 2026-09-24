@@ -20,6 +20,7 @@ enum LLMPurpose: Equatable {
     case tutor(HintLevel)
     case flashcard
     case studyPlan
+    case presentationOutline
     case presentation
     case slideRewrite
     case speakerNotes
@@ -32,7 +33,7 @@ enum LLMPurpose: Equatable {
         switch self {
         case .tutor: return 75
         case .flashcard, .slideRewrite: return 90
-        case .studyPlan, .presentation, .presentationCritique: return 600
+        case .studyPlan, .presentationOutline, .presentation, .presentationCritique: return 600
         case .speakerNotes: return 180
         case .presentationFeedback, .presentationChat: return 120
         }
@@ -40,7 +41,7 @@ enum LLMPurpose: Equatable {
 
     /// Reading whole materials and critical review benefit from reasoning; the rest is answered while the student waits.
     var needsDepth: Bool {
-        self == .studyPlan || self == .presentation || self == .presentationCritique
+        self == .studyPlan || self == .presentationOutline || self == .presentation || self == .presentationCritique
     }
 }
 

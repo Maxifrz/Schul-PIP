@@ -677,7 +677,8 @@ private struct TextEditOverlay: View {
 private struct MaterialPagePicker: View {
     let onPick: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \StudyMaterial.createdAt) private var materials: [StudyMaterial]
+    @Query(sort: \StudyMaterial.createdAt) private var allMaterials: [StudyMaterial]
+    private var materials: [StudyMaterial] { allMaterials.filter { !$0.isTrashed } }
     @State private var material: StudyMaterial?
     @State private var document: PDFDocument?
     @State private var page = 1

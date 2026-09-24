@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasSetTextAction
@@ -28,6 +30,8 @@ import androidx.compose.ui.platform.LocalContext
 import de.maxifrz.lernwerk.present.PresentationAssistant
 import de.maxifrz.lernwerk.present.SlidePainter
 import de.maxifrz.lernwerk.present.SlideTheme
+import de.maxifrz.lernwerk.present.SlideLayout
+import de.maxifrz.lernwerk.present.SlideLayouts
 import de.maxifrz.lernwerk.ui.AppState
 import de.maxifrz.lernwerk.ui.LocalSlidePainter
 import de.maxifrz.lernwerk.ui.PresentScreen
@@ -214,6 +218,80 @@ class ScreenshotTest {
         compose.onNodeWithText("Notizen").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onRoot().captureRoboImage("build/screenshots/present.png")
+    }
+
+    /** Every demo slide and every editor preset on one sheet, light and in the Kreide design, for a visual check. */
+    @Test
+    fun slideTypes() {
+        val deck = demoDeck()
+        val painter = SlidePainter(app)
+        val slides = deck.slides + SlideLayout.entries.filter { it != SlideLayout.BLANK }.map { SlideLayouts.preset(it) }
+        val width = 480
+        val height = 270
+        val columns = 4
+        val rows = (slides.size + columns - 1) / columns
+        for ((theme, file) in listOf(SlideTheme.QUILL to "slide-types.png", SlideTheme.CHALK to "slide-types-chalk.png")) {
+            val sheet = android.graphics.Bitmap.createBitmap(columns * (width + 12), rows * (height + 12), android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(sheet)
+            canvas.drawColor(android.graphics.Color.rgb(200, 200, 200))
+            slides.forEachIndexed { index, slide ->
+                canvas.drawBitmap(painter.bitmap(slide, theme, width, emptyMap()), (index % columns) * (width + 12f), (index / columns) * (height + 12f), null)
+            }
+            java.io.File("build/screenshots").mkdirs()
+            java.io.FileOutputStream("build/screenshots/$file").use { sheet.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        java.io.File("build/pptx").mkdirs()
+        java.io.File("build/pptx/demo.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(deck.copy(slides = slides)) { null })
+        // Compared with the iOS layouts, which must produce the same slides.
+        val parity = de.maxifrz.lernwerk.present.Presentation(id = "p", title = "P", slides = slides.map { it.copy(notes = "") })
+        java.io.File("build/pptx/parity.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(parity) { null })
+    }
+
+    private fun libraryFixture() {
+        val repository = app.repository
+        // PdfDocument does not work under Robolectric; the tiles show their placeholder cover.
+        val pdf = byteArrayOf(1)
+        val bio = repository.createFolder("Biologie", null)!!
+        repository.createFolder("Klausur Q2", bio.id)
+        repository.createFolder("Mathe", null)
+        repository.createFolder("Deutsch", null)
+        val now = System.currentTimeMillis()
+        listOf(
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Kettenregel Übungen", subject = "Mathe", isFavorite = true, lastOpenedAt = now, lastOpenedPage = 3),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Faust I – Szenenanalyse", subject = "Deutsch", lastOpenedAt = now - 1000),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Photosynthese Skript", subject = "Biologie", folderId = bio.id, isFavorite = true),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Arbeitsblatt Weimarer Republik", subject = "Geschichte"),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Alte Mitschrift", deletedAt = now - 3L * 24 * 60 * 60 * 1000),
+        ).forEach { material ->
+            repository.pdfFile(material).writeBytes(pdf)
+            repository.materials += material
+        }
+    }
+
+    @Test
+    fun library() {
+        libraryFixture()
+        root()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library.png")
+        compose.onNodeWithText("Auswählen").performClick()
+        compose.onAllNodesWithText("Kettenregel Übungen").onLast().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-select.png")
+        compose.onNodeWithText("Fertig").performClick()
+        compose.onAllNodesWithText("Biologie", substring = false).onLast().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-folder.png")
+    }
+
+    @Test
+    fun libraryTrash() {
+        libraryFixture()
+        root()
+        compose.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToNode(androidx.compose.ui.test.hasText("Papierkorb (1)"))
+        compose.onNodeWithText("Papierkorb (1)").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-trash.png")
     }
 
     @Test

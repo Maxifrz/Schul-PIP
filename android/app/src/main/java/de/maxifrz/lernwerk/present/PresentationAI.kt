@@ -24,32 +24,95 @@ import kotlinx.serialization.json.jsonObject
 object PresentationPrompt {
     val deckSystem = """
         You help a German upper-secondary student build a school presentation (Referat) from their own material.
-        Good school slides: one idea per slide, at most 5 bullets of at most 8 words each, no full sentences on slides,
-        the details go into the speaker notes. Start with a title slide, use section slides to structure longer talks,
-        end with a summary slide (Fazit) and a sources slide listing the materials and pages used.
-        Only use content that is actually in the material; never invent facts, numbers or quotes.
+        Only use content that is actually in the material; never invent facts, numbers, dates or quotes.
         Write everything in German. Write math with Unicode characters, never LaTeX.
+
+        What makes a good school talk:
+        - A red thread: open with a hook (a question, a surprising fact or a problem from the material), give the
+          context, build up the core in logical steps, show at least one concrete example, answer the opening question
+          in the summary (Fazit), end with the sources.
+        - One message per slide. The slide title states that message as a short claim (at most 10 words), not a topic
+          label: "Enzyme senken die Aktivierungsenergie" instead of "Enzyme".
+        - Slides support the talk, they do not replace it: at most 5 bullets of at most 8 words, no full sentences on
+          slides. Everything else goes into the speaker notes.
+        - Show instead of list. Pick the slide type that fits the content:
+          numbers → BIG_NUMBER (one striking number) or CHART (several numbers from the material);
+          dates or eras → TIMELINE; steps, cycles or cause and effect → PROCESS;
+          three or four parallel aspects → CARDS; a comparison → TWO_COLUMNS or TABLE;
+          a figure, diagram or table page in the material → IMAGE_TEXT or IMAGE_FULL;
+          a key question or thesis → STATEMENT; a literal definition or quote → QUOTE.
+          Use BULLETS only when nothing else fits, never more than two BULLETS slides in a row.
+        - Charts only with numbers that literally appear in the material, with their unit.
+        - Speaker notes are what the student says: full spoken sentences that explain the slide and lead over to the
+          next one.
+    """.trimIndent()
+
+    /** Slide types as the model may choose them; BLANK is for the editor only. */
+    private val layoutNames = SlideLayout.entries.filter { it != SlideLayout.BLANK }.joinToString(", ") { "\"${it.name}\"" }
+
+    val layoutGuide = """
+        Slide types and the fields they use:
+        - TITLE: title, subtitle ("Name · Fach · Datum" if unknown)
+        - SECTION: title of a new part, optional subtitle
+        - STATEMENT: title is one striking claim or question, optional subtitle
+        - BULLETS: title, 2–5 bullets
+        - IMAGE_TEXT: title, 2–4 bullets, imageMaterial and imagePage of a material page with a figure
+        - IMAGE_FULL: title, subtitle as caption, imageMaterial and imagePage of a material page with a figure
+        - TWO_COLUMNS: title, leftTitle, left, rightTitle, right
+        - CARDS: title, 3–4 items with title (2–4 words), text (at most 12 words) and icon (one fitting emoji)
+        - PROCESS: title, 3–5 items with title (the step) and text (at most 10 words)
+        - TIMELINE: title, 3–6 items with title (date or era) and text (at most 10 words)
+        - BIG_NUMBER: title, value (the number with unit, e.g. "70 %"), subtitle explaining it
+        - CHART: title, chart with kind (BAR for categories, LINE for development over time), labels, values (numbers
+          only) and unit, subtitle naming the source
+        - TABLE: title, table as rows of cells, first row is the header, at most 5 columns and 7 rows
+        - QUOTE: quote taken literally from the material, attribution
     """.trimIndent()
 
     fun deckInstructions(topic: String, slideCount: Int, minutes: Int): String = """
-        Create a presentation from the material above.
+        Plan a presentation from the material above. First only the outline: the red thread, not the finished slides.
         Topic or focus: ${topic.ifBlank { "the main content of the material" }}
         Number of slides: about $slideCount (title and sources slides included)
-        Talk length: $minutes minutes, so each slide's notes should take about ${maxOf(15, minutes * 60 / maxOf(1, slideCount))} seconds to say.
+        Talk length: $minutes minutes
 
-        For every slide choose a layout:
-        - TITLE: title and subtitle (e.g. name, subject, date placeholder "Name · Fach")
-        - SECTION: a short title for a new part of the talk
-        - BULLETS: title and 2–5 bullets
-        - IMAGE_TEXT: title, 2–4 bullets and a page of the material that shows a figure, diagram or table worth showing (imageMaterial, imagePage)
-        - TWO_COLUMNS: title, leftTitle/left bullets, rightTitle/right bullets, for comparisons
-        - QUOTE: a short quote or definition taken literally from the material, with attribution
-        Only use IMAGE_TEXT when that page really contains a figure. Give every slide speaker notes in full German sentences
-        and the material (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
+        Give the whole talk's core message (thesis) and, for every slide, its role in the talk (hook, context, core,
+        example, comparison, summary, sources …), its message as one German sentence, the slide type that shows it
+        best, what goes on it (facts, numbers with units, dates, the material page of a figure) and the material
+        (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
+    """.trimIndent() + "\n\n" + layoutGuide
+
+    fun slidesInstructions(slideCount: Int, minutes: Int): String = """
+        Now write the finished slides for this outline, in the same order. Use the planned slide type unless the
+        material does not give enough for it. Each title is the slide's message, shortened to at most 10 words.
+        Keep texts short, move details into the notes. Each slide's notes should take about
+        ${maxOf(15, minutes * 60 / maxOf(1, slideCount))} seconds to say and lead over to the next slide.
+        Give every slide its sourceMaterial and sourcePages.
     """.trimIndent()
 
-    private val slideProperties = """
-        "layout": { "type": "string", "enum": ["TITLE", "SECTION", "BULLETS", "IMAGE_TEXT", "TWO_COLUMNS", "QUOTE"] },
+    val outlineSchema: JsonObject = Json.parseToJsonElement(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "thesis": { "type": "string" },
+            "slides": { "type": "array", "items": { "type": "object", "properties": {
+              "role": { "type": "string" },
+              "message": { "type": "string" },
+              "layout": { "type": "string", "enum": [$layoutNames] },
+              "content": { "type": "string" },
+              "sourceMaterial": { "type": "integer" },
+              "sourcePages": { "type": "array", "items": { "type": "integer" } }
+            }, "required": ["role", "message", "layout", "content"] } }
+          },
+          "required": ["title", "thesis", "slides"]
+        }
+        """,
+    ).jsonObject
+
+    /** The fields of one slide's content; shared with the chat and the critic, which cannot place pictures. */
+    val slideContentProperties = """
+        "layout": { "type": "string", "enum": [$layoutNames] },
         "title": { "type": "string" },
         "subtitle": { "type": "string" },
         "bullets": { "type": "array", "items": { "type": "string" } },
@@ -57,11 +120,25 @@ object PresentationPrompt {
         "left": { "type": "array", "items": { "type": "string" } },
         "rightTitle": { "type": "string" },
         "right": { "type": "array", "items": { "type": "string" } },
+        "items": { "type": "array", "items": { "type": "object", "properties": {
+          "title": { "type": "string" }, "text": { "type": "string" }, "icon": { "type": "string" }
+        }, "required": ["title"] } },
+        "value": { "type": "string" },
+        "chart": { "type": "object", "properties": {
+          "kind": { "type": "string", "enum": ["BAR", "LINE"] },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "values": { "type": "array", "items": { "type": "number" } },
+          "unit": { "type": "string" }
+        }, "required": ["kind", "labels", "values"] },
+        "table": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
         "quote": { "type": "string" },
         "attribution": { "type": "string" },
+        "notes": { "type": "string" }
+    """
+
+    private val slideProperties = slideContentProperties + """,
         "imageMaterial": { "type": "integer" },
         "imagePage": { "type": "integer" },
-        "notes": { "type": "string" },
         "sourceMaterial": { "type": "integer" },
         "sourcePages": { "type": "array", "items": { "type": "integer" } }
     """
@@ -129,9 +206,11 @@ object PresentationPrompt {
     // Redesigning one slide
 
     fun redesignRequest(slide: Slide): String = buildString {
-        appendLine("Redesign this slide: pick the layout that fits its content best (TITLE, SECTION, BULLETS, IMAGE_TEXT, TWO_COLUMNS or QUOTE)")
-        appendLine("and rewrite the content for it, following the rules for good school slides. Keep the speaker notes' meaning.")
-        appendLine("Only choose IMAGE_TEXT if the slide already has a picture.")
+        appendLine("Redesign this slide: pick the slide type that shows its content best and rewrite the content for it,")
+        appendLine("following the rules for good school slides. Keep the message and the speaker notes' meaning.")
+        appendLine("Only choose IMAGE_TEXT or IMAGE_FULL if the slide already has a picture, CHART only with numbers that are on the slide.")
+        appendLine()
+        appendLine(layoutGuide)
         appendLine()
         append(outline(slide, includeNotes = true))
     }
@@ -211,13 +290,21 @@ object PresentationPrompt {
 
     fun parseSlideDraft(text: String): SlideDraft = parseSlide(Json.parseToJsonElement(text).jsonObject) ?: error("no slide")
 
-    private fun parseSlide(obj: JsonObject): SlideDraft? {
+    fun parseSlide(obj: JsonObject): SlideDraft? {
         val layout = obj.string("layout")?.uppercase()?.let { name -> SlideLayout.entries.firstOrNull { it.name == name } }
             ?: SlideLayout.BULLETS
+        val chart = (obj["chart"] as? JsonObject)?.let { chart ->
+            ChartDraft(
+                kind = if (chart.string("kind")?.uppercase() == "LINE") ChartKind.LINE else ChartKind.BAR,
+                labels = strings(chart["labels"]),
+                values = (chart["values"] as? JsonArray)?.mapNotNull { number(it) } ?: emptyList(),
+                unit = chart.string("unit")?.trim() ?: "",
+            )
+        }
         val draft = SlideDraft(
             layout = layout,
-            title = obj.string("title") ?: "",
-            subtitle = obj.string("subtitle") ?: "",
+            title = obj.string("title")?.trim() ?: "",
+            subtitle = obj.string("subtitle")?.trim() ?: "",
             bullets = strings(obj["bullets"]),
             leftTitle = obj.string("leftTitle") ?: "",
             left = strings(obj["left"]),
@@ -225,14 +312,58 @@ object PresentationPrompt {
             right = strings(obj["right"]),
             quote = obj.string("quote") ?: "",
             attribution = obj.string("attribution") ?: "",
+            items = (obj["items"] as? JsonArray)?.mapNotNull { item ->
+                val entry = item as? JsonObject ?: return@mapNotNull null
+                DraftItem(entry.string("title")?.trim() ?: "", entry.string("text")?.trim() ?: "", entry.string("icon")?.trim() ?: "")
+                    .takeIf { it.title.isNotEmpty() || it.text.isNotEmpty() }
+            } ?: emptyList(),
+            value = obj.string("value")?.trim() ?: "",
+            chart = chart,
+            table = (obj["table"] as? JsonArray)?.mapNotNull { row -> (row as? JsonArray)?.let { cells(it) }?.takeIf { it.any(String::isNotBlank) } } ?: emptyList(),
             imageMaterial = obj["imageMaterial"].intOrNull(),
             imagePage = obj["imagePage"].intOrNull()?.takeIf { it > 0 },
             notes = obj.string("notes") ?: "",
             sourceMaterial = obj["sourceMaterial"].intOrNull(),
             sourcePages = (obj["sourcePages"] as? JsonArray)?.mapNotNull { it.intOrNull() } ?: emptyList(),
         )
-        val hasContent = draft.title.isNotBlank() || draft.bullets.isNotEmpty() || draft.quote.isNotBlank() || draft.left.isNotEmpty()
+        val hasContent = draft.title.isNotBlank() || draft.bullets.isNotEmpty() || draft.quote.isNotBlank() || draft.left.isNotEmpty() ||
+            draft.items.isNotEmpty() || draft.table.isNotEmpty() || draft.chart != null
         return draft.takeIf { hasContent }
+    }
+
+    /** Numbers may come as strings, with a German decimal comma or a unit attached. */
+    private fun number(element: JsonElement): Double? {
+        val primitive = element as? JsonPrimitive ?: return null
+        primitive.content.toDoubleOrNull()?.let { return it }
+        val cleaned = primitive.content.replace(Regex("[^0-9,.\\-−]"), "").replace("−", "-")
+        val normalized = if (cleaned.contains(',')) cleaned.replace(".", "").replace(',', '.') else cleaned
+        return normalized.toDoubleOrNull()
+    }
+
+    private fun cells(row: JsonArray): List<String> = row.map { (it as? JsonPrimitive)?.content?.trim().orEmpty() }
+
+    /** The outline as the model's own earlier answer, compact, for the second step. */
+    fun outlineText(outline: Outline): String = buildString {
+        appendLine("Title: ${outline.title}")
+        appendLine("Thesis: ${outline.thesis}")
+        outline.slides.forEachIndexed { index, slide ->
+            appendLine("${index + 1}. [${slide.layout}] (${slide.role}) ${slide.message}")
+            if (slide.content.isNotBlank()) appendLine("   ${slide.content.trim()}")
+        }
+    }
+
+    data class Outline(val title: String, val thesis: String, val slides: List<OutlineSlide>)
+
+    data class OutlineSlide(val role: String, val message: String, val layout: String, val content: String)
+
+    fun parseOutline(text: String): Outline {
+        val root = Json.parseToJsonElement(text).jsonObject
+        val slides = (root["slides"] as? JsonArray ?: error("missing slides")).mapNotNull { item ->
+            val obj = item as? JsonObject ?: return@mapNotNull null
+            OutlineSlide(obj.string("role") ?: "", obj.string("message")?.trim() ?: "", obj.string("layout") ?: "", obj.string("content") ?: "")
+                .takeIf { it.message.isNotEmpty() || it.content.isNotBlank() }
+        }
+        return Outline(root.string("title") ?: "", root.string("thesis") ?: "", slides)
     }
 
     private fun strings(element: JsonElement?): List<String> =
@@ -260,13 +391,27 @@ object PresentationPrompt {
     }
 }
 
+/** Applies the critic's important findings (high and medium) without asking; minor ones are left to the student. */
+fun autoApply(presentation: Presentation, critique: Critique): Presentation {
+    val changes = critique.findings.filter { it.severity != Finding.Severity.LOW }.flatMap { it.changes }
+    return PresentationEdits.apply(presentation, changes).presentation
+}
+
 /** The AI features of the presentation tab; all of them are ordinary LLM requests through the chosen provider. */
 class PresentationAssistant(private val client: LlmClient) {
     class Material(val id: String, val title: String, val pdf: ByteArray)
 
+    /** The steps of building a deck, for the progress shown while the student waits. */
+    enum class Stage(val label: String) {
+        OUTLINE("Die KI plant den roten Faden …"),
+        SLIDES("Die KI schreibt die Folien …"),
+        REVIEW("Der Kritiker prüft und verbessert …"),
+    }
+
     /**
-     * Builds a whole presentation from the chosen materials. [pageImage] renders a material page and stores it as a
-     * media file, returning its name.
+     * Builds a whole presentation from the chosen materials in three steps: an outline with one message per slide,
+     * then the slides for that outline in the same conversation, then (with [review]) the critic's important findings
+     * applied automatically. [pageImage] renders a material page and stores it as a media file.
      */
     suspend fun generate(
         materials: List<Material>,
@@ -276,6 +421,8 @@ class PresentationAssistant(private val client: LlmClient) {
         themeId: String,
         openDocument: suspend (ByteArray) -> MaterialDocument?,
         pageImage: suspend (materialIndex: Int, page: Int) -> PlacedImage?,
+        review: Boolean = true,
+        onStage: (Stage) -> Unit = {},
     ): Presentation {
         val content = PlanGenerator.content(
             materials.map { PlanGenerator.Input(it.title, it.pdf) },
@@ -283,37 +430,61 @@ class PresentationAssistant(private val client: LlmClient) {
             PresentationPrompt.deckInstructions(topic, slideCount, minutes),
             openDocument,
         )
+        onStage(Stage.OUTLINE)
+        val outlineRequest = LlmRequest(
+            purpose = LlmPurpose.PresentationOutline,
+            system = PresentationPrompt.deckSystem,
+            messages = listOf(LlmMessage(LlmRole.USER, content)),
+            maxTokens = 8000,
+            effort = LlmEffort.HIGH,
+            jsonSchema = PresentationPrompt.outlineSchema,
+        )
+        val outline = StructuredOutput.complete(outlineRequest, client, PresentationPrompt::parseOutline) { it.slides.isNotEmpty() }
+
+        onStage(Stage.SLIDES)
         val request = LlmRequest(
             purpose = LlmPurpose.Presentation,
             system = PresentationPrompt.deckSystem,
-            messages = listOf(LlmMessage(LlmRole.USER, content)),
+            messages = listOf(
+                LlmMessage(LlmRole.USER, content),
+                LlmMessage(LlmRole.ASSISTANT, listOf(LlmContent.Text(PresentationPrompt.outlineText(outline)))),
+                LlmMessage(LlmRole.USER, listOf(LlmContent.Text(PresentationPrompt.slidesInstructions(outline.slides.size, minutes)))),
+            ),
             maxTokens = 16000,
-            effort = LlmEffort.HIGH,
+            effort = LlmEffort.MEDIUM,
             jsonSchema = PresentationPrompt.deckSchema,
         )
         val deck = StructuredOutput.complete(request, client, PresentationPrompt::parseDeck) { it.slides.isNotEmpty() }
         val slides = deck.slides.map { draft ->
-            val image = if (draft.layout == SlideLayout.IMAGE_TEXT) {
+            val image = if (draft.layout == SlideLayout.IMAGE_TEXT || draft.layout == SlideLayout.IMAGE_FULL) {
                 val index = draft.imageMaterial ?: draft.sourceMaterial ?: 0
                 draft.imagePage?.takeIf { index in materials.indices }?.let { pageImage(index, it) }
             } else {
                 null
             }
-            val layout = if (draft.layout == SlideLayout.IMAGE_TEXT && image == null) SlideLayout.BULLETS else draft.layout
             val materialId = draft.sourceMaterial?.let { materials.getOrNull(it)?.id } ?: materials.singleOrNull()?.id
             Slide(
-                elements = SlideLayouts.build(draft.copy(layout = layout), image),
+                elements = SlideLayouts.build(draft, image),
                 notes = draft.notes,
                 sources = draft.sourcePages.map { SourceRef(materialId, it) },
             )
         }
-        return Presentation(
-            title = deck.title.ifBlank { topic.ifBlank { "Präsentation" } },
+        var presentation = Presentation(
+            title = deck.title.ifBlank { outline.title.ifBlank { topic.ifBlank { "Präsentation" } } },
             themeId = themeId,
             slides = slides,
             materialIds = materials.map { it.id },
             minutes = minutes,
         )
+        if (review) {
+            onStage(Stage.REVIEW)
+            // The critic improves the draft before the student sees it; a failed review keeps the draft.
+            presentation = runCatching {
+                val critique = PresentationCritic(client).critique(presentation, content.dropLast(1))
+                autoApply(presentation, critique)
+            }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else presentation }
+        }
+        return presentation
     }
 
     /** New texts for the slide's text boxes; ids the model dropped keep their old text. */
@@ -344,9 +515,8 @@ class PresentationAssistant(private val client: LlmClient) {
         val draft = StructuredOutput.complete(request, client, PresentationPrompt::parseSlideDraft)
         val image = slide.elements.firstOrNull { it.kind == ElementKind.IMAGE && it.image != null }
             ?.let { PlacedImage(it.image!!, it.width / maxOf(1f, it.height)) }
-        val layout = if (draft.layout == SlideLayout.IMAGE_TEXT && image == null) SlideLayout.BULLETS else draft.layout
         return slide.copy(
-            elements = SlideLayouts.build(draft.copy(layout = layout), image),
+            elements = SlideLayouts.build(draft, image),
             notes = draft.notes.ifBlank { slide.notes },
         )
     }

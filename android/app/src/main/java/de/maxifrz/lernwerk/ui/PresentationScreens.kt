@@ -257,13 +257,15 @@ fun PresentationCreateScreen(app: AppState) {
     val repository = app.repository
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val materials = repository.materials.sortedBy { it.createdAt }
+    val materials = repository.library.sortedBy { it.createdAt }
     var selection by remember { mutableStateOf(setOf<String>()) }
     var topic by remember { mutableStateOf("") }
     var slideCount by remember { mutableIntStateOf(10) }
     var minutes by remember { mutableIntStateOf(10) }
     var themeId by remember { mutableStateOf(SlideTheme.QUILL.id) }
     var isGenerating by remember { mutableStateOf(false) }
+    var stage by remember { mutableStateOf(PresentationAssistant.Stage.OUTLINE) }
+    var review by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     fun generate() {
@@ -292,6 +294,8 @@ fun PresentationCreateScreen(app: AppState) {
                         val name = app.presentations.saveMedia(ImageCompressor.encode(bitmap, 85), "jpg")
                         PlacedImage(name, bitmap.width.toFloat() / bitmap.height)
                     },
+                    review = review,
+                    onStage = { stage = it },
                 )
                 app.presentations.add(presentation)
                 app.replace(Route.PresentationEditor(presentation.id))
@@ -371,7 +375,10 @@ fun PresentationCreateScreen(app: AppState) {
                     QuillRow("Design", verticalPadding = 10.dp) {
                         ThemePicker(themeId) { themeId = it }
                     }
-                    Footnote("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
+                    QuillRow("Kritiker überarbeitet automatisch", verticalPadding = 10.dp) {
+                        QuillSwitch(review) { review = it }
+                    }
+                    Footnote("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
                     errorMessage?.let { Notice(it, modifier = Modifier.padding(top = 20.dp)) }
                 }
             }
@@ -389,8 +396,12 @@ fun PresentationCreateScreen(app: AppState) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     PulsingDots(6.dp)
-                    QText("Die KI baut deine Folien …", work(16f, FontWeight.Medium, tracking = -0.16f), colors.ink)
-                    QText("Je nach Umfang dauert das bis zu zwei Minuten.", work(12.5f), colors.faint)
+                    QText(stage.label, work(16f, FontWeight.Medium, tracking = -0.16f), colors.ink)
+                    QText(
+                        "Schritt ${stage.ordinal + 1} von ${if (review) 3 else 2} · je nach Umfang einige Minuten",
+                        work(12.5f),
+                        colors.faint,
+                    )
                 }
             }
         }

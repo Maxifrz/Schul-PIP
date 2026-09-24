@@ -48,17 +48,40 @@ final class PresentationTests: XCTestCase {
         XCTAssertEqual(element.fontSize, 24)
     }
 
-    func testGenerationAddsPageImagesAndFallsBack() async throws {
-        let reply = #"{"title":"Ableiten","slides":[{"layout":"TITLE","title":"Ableiten","notes":"Hallo","sourceMaterial":0,"sourcePages":[1]},{"layout":"IMAGE_TEXT","title":"Graph","bullets":["Steigung"],"imagePage":2,"notes":"Seht her","sourceMaterial":0},{"layout":"IMAGE_TEXT","title":"Ohne Bild","bullets":["a"],"notes":"n"}]}"#
-        let client = SlideScriptedClient([reply])
+    func testGenerationPlansWritesAndReviews() async throws {
+        let outline = #"{"title":"Ableiten","thesis":"t","slides":[{"role":"title","message":"Ableiten","layout":"TITLE","content":""},{"role":"core","message":"Der Graph zeigt die Steigung","layout":"IMAGE_TEXT","content":"S. 2"}]}"#
+        let reply = #"{"title":"Ableiten","slides":[{"layout":"TITLE","title":"Ableiten","notes":"Hallo","sourceMaterial":0,"sourcePages":[1]},{"layout":"IMAGE_TEXT","title":"Graph","bullets":["Steigung"],"imagePage":2,"notes":"Seht her","sourceMaterial":0},{"layout":"IMAGE_FULL","title":"Ohne Bild","bullets":["a"],"notes":"n"}]}"#
+        let critique = #"{"verdict":"V","findings":[{"severity":"high","problem":"P","suggestion":"S","changes":[{"action":"rename","title":"Ableiten verstehen","summary":"s"}]},{"severity":"low","problem":"Q","suggestion":"S","changes":[{"action":"set_theme","theme":"nacht","summary":"s"}]}]}"#
+        let client = SlideScriptedClient([outline, reply, critique])
         let presentation = try await PresentationAssistant(client: client).generate(
-            content: [.text("material")], materialIDs: ["m1"], topic: "", slideCount: 8, minutes: 10, themeID: "kreide",
+            content: [.text("material"), .text("instructions")], materialIDs: ["m1"], topic: "", slideCount: 8, minutes: 10, themeID: "kreide",
             pageImage: { _, page in PlacedImage(name: "page-\(page).png", aspect: 0.75) }
         )
-        XCTAssertEqual(client.requests.first?.purpose, .presentation)
+        XCTAssertEqual(client.requests.map(\.purpose), [.presentationOutline, .presentation, .presentationCritique])
+        XCTAssertEqual(client.requests[1].messages.map(\.role), [.user, .assistant, .user])
+        // High findings are applied, low ones are left to the student.
+        XCTAssertEqual(presentation.title, "Ableiten verstehen")
         XCTAssertEqual(presentation.themeId, "kreide")
         XCTAssertEqual(presentation.slides[1].elements.first { $0.kind == .image }?.image, "page-2.png")
         XCTAssertFalse(presentation.slides[2].elements.contains { $0.kind == .image })
+        XCTAssertTrue(presentation.slides[2].elements.contains { $0.bullets && $0.text == "a" })
+    }
+
+    func testVisualLayoutsAreDrawnFromTheContent() {
+        let bars = SlideLayouts.chart(ChartDraft(kind: .bar, labels: ["A", "B"], values: [10, 20], unit: "%"))
+        let rects = bars.filter { $0.kind == .shape && $0.shape == .rect }
+        XCTAssertEqual(rects.count, 2)
+        XCTAssertEqual(rects[1].height / rects[0].height, 2, accuracy: 0.01)
+        XCTAssertTrue(bars.contains { $0.text == "20 %" })
+        XCTAssertEqual(SlideLayouts.resolve(SlideDraft(layout: .cards, title: "T", items: [DraftItem(title: "Nur")]), image: nil).layout, .bullets)
+        XCTAssertEqual(SlideLayouts.formatNumber(1500), "1.500")
+        XCTAssertLessThan(SlideLayouts.fitSize(String(repeating: "Lichtreaktion ", count: 12), 832, 90, 36, 20, bold: true), 36)
+        for layout in SlideLayout.allCases {
+            for element in SlideLayouts.preset(layout).elements {
+                XCTAssertLessThanOrEqual(element.x + element.width, SlideSize.width + 0.01)
+                XCTAssertLessThanOrEqual(element.y + element.height, SlideSize.height + 0.01)
+            }
+        }
     }
 
     func testNotesUseSlideNumbersFromOne() async throws {
@@ -71,7 +94,8 @@ final class PresentationTests: XCTestCase {
     func testDemoAnswersEveryFeature() async throws {
         let assistant = PresentationAssistant(client: DemoLLMClient())
         let deck = try await assistant.generate(content: [], materialIDs: ["m"], topic: "", slideCount: 6, minutes: 5, themeID: "quill") { _, _ in nil }
-        XCTAssertEqual(deck.slides.count, 6)
+        // The demo critic inserts an exercise slide before the summary.
+        XCTAssertEqual(deck.slides.count, 11)
         let feedback = try await assistant.feedback(deck)
         XCTAssertTrue(feedback.contains("Fragen"))
     }

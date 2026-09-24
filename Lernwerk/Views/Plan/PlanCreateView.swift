@@ -5,7 +5,8 @@ struct PlanCreateView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var settings: AppSettings
-    @Query(sort: \StudyMaterial.createdAt) private var materials: [StudyMaterial]
+    @Query(sort: \StudyMaterial.createdAt) private var allMaterials: [StudyMaterial]
+    private var materials: [StudyMaterial] { allMaterials.filter { !$0.isTrashed } }
 
     @State private var selection = Set<UUID>()
     @State private var title = "Prüfungsvorbereitung"

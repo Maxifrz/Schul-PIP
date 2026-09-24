@@ -14,6 +14,24 @@ data class StudyMaterial(
     val title: String,
     val createdAt: Long = System.currentTimeMillis(),
     val lastOpenedPage: Int = 0,
+    /** The folder it lives in, null for the top level of the library. */
+    val folderId: String? = null,
+    /** One of [Subjects.all], or empty. */
+    val subject: String = "",
+    val isFavorite: Boolean = false,
+    val lastOpenedAt: Long? = null,
+    /** Set while it is in the trash; the trash empties itself after [Library.TRASH_DAYS]. */
+    val deletedAt: Long? = null,
+) {
+    val isTrashed: Boolean get() = deletedAt != null
+}
+
+@Serializable
+data class Folder(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val parentId: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
 )
 
 @Serializable
@@ -80,6 +98,7 @@ data class InkStroke(val tool: InkTool, val points: List<Float>)
 @Serializable
 data class AppData(
     val materials: List<StudyMaterial> = emptyList(),
+    val folders: List<Folder> = emptyList(),
     val plans: List<StudyPlan> = emptyList(),
     val cards: List<ReviewCard> = emptyList(),
 )
