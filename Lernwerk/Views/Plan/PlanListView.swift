@@ -29,6 +29,7 @@ struct PlanListView: View {
                             .buttonStyle(QuillPressStyle())
                             .contextMenu {
                                 Button(role: .destructive) {
+                                    PlanNotifications.remove(plan)
                                     modelContext.delete(plan)
                                 } label: {
                                     Label("Löschen", systemImage: "trash")

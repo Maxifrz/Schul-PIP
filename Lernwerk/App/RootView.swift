@@ -25,7 +25,9 @@ enum Route: Hashable {
 
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var cards: [ReviewCard]
+    @Query private var plans: [StudyPlan]
     @State private var tab: AppTab = .library
     @State private var path = NavigationPath()
 
@@ -66,6 +68,10 @@ struct RootView: View {
         }
         .tint(Quill.accent)
         .onOpenURL(perform: importShared)
+        .onChange(of: scenePhase) { _, phase in
+            // Reminders are scheduled two weeks ahead; opening the app moves the window along.
+            if phase == .active { PlanNotifications.updateAll(plans) }
+        }
     }
 
     /// A PDF or image shared to Lernwerk from Files, Photos or another app lands in the library and opens.
