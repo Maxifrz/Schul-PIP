@@ -91,12 +91,18 @@ private struct TopTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             if sizeClass == .regular {
-                Text("SCHUL-PIP")
-                    .font(.pixel(13))
-                    .tracking(1.8)
-                    .foregroundStyle(Quill.accent)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    PipLogo(pixel: 2.5)
+                    Text("SCHUL-PIP")
+                        .font(.pixel(13))
+                        .tracking(1.8)
+                        .foregroundStyle(Quill.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // On the iPad the capsule keeps its natural width and only the margins beside it give way.
             HStack(spacing: 2) {
                 ForEach(AppTab.allCases) { tab in
                     tabButton(tab)
@@ -105,6 +111,8 @@ private struct TopTabBar: View {
             .padding(4)
             .background(Quill.surface, in: Capsule())
             .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+            .fixedSize(horizontal: sizeClass == .regular, vertical: false)
+            .layoutPriority(1)
             if sizeClass == .regular {
                 Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
             }
@@ -122,6 +130,7 @@ private struct TopTabBar: View {
                 Text(tab.title)
                     .font(.work(sizeClass == .regular ? 14 : 12.5, .medium))
                     .tracking(-0.14)
+                    .lineLimit(1)
                 if tab == .review, reviewBadge > 0 {
                     Text("\(reviewBadge)")
                         .font(.pixel(9))
