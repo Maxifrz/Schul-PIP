@@ -135,6 +135,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
         LaunchedEffect(Unit) { app.pop() }
         return
     }
+    LaunchedEffect(material.id) { repository.markOpened(material.id) }
     val file = remember(material.id) { repository.pdfFile(material) }
     val colors = Quill.colors
     val scope = rememberCoroutineScope()

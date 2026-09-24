@@ -42,16 +42,31 @@ class Repository(context: Context) {
     private val writeLock = Mutex()
     private val resolver = context.contentResolver
 
+    /** Page texts of the materials, read once for the search. */
+    private val texts = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+
+    /** Every material, including those in the trash; screens use [library] and [trash]. */
     val materials = mutableStateListOf<StudyMaterial>()
+    val folders = mutableStateListOf<Folder>()
     val plans = mutableStateListOf<StudyPlan>()
     val cards = mutableStateListOf<ReviewCard>()
 
     init {
         val data = runCatching { json.decodeFromString(AppData.serializer(), dataFile.readText()) }.getOrNull() ?: AppData()
-        materials += data.materials
+        val now = System.currentTimeMillis()
+        val (expired, kept) = data.materials.partition { Library.isExpired(it, now) }
+        materials += kept
+        folders += data.folders
         plans += data.plans
         cards += data.cards
+        expired.forEach(::deleteFiles)
+        if (expired.isNotEmpty()) save()
     }
+
+    /** Materials outside the trash. */
+    val library: List<StudyMaterial> get() = materials.filter { !it.isTrashed }
+
+    val trash: List<StudyMaterial> get() = materials.filter { it.isTrashed }.sortedByDescending { it.deletedAt }
 
     fun pdfFile(material: StudyMaterial) = File(materialsDir, "${material.id}.pdf")
 
@@ -60,7 +75,7 @@ class Repository(context: Context) {
     // Materials
 
     /** PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF. */
-    suspend fun importFile(uri: Uri): StudyMaterial = withContext(Dispatchers.IO) {
+    suspend fun importFile(uri: Uri, folderId: String? = null): StudyMaterial = withContext(Dispatchers.IO) {
         val name = displayName(uri)
         val title = name?.substringBeforeLast('.')?.ifBlank { null } ?: "Dokument"
         val type = resolver.getType(uri) ?: ""
@@ -75,9 +90,9 @@ class Repository(context: Context) {
                     if (longest > 3000) decoder.setTargetSampleSize((longest + 2999) / 3000)
                 }
             }.getOrElse { throw IOException("Das Bild lässt sich nicht öffnen.") }
-            return@withContext savePdf(imagePdf(bitmap), title)
+            return@withContext savePdf(imagePdf(bitmap), title, folderId)
         }
-        val material = StudyMaterial(title = title)
+        val material = StudyMaterial(title = title, folderId = folderId)
         val input = resolver.openInputStream(uri) ?: throw IOException("Die Datei lässt sich nicht öffnen.")
         input.use { source -> pdfFile(material).outputStream().use { source.copyTo(it) } }
         withContext(Dispatchers.Main) { materials += material }
@@ -96,21 +111,130 @@ class Repository(context: Context) {
         return ByteArrayOutputStream().also { document.writeTo(it); document.close() }.toByteArray()
     }
 
-    suspend fun savePdf(data: ByteArray, title: String): StudyMaterial = withContext(Dispatchers.IO) {
-        val material = StudyMaterial(title = title)
+    suspend fun savePdf(data: ByteArray, title: String, folderId: String? = null): StudyMaterial = withContext(Dispatchers.IO) {
+        val material = StudyMaterial(title = title, folderId = folderId)
         pdfFile(material).writeBytes(data)
         withContext(Dispatchers.Main) { materials += material }
         save()
         material
     }
 
+    /** Deletes for good, with the PDF and its ink; the trash uses this. */
     fun deleteMaterial(material: StudyMaterial) {
         materials.removeAll { it.id == material.id }
+        deleteFiles(material)
+        save()
+    }
+
+    private fun deleteFiles(material: StudyMaterial) {
+        texts.remove(material.id)
         scope.launch {
             pdfFile(material).delete()
             inkFile(material.id).delete()
+            textFile(material.id).delete()
         }
+    }
+
+    private fun updateMaterials(ids: Collection<String>, change: (StudyMaterial) -> StudyMaterial) {
+        var changed = false
+        for (index in materials.indices) {
+            if (materials[index].id in ids) {
+                materials[index] = change(materials[index])
+                changed = true
+            }
+        }
+        if (changed) save()
+    }
+
+    fun moveToTrash(ids: Collection<String>) {
+        val now = System.currentTimeMillis()
+        updateMaterials(ids) { it.copy(deletedAt = now) }
+    }
+
+    /** Back where it was, or to the top level if its folder is gone. */
+    fun restore(material: StudyMaterial) {
+        val folderExists = folders.any { it.id == material.folderId }
+        updateMaterials(listOf(material.id)) { it.copy(deletedAt = null, folderId = if (folderExists) it.folderId else null) }
+    }
+
+    fun emptyTrash() {
+        trash.forEach(::deleteFiles)
+        materials.removeAll { it.isTrashed }
         save()
+    }
+
+    fun rename(material: StudyMaterial, title: String) {
+        val trimmed = title.trim().ifEmpty { return }
+        updateMaterials(listOf(material.id)) { it.copy(title = trimmed) }
+    }
+
+    fun move(ids: Collection<String>, folderId: String?) = updateMaterials(ids) { it.copy(folderId = folderId) }
+
+    fun setSubject(ids: Collection<String>, subject: String) = updateMaterials(ids) { it.copy(subject = subject) }
+
+    fun setFavorite(ids: Collection<String>, favorite: Boolean) = updateMaterials(ids) { it.copy(isFavorite = favorite) }
+
+    fun markOpened(materialId: String) = updateMaterials(listOf(materialId)) { it.copy(lastOpenedAt = System.currentTimeMillis()) }
+
+    // Folders
+
+    fun createFolder(name: String, parentId: String?): Folder? {
+        val trimmed = name.trim().ifEmpty { return null }
+        val folder = Folder(name = trimmed, parentId = parentId)
+        folders += folder
+        save()
+        return folder
+    }
+
+    fun renameFolder(folder: Folder, name: String) {
+        val trimmed = name.trim().ifEmpty { return }
+        val index = folders.indexOfFirst { it.id == folder.id }
+        if (index < 0) return
+        folders[index] = folders[index].copy(name = trimmed)
+        save()
+    }
+
+    fun moveFolder(folder: Folder, parentId: String?) {
+        if (parentId != null && parentId in Library.descendants(folders, folder.id)) return
+        val index = folders.indexOfFirst { it.id == folder.id }
+        if (index < 0) return
+        folders[index] = folders[index].copy(parentId = parentId)
+        save()
+    }
+
+    /** Removes the folder and its subfolders; the materials inside go to the trash and come back to the top level. */
+    fun deleteFolder(folder: Folder) {
+        val removed = Library.descendants(folders, folder.id)
+        val now = System.currentTimeMillis()
+        for (index in materials.indices) {
+            val material = materials[index]
+            if (material.folderId in removed) {
+                materials[index] = material.copy(folderId = null, deletedAt = material.deletedAt ?: now)
+            }
+        }
+        folders.removeAll { it.id in removed }
+        save()
+    }
+
+    // Text for the search
+
+    private fun textFile(materialId: String) = File(materialsDir, "$materialId.text.json")
+
+    private val textSerializer = ListSerializer(String.serializer())
+
+    /** Page texts already read, for searching without waiting. */
+    fun cachedPageTexts(material: StudyMaterial): List<String>? = texts[material.id]
+
+    /** Reads the text of every material not read yet, from the disk cache or the PDF; call off the main thread. */
+    fun indexTexts(materials: List<StudyMaterial>) {
+        for (material in materials) {
+            if (texts.containsKey(material.id)) continue
+            val cached = runCatching { json.decodeFromString(textSerializer, textFile(material.id).readText()) }.getOrNull()
+            val pages = cached ?: de.maxifrz.lernwerk.pdf.PdfText.pageTexts(pdfFile(material))?.also { pages ->
+                runCatching { writeAtomically(textFile(material.id), json.encodeToString(textSerializer, pages)) }
+            } ?: emptyList()
+            texts[material.id] = pages
+        }
     }
 
     fun setLastOpenedPage(materialId: String, page: Int) {
@@ -176,7 +300,7 @@ class Repository(context: Context) {
 
     /** Snapshots on the calling (main) thread, writes in the background. */
     fun save() {
-        val data = AppData(materials.toList(), plans.toList(), cards.toList())
+        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList())
         scope.launch {
             writeLock.withLock { writeAtomically(dataFile, json.encodeToString(AppData.serializer(), data)) }
         }

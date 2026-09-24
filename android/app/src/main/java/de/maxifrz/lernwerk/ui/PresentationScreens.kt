@@ -257,7 +257,7 @@ fun PresentationCreateScreen(app: AppState) {
     val repository = app.repository
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val materials = repository.materials.sortedBy { it.createdAt }
+    val materials = repository.library.sortedBy { it.createdAt }
     var selection by remember { mutableStateOf(setOf<String>()) }
     var topic by remember { mutableStateOf("") }
     var slideCount by remember { mutableIntStateOf(10) }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasSetTextAction
@@ -243,6 +245,53 @@ class ScreenshotTest {
         // Compared with the iOS layouts, which must produce the same slides.
         val parity = de.maxifrz.lernwerk.present.Presentation(id = "p", title = "P", slides = slides.map { it.copy(notes = "") })
         java.io.File("build/pptx/parity.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(parity) { null })
+    }
+
+    private fun libraryFixture() {
+        val repository = app.repository
+        // PdfDocument does not work under Robolectric; the tiles show their placeholder cover.
+        val pdf = byteArrayOf(1)
+        val bio = repository.createFolder("Biologie", null)!!
+        repository.createFolder("Klausur Q2", bio.id)
+        repository.createFolder("Mathe", null)
+        repository.createFolder("Deutsch", null)
+        val now = System.currentTimeMillis()
+        listOf(
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Kettenregel Übungen", subject = "Mathe", isFavorite = true, lastOpenedAt = now, lastOpenedPage = 3),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Faust I – Szenenanalyse", subject = "Deutsch", lastOpenedAt = now - 1000),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Photosynthese Skript", subject = "Biologie", folderId = bio.id, isFavorite = true),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Arbeitsblatt Weimarer Republik", subject = "Geschichte"),
+            de.maxifrz.lernwerk.data.StudyMaterial(title = "Alte Mitschrift", deletedAt = now - 3L * 24 * 60 * 60 * 1000),
+        ).forEach { material ->
+            repository.pdfFile(material).writeBytes(pdf)
+            repository.materials += material
+        }
+    }
+
+    @Test
+    fun library() {
+        libraryFixture()
+        root()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library.png")
+        compose.onNodeWithText("Auswählen").performClick()
+        compose.onAllNodesWithText("Kettenregel Übungen").onLast().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-select.png")
+        compose.onNodeWithText("Fertig").performClick()
+        compose.onAllNodesWithText("Biologie", substring = false).onLast().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-folder.png")
+    }
+
+    @Test
+    fun libraryTrash() {
+        libraryFixture()
+        root()
+        compose.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToNode(androidx.compose.ui.test.hasText("Papierkorb (1)"))
+        compose.onNodeWithText("Papierkorb (1)").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/library-trash.png")
     }
 
     @Test

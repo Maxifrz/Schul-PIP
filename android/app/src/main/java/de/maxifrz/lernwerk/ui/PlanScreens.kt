@@ -225,7 +225,7 @@ private fun TopicRow(topic: PlanTopic, hasMaterial: Boolean, onToggle: () -> Uni
 fun PlanCreateScreen(app: AppState) {
     val colors = Quill.colors
     val repository = app.repository
-    val materials = repository.materials.sortedBy { it.createdAt }
+    val materials = repository.library.sortedBy { it.createdAt }
     var selection by remember { mutableStateOf(setOf<String>()) }
     var title by remember { mutableStateOf("Prüfungsvorbereitung") }
     var examDate by remember { mutableStateOf(LocalDate.now().plusDays(28)) }

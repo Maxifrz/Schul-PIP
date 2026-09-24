@@ -131,7 +131,7 @@ fun AssistantPanel(
 
 /** Reads the linked materials once for a panel session, in the form the chosen provider accepts. */
 private suspend fun materialContent(app: AppState, client: LlmClient, materialIds: Collection<String>, context: android.content.Context): List<LlmContent> {
-    val materials = app.repository.materials.filter { it.id in materialIds }
+    val materials = app.repository.library.filter { it.id in materialIds }
     if (materials.isEmpty()) return emptyList()
     val opened = mutableListOf<Closeable>()
     return try {
@@ -348,7 +348,7 @@ private fun CriticTab(app: AppState, state: EditorState, model: CriticModel) {
             work(13.5f, lineHeight = 20f),
             colors.muted,
         )
-        val materials = app.repository.materials
+        val materials = app.repository.library
         if (materials.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 PixelCaption("Gegen Material prüfen", size = 9f)
