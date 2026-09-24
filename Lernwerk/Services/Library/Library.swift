@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the library logic needs from a document; implemented by the SwiftData model and by plain test values.
-protocol LibraryItem {
+protocol ShelfDocument {
     var itemID: String { get }
     var title: String { get }
     var subject: String { get }
@@ -12,7 +12,7 @@ protocol LibraryItem {
 }
 
 /// What the library logic needs from a folder.
-protocol LibraryFolder {
+protocol ShelfFolder {
     var folderID: String { get }
     var name: String { get }
     var parentKey: String? { get }
@@ -79,7 +79,7 @@ enum Library {
         a.compare(b, options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE")) == .orderedAscending
     }
 
-    static func sort<Item: LibraryItem>(_ items: [Item], by sort: LibrarySort) -> [Item] {
+    static func sort<Item: ShelfDocument>(_ items: [Item], by sort: LibrarySort) -> [Item] {
         switch sort {
         case .recent:
             return items.sorted { ($0.lastOpenedAt ?? $0.createdAt) > ($1.lastOpenedAt ?? $1.createdAt) }
@@ -126,7 +126,7 @@ enum Library {
 
     /// Items whose title, subject or folder name contain every word of the query come first; then those whose text
     /// does, with the first matching page and the passage around the first word.
-    static func search<Item: LibraryItem, Folder: LibraryFolder>(
+    static func search<Item: ShelfDocument, Folder: ShelfFolder>(
         _ items: [Item],
         folders: [Folder],
         query: String,
@@ -178,7 +178,7 @@ enum Library {
     }
 
     /// The folder and everything inside it, at any depth.
-    static func descendants<Folder: LibraryFolder>(_ folders: [Folder], of id: String) -> Set<String> {
+    static func descendants<Folder: ShelfFolder>(_ folders: [Folder], of id: String) -> Set<String> {
         var result: Set<String> = [id]
         var added = true
         while added {
@@ -191,7 +191,7 @@ enum Library {
     }
 
     /// From the top level down to the folder, for the breadcrumb.
-    static func path<Folder: LibraryFolder>(_ folders: [Folder], to id: String?) -> [Folder] {
+    static func path<Folder: ShelfFolder>(_ folders: [Folder], to id: String?) -> [Folder] {
         let byID = Dictionary(folders.map { ($0.folderID, $0) }, uniquingKeysWith: { first, _ in first })
         var result: [Folder] = []
         var seen: Set<String> = []
@@ -204,18 +204,18 @@ enum Library {
     }
 
     /// Folders a folder may move into: not itself and nothing inside it.
-    static func moveTargets<Folder: LibraryFolder>(_ folders: [Folder], moving: String?) -> [Folder] {
+    static func moveTargets<Folder: ShelfFolder>(_ folders: [Folder], moving: String?) -> [Folder] {
         let excluded = moving.map { descendants(folders, of: $0) } ?? []
         return folders.filter { !excluded.contains($0.folderID) }
     }
 
-    static func isExpired(_ item: some LibraryItem, now: Date) -> Bool {
+    static func isExpired(_ item: some ShelfDocument, now: Date) -> Bool {
         guard let deleted = item.deletedAt else { return false }
         return now.timeIntervalSince(deleted) > Double(trashDays) * day
     }
 
     /// Days until a trashed item is deleted for good.
-    static func daysLeft(_ item: some LibraryItem, now: Date) -> Int {
+    static func daysLeft(_ item: some ShelfDocument, now: Date) -> Int {
         guard let deleted = item.deletedAt else { return trashDays }
         return max(0, trashDays - Int(now.timeIntervalSince(deleted) / day))
     }

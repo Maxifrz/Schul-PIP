@@ -1,7 +1,7 @@
 import XCTest
 @testable import Lernwerk
 
-private struct Item: LibraryItem {
+private struct Item: ShelfDocument {
     var itemID: String
     var title: String
     var subject = ""
@@ -11,7 +11,7 @@ private struct Item: LibraryItem {
     var deletedAt: Date?
 }
 
-private struct Folder: LibraryFolder {
+private struct Folder: ShelfFolder {
     var folderID: String
     var name: String
     var parentKey: String?

@@ -34,7 +34,7 @@ final class StudyMaterial {
     var isTrashed: Bool { deletedAt != nil }
 }
 
-extension StudyMaterial: LibraryItem {
+extension StudyMaterial: ShelfDocument {
     var itemID: String { id.uuidString }
     var folderKey: String? { folderID?.uuidString }
 }
@@ -55,7 +55,7 @@ final class MaterialFolder {
     }
 }
 
-extension MaterialFolder: LibraryFolder {
+extension MaterialFolder: ShelfFolder {
     var folderID: String { id.uuidString }
     var parentKey: String? { parentID?.uuidString }
 }
