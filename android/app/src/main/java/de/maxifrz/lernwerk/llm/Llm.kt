@@ -18,6 +18,7 @@ sealed interface LlmPurpose {
     data class Tutor(val level: HintLevel) : LlmPurpose
     data object Flashcard : LlmPurpose
     data object StudyPlan : LlmPurpose
+    data object PresentationOutline : LlmPurpose
     data object Presentation : LlmPurpose
     data object SlideRewrite : LlmPurpose
     data object SpeakerNotes : LlmPurpose
@@ -30,7 +31,7 @@ sealed interface LlmPurpose {
         get() = when (this) {
             is Tutor -> 75
             Flashcard -> 90
-            StudyPlan, Presentation -> 600
+            StudyPlan, PresentationOutline, Presentation -> 600
             SlideRewrite -> 90
             SpeakerNotes -> 180
             PresentationFeedback, PresentationChat -> 120
@@ -38,7 +39,7 @@ sealed interface LlmPurpose {
         }
 
     /** Reading whole materials and critical review benefit from reasoning; the rest is answered while the student waits. */
-    val needsDepth: Boolean get() = this == StudyPlan || this == Presentation || this == PresentationCritique
+    val needsDepth: Boolean get() = this == StudyPlan || this == PresentationOutline || this == Presentation || this == PresentationCritique
 }
 
 enum class LlmEffort(val wire: String) { LOW("low"), MEDIUM("medium"), HIGH("high") }

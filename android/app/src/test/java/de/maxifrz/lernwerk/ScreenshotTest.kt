@@ -28,6 +28,8 @@ import androidx.compose.ui.platform.LocalContext
 import de.maxifrz.lernwerk.present.PresentationAssistant
 import de.maxifrz.lernwerk.present.SlidePainter
 import de.maxifrz.lernwerk.present.SlideTheme
+import de.maxifrz.lernwerk.present.SlideLayout
+import de.maxifrz.lernwerk.present.SlideLayouts
 import de.maxifrz.lernwerk.ui.AppState
 import de.maxifrz.lernwerk.ui.LocalSlidePainter
 import de.maxifrz.lernwerk.ui.PresentScreen
@@ -214,6 +216,33 @@ class ScreenshotTest {
         compose.onNodeWithText("Notizen").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onRoot().captureRoboImage("build/screenshots/present.png")
+    }
+
+    /** Every demo slide and every editor preset on one sheet, light and in the Kreide design, for a visual check. */
+    @Test
+    fun slideTypes() {
+        val deck = demoDeck()
+        val painter = SlidePainter(app)
+        val slides = deck.slides + SlideLayout.entries.filter { it != SlideLayout.BLANK }.map { SlideLayouts.preset(it) }
+        val width = 480
+        val height = 270
+        val columns = 4
+        val rows = (slides.size + columns - 1) / columns
+        for ((theme, file) in listOf(SlideTheme.QUILL to "slide-types.png", SlideTheme.CHALK to "slide-types-chalk.png")) {
+            val sheet = android.graphics.Bitmap.createBitmap(columns * (width + 12), rows * (height + 12), android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(sheet)
+            canvas.drawColor(android.graphics.Color.rgb(200, 200, 200))
+            slides.forEachIndexed { index, slide ->
+                canvas.drawBitmap(painter.bitmap(slide, theme, width, emptyMap()), (index % columns) * (width + 12f), (index / columns) * (height + 12f), null)
+            }
+            java.io.File("build/screenshots").mkdirs()
+            java.io.FileOutputStream("build/screenshots/$file").use { sheet.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        java.io.File("build/pptx").mkdirs()
+        java.io.File("build/pptx/demo.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(deck.copy(slides = slides)) { null })
+        // Compared with the iOS layouts, which must produce the same slides.
+        val parity = de.maxifrz.lernwerk.present.Presentation(id = "p", title = "P", slides = slides.map { it.copy(notes = "") })
+        java.io.File("build/pptx/parity.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(parity) { null })
     }
 
     @Test

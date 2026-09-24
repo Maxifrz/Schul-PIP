@@ -4,36 +4,99 @@ import Foundation
 enum PresentationPrompt {
     static let deckSystem = """
     You help a German upper-secondary student build a school presentation (Referat) from their own material.
-    Good school slides: one idea per slide, at most 5 bullets of at most 8 words each, no full sentences on slides,
-    the details go into the speaker notes. Start with a title slide, use section slides to structure longer talks,
-    end with a summary slide (Fazit) and a sources slide listing the materials and pages used.
-    Only use content that is actually in the material; never invent facts, numbers or quotes.
+    Only use content that is actually in the material; never invent facts, numbers, dates or quotes.
     Write everything in German. Write math with Unicode characters, never LaTeX.
+
+    What makes a good school talk:
+    - A red thread: open with a hook (a question, a surprising fact or a problem from the material), give the
+      context, build up the core in logical steps, show at least one concrete example, answer the opening question
+      in the summary (Fazit), end with the sources.
+    - One message per slide. The slide title states that message as a short claim (at most 10 words), not a topic
+      label: "Enzyme senken die Aktivierungsenergie" instead of "Enzyme".
+    - Slides support the talk, they do not replace it: at most 5 bullets of at most 8 words, no full sentences on
+      slides. Everything else goes into the speaker notes.
+    - Show instead of list. Pick the slide type that fits the content:
+      numbers → BIG_NUMBER (one striking number) or CHART (several numbers from the material);
+      dates or eras → TIMELINE; steps, cycles or cause and effect → PROCESS;
+      three or four parallel aspects → CARDS; a comparison → TWO_COLUMNS or TABLE;
+      a figure, diagram or table page in the material → IMAGE_TEXT or IMAGE_FULL;
+      a key question or thesis → STATEMENT; a literal definition or quote → QUOTE.
+      Use BULLETS only when nothing else fits, never more than two BULLETS slides in a row.
+    - Charts only with numbers that literally appear in the material, with their unit.
+    - Speaker notes are what the student says: full spoken sentences that explain the slide and lead over to the
+      next one.
+    """
+
+    /// Slide types as the model may choose them; BLANK is for the editor only.
+    private static let layoutNames = SlideLayout.allCases.filter { $0 != .blank }.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+
+    static let layoutGuide = """
+    Slide types and the fields they use:
+    - TITLE: title, subtitle ("Name · Fach · Datum" if unknown)
+    - SECTION: title of a new part, optional subtitle
+    - STATEMENT: title is one striking claim or question, optional subtitle
+    - BULLETS: title, 2–5 bullets
+    - IMAGE_TEXT: title, 2–4 bullets, imageMaterial and imagePage of a material page with a figure
+    - IMAGE_FULL: title, subtitle as caption, imageMaterial and imagePage of a material page with a figure
+    - TWO_COLUMNS: title, leftTitle, left, rightTitle, right
+    - CARDS: title, 3–4 items with title (2–4 words), text (at most 12 words) and icon (one fitting emoji)
+    - PROCESS: title, 3–5 items with title (the step) and text (at most 10 words)
+    - TIMELINE: title, 3–6 items with title (date or era) and text (at most 10 words)
+    - BIG_NUMBER: title, value (the number with unit, e.g. "70 %"), subtitle explaining it
+    - CHART: title, chart with kind (BAR for categories, LINE for development over time), labels, values (numbers
+      only) and unit, subtitle naming the source
+    - TABLE: title, table as rows of cells, first row is the header, at most 5 columns and 7 rows
+    - QUOTE: quote taken literally from the material, attribution
     """
 
     static func deckInstructions(topic: String, slideCount: Int, minutes: Int) -> String {
         let focus = topic.isBlank ? "the main content of the material" : topic
-        let seconds = max(15, minutes * 60 / max(1, slideCount))
         return """
-        Create a presentation from the material above.
+        Plan a presentation from the material above. First only the outline: the red thread, not the finished slides.
         Topic or focus: \(focus)
         Number of slides: about \(slideCount) (title and sources slides included)
-        Talk length: \(minutes) minutes, so each slide's notes should take about \(seconds) seconds to say.
+        Talk length: \(minutes) minutes
 
-        For every slide choose a layout:
-        - TITLE: title and subtitle (e.g. name, subject, date placeholder "Name · Fach")
-        - SECTION: a short title for a new part of the talk
-        - BULLETS: title and 2–5 bullets
-        - IMAGE_TEXT: title, 2–4 bullets and a page of the material that shows a figure, diagram or table worth showing (imageMaterial, imagePage)
-        - TWO_COLUMNS: title, leftTitle/left bullets, rightTitle/right bullets, for comparisons
-        - QUOTE: a short quote or definition taken literally from the material, with attribution
-        Only use IMAGE_TEXT when that page really contains a figure. Give every slide speaker notes in full German sentences
-        and the material (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
+        Give the whole talk's core message (thesis) and, for every slide, its role in the talk (hook, context, core,
+        example, comparison, summary, sources …), its message as one German sentence, the slide type that shows it
+        best, what goes on it (facts, numbers with units, dates, the material page of a figure) and the material
+        (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
+        """ + "\n\n" + layoutGuide
+    }
+
+    static func slidesInstructions(slideCount: Int, minutes: Int) -> String {
+        let seconds = max(15, minutes * 60 / max(1, slideCount))
+        return """
+        Now write the finished slides for this outline, in the same order. Use the planned slide type unless the
+        material does not give enough for it. Each title is the slide's message, shortened to at most 10 words.
+        Keep texts short, move details into the notes. Each slide's notes should take about
+        \(seconds) seconds to say and lead over to the next slide.
+        Give every slide its sourceMaterial and sourcePages.
         """
     }
 
-    private static let slideProperties = """
-    "layout": { "type": "string", "enum": ["TITLE", "SECTION", "BULLETS", "IMAGE_TEXT", "TWO_COLUMNS", "QUOTE"] },
+    static let outlineSchema = JSONSchema.object("""
+    {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "thesis": { "type": "string" },
+        "slides": { "type": "array", "items": { "type": "object", "properties": {
+          "role": { "type": "string" },
+          "message": { "type": "string" },
+          "layout": { "type": "string", "enum": [\(layoutNames)] },
+          "content": { "type": "string" },
+          "sourceMaterial": { "type": "integer" },
+          "sourcePages": { "type": "array", "items": { "type": "integer" } }
+        }, "required": ["role", "message", "layout", "content"] } }
+      },
+      "required": ["title", "thesis", "slides"]
+    }
+    """)
+
+    /// The fields of one slide's content; shared with the chat and the critic, which cannot place pictures.
+    static let slideContentProperties = """
+    "layout": { "type": "string", "enum": [\(layoutNames)] },
     "title": { "type": "string" },
     "subtitle": { "type": "string" },
     "bullets": { "type": "array", "items": { "type": "string" } },
@@ -41,11 +104,26 @@ enum PresentationPrompt {
     "left": { "type": "array", "items": { "type": "string" } },
     "rightTitle": { "type": "string" },
     "right": { "type": "array", "items": { "type": "string" } },
+    "items": { "type": "array", "items": { "type": "object", "properties": {
+      "title": { "type": "string" }, "text": { "type": "string" }, "icon": { "type": "string" }
+    }, "required": ["title"] } },
+    "value": { "type": "string" },
+    "chart": { "type": "object", "properties": {
+      "kind": { "type": "string", "enum": ["BAR", "LINE"] },
+      "labels": { "type": "array", "items": { "type": "string" } },
+      "values": { "type": "array", "items": { "type": "number" } },
+      "unit": { "type": "string" }
+    }, "required": ["kind", "labels", "values"] },
+    "table": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
     "quote": { "type": "string" },
     "attribution": { "type": "string" },
+    "notes": { "type": "string" }
+    """
+
+    private static let slideProperties = slideContentProperties + """
+    ,
     "imageMaterial": { "type": "integer" },
     "imagePage": { "type": "integer" },
-    "notes": { "type": "string" },
     "sourceMaterial": { "type": "integer" },
     "sourcePages": { "type": "array", "items": { "type": "integer" } }
     """
@@ -117,9 +195,11 @@ enum PresentationPrompt {
 
     static func redesignRequest(_ slide: Slide) -> String {
         """
-        Redesign this slide: pick the layout that fits its content best (TITLE, SECTION, BULLETS, IMAGE_TEXT, TWO_COLUMNS or QUOTE)
-        and rewrite the content for it, following the rules for good school slides. Keep the speaker notes' meaning.
-        Only choose IMAGE_TEXT if the slide already has a picture.
+        Redesign this slide: pick the slide type that shows its content best and rewrite the content for it,
+        following the rules for good school slides. Keep the message and the speaker notes' meaning.
+        Only choose IMAGE_TEXT or IMAGE_FULL if the slide already has a picture, CHART only with numbers that are on the slide.
+
+        \(layoutGuide)
 
         \(outline(slide, includeNotes: true))
         """
@@ -205,10 +285,35 @@ enum PresentationPrompt {
 
     static func parseSlide(_ object: [String: Any]) -> SlideDraft? {
         let layout = (object["layout"] as? String).flatMap { SlideLayout(rawValue: $0.uppercased()) } ?? .bullets
+        let chart = (object["chart"] as? [String: Any]).map { chart in
+            ChartDraft(
+                kind: (chart["kind"] as? String)?.uppercased() == "LINE" ? .line : .bar,
+                labels: strings(chart["labels"]),
+                values: ((chart["values"] as? [Any]) ?? []).compactMap(number),
+                unit: (chart["unit"] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            )
+        }
+        let items = ((object["items"] as? [Any]) ?? []).compactMap { item -> DraftItem? in
+            guard let entry = item as? [String: Any] else { return nil }
+            let result = DraftItem(
+                title: (entry["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                text: (entry["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                icon: (entry["icon"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            )
+            return result.title.isEmpty && result.text.isEmpty ? nil : result
+        }
+        let table = ((object["table"] as? [Any]) ?? []).compactMap { row -> [String]? in
+            guard let cells = row as? [Any] else { return nil }
+            let values = cells.map { cell -> String in
+                if let text = cell as? String { return text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                return cell is NSNull ? "" : "\(cell)"
+            }
+            return values.contains { !$0.isBlank } ? values : nil
+        }
         let draft = SlideDraft(
             layout: layout,
-            title: object["title"] as? String ?? "",
-            subtitle: object["subtitle"] as? String ?? "",
+            title: (object["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            subtitle: (object["subtitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
             bullets: strings(object["bullets"]),
             leftTitle: object["leftTitle"] as? String ?? "",
             left: strings(object["left"]),
@@ -216,6 +321,10 @@ enum PresentationPrompt {
             right: strings(object["right"]),
             quote: object["quote"] as? String ?? "",
             attribution: object["attribution"] as? String ?? "",
+            items: items,
+            value: (object["value"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            chart: chart,
+            table: table,
             imageMaterial: int(object["imageMaterial"]),
             imagePage: int(object["imagePage"]).flatMap { $0 > 0 ? $0 : nil },
             notes: object["notes"] as? String ?? "",
@@ -223,7 +332,61 @@ enum PresentationPrompt {
             sourcePages: (object["sourcePages"] as? [Any])?.compactMap(int) ?? []
         )
         let hasContent = !draft.title.isBlank || !draft.bullets.isEmpty || !draft.quote.isBlank || !draft.left.isEmpty
+            || !draft.items.isEmpty || !draft.table.isEmpty || draft.chart != nil
         return hasContent ? draft : nil
+    }
+
+    /// Numbers may come as strings, with a German decimal comma or a unit attached.
+    private static func number(_ value: Any?) -> Double? {
+        if let text = value as? String {
+            if let direct = Double(text.trimmingCharacters(in: .whitespaces)) { return direct }
+            let cleaned = String(text.unicodeScalars.filter { "0123456789,.-−".unicodeScalars.contains($0) }.map(Character.init))
+                .replacingOccurrences(of: "−", with: "-")
+            let normalized = cleaned.contains(",") ? cleaned.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".") : cleaned
+            return Double(normalized)
+        }
+        if let number = value as? Double { return number }
+        if let number = value as? Int { return Double(number) }
+        if let number = value as? NSNumber { return number.doubleValue }
+        return nil
+    }
+
+    struct OutlineSlide: Equatable {
+        var role: String
+        var message: String
+        var layout: String
+        var content: String
+    }
+
+    struct Outline: Equatable {
+        var title: String
+        var thesis: String
+        var slides: [OutlineSlide]
+    }
+
+    static func parseOutline(_ text: String) -> Outline? {
+        guard let root = object(text), let slides = root["slides"] as? [Any] else { return nil }
+        let parsed = slides.compactMap { item -> OutlineSlide? in
+            guard let entry = item as? [String: Any] else { return nil }
+            let slide = OutlineSlide(
+                role: entry["role"] as? String ?? "",
+                message: (entry["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                layout: entry["layout"] as? String ?? "",
+                content: entry["content"] as? String ?? ""
+            )
+            return slide.message.isEmpty && slide.content.isBlank ? nil : slide
+        }
+        return Outline(title: root["title"] as? String ?? "", thesis: root["thesis"] as? String ?? "", slides: parsed)
+    }
+
+    /// The outline as the model's own earlier answer, compact, for the second step.
+    static func outlineText(_ outline: Outline) -> String {
+        var lines = ["Title: \(outline.title)", "Thesis: \(outline.thesis)"]
+        for (index, slide) in outline.slides.enumerated() {
+            lines.append("\(index + 1). [\(slide.layout)] (\(slide.role)) \(slide.message)")
+            if !slide.content.isBlank { lines.append("   \(slide.content.trimmingCharacters(in: .whitespacesAndNewlines))") }
+        }
+        return lines.map { $0 + "\n" }.joined()
     }
 
     private static func strings(_ value: Any?) -> [String] {
@@ -259,12 +422,33 @@ enum PresentationPrompt {
     }
 }
 
+/// Applies the critic's important findings (high and medium) without asking; minor ones are left to the student.
+func autoApply(_ presentation: Presentation, _ critique: Critique) -> Presentation {
+    let changes = critique.findings.filter { $0.severity != .low }.flatMap(\.changes)
+    return PresentationEdits.apply(presentation, changes).presentation
+}
+
 /// The AI features of the presentation tab; all of them are ordinary LLM requests through the chosen provider.
 struct PresentationAssistant {
     let client: any LLMClient
 
-    /// Builds a whole presentation. `content` is the material as the plan generator prepares it for this provider;
-    /// `pageImage` renders a material page and stores it as a media file.
+    /// The steps of building a deck, for the progress shown while the student waits.
+    enum Stage: Int, CaseIterable {
+        case outline, slides, review
+
+        var label: String {
+            switch self {
+            case .outline: return "Die KI plant den roten Faden …"
+            case .slides: return "Die KI schreibt die Folien …"
+            case .review: return "Der Kritiker prüft und verbessert …"
+            }
+        }
+    }
+
+    /// Builds a whole presentation in three steps: an outline with one message per slide, then the slides for that
+    /// outline in the same conversation, then (with `review`) the critic's important findings applied automatically.
+    /// `content` is the material as the plan generator prepares it for this provider, ending with the planning
+    /// instructions; `pageImage` renders a material page and stores it as a media file.
     func generate(
         content: [LLMContent],
         materialIDs: [String],
@@ -272,36 +456,60 @@ struct PresentationAssistant {
         slideCount: Int,
         minutes: Int,
         themeID: String,
+        review: Bool = true,
+        onStage: (Stage) -> Void = { _ in },
         pageImage: (_ materialIndex: Int, _ page: Int) async -> PlacedImage?
     ) async throws -> Presentation {
+        onStage(.outline)
+        let outlineRequest = LLMRequest(
+            purpose: .presentationOutline,
+            system: PresentationPrompt.deckSystem,
+            messages: [LLMMessage(role: .user, content: content)],
+            maxTokens: 8000,
+            effort: .high,
+            jsonSchema: PresentationPrompt.outlineSchema
+        )
+        let outline = try await StructuredOutput.complete(request: outlineRequest, client: client, parse: PresentationPrompt.parseOutline) { !$0.slides.isEmpty }
+
+        onStage(.slides)
         let request = LLMRequest(
             purpose: .presentation,
             system: PresentationPrompt.deckSystem,
-            messages: [LLMMessage(role: .user, content: content)],
+            messages: [
+                LLMMessage(role: .user, content: content),
+                LLMMessage(role: .assistant, content: [.text(PresentationPrompt.outlineText(outline))]),
+                LLMMessage(role: .user, content: [.text(PresentationPrompt.slidesInstructions(slideCount: outline.slides.count, minutes: minutes))]),
+            ],
             maxTokens: 16000,
-            effort: .high,
+            effort: .medium,
             jsonSchema: PresentationPrompt.deckSchema
         )
         let deck = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseDeck) { !$0.slides.isEmpty }
         var slides: [Slide] = []
         for draft in deck.slides {
             var image: PlacedImage?
-            if draft.layout == .imageText, let page = draft.imagePage {
+            if draft.layout == .imageText || draft.layout == .imageFull, let page = draft.imagePage {
                 let index = draft.imageMaterial ?? draft.sourceMaterial ?? 0
                 if materialIDs.indices.contains(index) { image = await pageImage(index, page) }
             }
-            var adjusted = draft
-            if draft.layout == .imageText, image == nil { adjusted.layout = .bullets }
             let materialID = draft.sourceMaterial.flatMap { materialIDs.indices.contains($0) ? materialIDs[$0] : nil }
                 ?? (materialIDs.count == 1 ? materialIDs[0] : nil)
             slides.append(Slide(
-                elements: SlideLayouts.build(adjusted, image: image),
+                elements: SlideLayouts.build(draft, image: image),
                 notes: draft.notes,
                 sources: draft.sourcePages.map { SourceRef(materialId: materialID, page: $0) }
             ))
         }
-        let title = deck.title.isBlank ? (topic.isBlank ? "Präsentation" : topic) : deck.title
-        return Presentation(title: title, themeId: themeID, slides: slides, materialIds: materialIDs, minutes: minutes)
+        let title = !deck.title.isBlank ? deck.title : (!outline.title.isBlank ? outline.title : (topic.isBlank ? "Präsentation" : topic))
+        var presentation = Presentation(title: title, themeId: themeID, slides: slides, materialIds: materialIDs, minutes: minutes)
+        if review {
+            onStage(.review)
+            // The critic improves the draft before the student sees it; a failed review keeps the draft.
+            if let critique = try? await PresentationCritic(client: client).critique(presentation, material: Array(content.dropLast())) {
+                presentation = autoApply(presentation, critique)
+            }
+        }
+        return presentation
     }
 
     /// New texts for the slide's text boxes; ids the model dropped keep their old text.
@@ -337,10 +545,9 @@ struct PresentationAssistant {
             effort: .low,
             jsonSchema: PresentationPrompt.slideSchema
         )
-        var draft = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseSlideDraft)
+        let draft = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseSlideDraft)
         let image = slide.elements.first { $0.kind == .image && $0.image != nil }
             .map { PlacedImage(name: $0.image!, aspect: $0.width / max(1, $0.height)) }
-        if draft.layout == .imageText, image == nil { draft.layout = .bullets }
         var result = slide
         result.elements = SlideLayouts.build(draft, image: image)
         if !draft.notes.isBlank { result.notes = draft.notes }

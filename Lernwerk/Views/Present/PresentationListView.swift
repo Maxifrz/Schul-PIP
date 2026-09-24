@@ -208,6 +208,8 @@ struct PresentationCreateView: View {
     @State private var minutes = 10
     @State private var themeID = SlideTheme.quill.id
     @State private var isGenerating = false
+    @State private var stage = PresentationAssistant.Stage.outline
+    @State private var review = true
     @State private var errorMessage: String?
 
     var body: some View {
@@ -288,7 +290,10 @@ struct PresentationCreateView: View {
                     QuillRow(label: "Design", verticalPadding: 10) {
                         ThemePicker(selection: $themeID)
                     }
-                    Text("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
+                    QuillRow(label: "Kritiker überarbeitet automatisch", verticalPadding: 10) {
+                        Toggle("", isOn: $review).labelsHidden().tint(Quill.accent)
+                    }
+                    Text("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
                         .quillFootnote()
                     if let errorMessage {
                         HStack(alignment: .firstTextBaseline, spacing: 9) {
@@ -314,10 +319,10 @@ struct PresentationCreateView: View {
                     Quill.scrim.ignoresSafeArea()
                     VStack(spacing: 12) {
                         PulsingDots(size: 6)
-                        Text("Die KI baut deine Folien …")
+                        Text(stage.label)
                             .font(.work(16, .medium))
                             .foregroundStyle(Quill.ink)
-                        Text("Je nach Umfang dauert das bis zu zwei Minuten.")
+                        Text("Schritt \(stage.rawValue + 1) von \(review ? 3 : 2) · je nach Umfang einige Minuten")
                             .font(.work(12.5))
                             .foregroundStyle(Quill.faint)
                     }
@@ -361,6 +366,8 @@ struct PresentationCreateView: View {
                     slideCount: slideCount,
                     minutes: minutes,
                     themeID: themeID,
+                    review: review,
+                    onStage: { next in Task { @MainActor in stage = next } },
                     pageImage: { index, page in
                         await MainActor.run {
                             guard let pdfPage = PDFDocument(url: urls[index])?.page(at: page - 1) else { return nil }

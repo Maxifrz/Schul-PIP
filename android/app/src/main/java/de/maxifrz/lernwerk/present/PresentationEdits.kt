@@ -65,14 +65,7 @@ object PresentationEdits {
         "afterSlideId": { "type": "string" },
         "position": { "type": "integer" },
         "texts": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "text": { "type": "string" } }, "required": ["id", "text"] } },
-        "slide": { "type": "object", "properties": {
-          "layout": { "type": "string", "enum": ["TITLE", "SECTION", "BULLETS", "IMAGE_TEXT", "TWO_COLUMNS", "QUOTE"] },
-          "title": { "type": "string" }, "subtitle": { "type": "string" },
-          "bullets": { "type": "array", "items": { "type": "string" } },
-          "leftTitle": { "type": "string" }, "left": { "type": "array", "items": { "type": "string" } },
-          "rightTitle": { "type": "string" }, "right": { "type": "array", "items": { "type": "string" } },
-          "quote": { "type": "string" }, "attribution": { "type": "string" }, "notes": { "type": "string" }
-        } },
+        "slide": { "type": "object", "properties": { ${PresentationPrompt.slideContentProperties} } },
         "notes": { "type": "string" },
         "theme": { "type": "string", "enum": ["quill", "nacht", "kreide", "papier"] },
         "title": { "type": "string" }
@@ -81,7 +74,7 @@ object PresentationEdits {
     private val changeRules = """
         Changes use these actions; slides and text boxes are addressed by the ids shown in the presentation:
         - update_texts: slideId and texts (every changed text box with its id and the complete new text; bullets are lines separated by \n)
-        - replace_slide: slideId and slide (a new layout with content; keeps the slide's picture for IMAGE_TEXT)
+        - replace_slide: slideId and slide (a new slide type with content; keeps the slide's picture for IMAGE_TEXT and IMAGE_FULL)
         - insert_slide: afterSlideId ("" for the very beginning) and slide
         - delete_slide: slideId
         - move_slide: slideId and position (new 1-based position)
@@ -89,8 +82,9 @@ object PresentationEdits {
         - set_theme: theme (quill, nacht, kreide or papier)
         - rename: title
         Every change gets a short German summary of what it does. Keep slides short (at most 5 bullets of at most
-        8 words), details go into the speaker notes. Write German, math in Unicode, never LaTeX.
-    """.trimIndent()
+        8 words), details go into the speaker notes. Titles state the slide's message. Prefer a visual slide type
+        over bullets when the content allows it. Write German, math in Unicode, never LaTeX.
+    """.trimIndent() + "\n\n" + PresentationPrompt.layoutGuide
 
     val chatSystem = """
         You edit a German school presentation together with the student who wrote it. They tell you what to change;
@@ -214,7 +208,7 @@ object PresentationEdits {
                     val id = t.string("id") ?: return@mapNotNull null
                     id to (t.string("text") ?: return@mapNotNull null)
                 }?.toMap().orEmpty(),
-                draft = (obj["slide"] as? JsonObject)?.let { PresentationPrompt.parseSlideDraft(it.toString()) },
+                draft = (obj["slide"] as? JsonObject)?.let { PresentationPrompt.parseSlide(it) },
                 notes = obj.string("notes"),
                 theme = obj.string("theme"),
                 title = obj.string("title"),
@@ -260,8 +254,8 @@ object PresentationEdits {
                     if (draft == null) {
                         false
                     } else {
-                        val layout = if (draft.layout == SlideLayout.IMAGE_TEXT) SlideLayout.BULLETS else draft.layout
-                        val slide = Slide(elements = SlideLayouts.build(draft.copy(layout = layout)), notes = draft.notes)
+                        // A new slide has no picture, so picture layouts fall back in build().
+                        val slide = Slide(elements = SlideLayouts.build(draft), notes = draft.notes)
                         val after = index(change.afterSlideId)
                         slides.add(after + 1, slide)
                         true
@@ -315,9 +309,8 @@ object PresentationEdits {
     fun rebuild(slide: Slide, draft: SlideDraft): Slide {
         val image = slide.elements.firstOrNull { it.kind == ElementKind.IMAGE && it.image != null }
             ?.let { PlacedImage(it.image!!, it.width / maxOf(1f, it.height)) }
-        val layout = if (draft.layout == SlideLayout.IMAGE_TEXT && image == null) SlideLayout.BULLETS else draft.layout
         return slide.copy(
-            elements = SlideLayouts.build(draft.copy(layout = layout), image),
+            elements = SlideLayouts.build(draft, image),
             notes = draft.notes.ifBlank { slide.notes },
         )
     }

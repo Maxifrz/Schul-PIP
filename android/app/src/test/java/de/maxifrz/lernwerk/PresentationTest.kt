@@ -4,8 +4,12 @@ import de.maxifrz.lernwerk.llm.DocumentHandling
 import de.maxifrz.lernwerk.llm.LlmCapabilities
 import de.maxifrz.lernwerk.llm.LlmContent
 import de.maxifrz.lernwerk.llm.LlmPurpose
+import de.maxifrz.lernwerk.llm.LlmRole
 import de.maxifrz.lernwerk.llm.OpenAiCompatibleClient
 import de.maxifrz.lernwerk.plan.MaterialDocument
+import de.maxifrz.lernwerk.present.ChartDraft
+import de.maxifrz.lernwerk.present.ChartKind
+import de.maxifrz.lernwerk.present.DraftItem
 import de.maxifrz.lernwerk.present.ElementKind
 import de.maxifrz.lernwerk.present.PlacedImage
 import de.maxifrz.lernwerk.present.PptxWriter
@@ -18,6 +22,8 @@ import de.maxifrz.lernwerk.present.SlideElement
 import de.maxifrz.lernwerk.present.SlideGeometry
 import de.maxifrz.lernwerk.present.SlideLayout
 import de.maxifrz.lernwerk.present.SlideLayouts
+import de.maxifrz.lernwerk.present.SlideDraft
+import de.maxifrz.lernwerk.present.SlideSize
 import de.maxifrz.lernwerk.present.SlideTheme
 import de.maxifrz.lernwerk.tutor.DemoLlmClient
 import kotlinx.coroutines.test.runTest
@@ -113,13 +119,21 @@ class PresentationTest {
     }
 
     @Test
-    fun generationReadsMaterialAndAddsPageImages() = runTest {
+    fun generationPlansWritesAndReviews() = runTest {
+        val outline = """{"title":"Ableiten","thesis":"Ableiten misst Steigung.","slides":[
+            {"role":"title","message":"Ableiten","layout":"TITLE","content":""},
+            {"role":"core","message":"Der Graph zeigt die Steigung","layout":"IMAGE_TEXT","content":"Seite 2"},
+            {"role":"core","message":"Ohne Bild","layout":"IMAGE_FULL","content":"x"}]}"""
         val reply = """{"title":"Ableiten","slides":[
             {"layout":"TITLE","title":"Ableiten","subtitle":"Mathe","notes":"Hallo","sourceMaterial":0,"sourcePages":[1]},
             {"layout":"IMAGE_TEXT","title":"Graph","bullets":["Steigung"],"imageMaterial":0,"imagePage":2,"notes":"Seht her","sourceMaterial":0,"sourcePages":[2]},
-            {"layout":"IMAGE_TEXT","title":"Ohne Bild","bullets":["a"],"notes":"n"}]}"""
-        val client = ScriptedClient(mutableListOf(reply), LlmCapabilities(true, DocumentHandling.TEXT_ONLY))
+            {"layout":"IMAGE_FULL","title":"Ohne Bild","bullets":["a"],"notes":"n"}]}"""
+        val critique = """{"verdict":"V","findings":[
+            {"severity":"high","problem":"P","suggestion":"S","changes":[{"action":"rename","title":"Ableiten verstehen","summary":"s"}]},
+            {"severity":"low","problem":"Q","suggestion":"S","changes":[{"action":"set_theme","theme":"nacht","summary":"s"}]}]}"""
+        val client = ScriptedClient(mutableListOf(outline, reply, critique), LlmCapabilities(true, DocumentHandling.TEXT_ONLY))
         val requested = mutableListOf<Pair<Int, Int>>()
+        val stages = mutableListOf<PresentationAssistant.Stage>()
         val presentation = PresentationAssistant(client).generate(
             materials = listOf(PresentationAssistant.Material("m1", "Skript", byteArrayOf(1))),
             topic = "Ableitungen",
@@ -128,26 +142,139 @@ class PresentationTest {
             themeId = SlideTheme.CHALK.id,
             openDocument = { FakeDocument(listOf(text, text)) },
             pageImage = { material, page -> requested += material to page; PlacedImage("page-$page.png", 0.75f) },
+            onStage = { stages += it },
         )
-        val request = client.requests.single()
-        assertEquals(LlmPurpose.Presentation, request.purpose)
-        val prompt = request.messages[0].content.filterIsInstance<LlmContent.Text>().joinToString("\n") { it.text }
+        assertEquals(PresentationAssistant.Stage.entries, stages)
+        assertEquals(listOf(LlmPurpose.PresentationOutline, LlmPurpose.Presentation, LlmPurpose.PresentationCritique), client.requests.map { it.purpose })
+        val prompt = client.requests[0].messages[0].content.filterIsInstance<LlmContent.Text>().joinToString("\n") { it.text }
         assertTrue(prompt.contains("--- Page 2 ---"))
         assertTrue(prompt.contains("Topic or focus: Ableitungen"))
         assertTrue(prompt.contains("about 8"))
+        // The slides are written in the same conversation, after the model's own outline.
+        val second = client.requests[1].messages
+        assertEquals(listOf(LlmRole.USER, LlmRole.ASSISTANT, LlmRole.USER), second.map { it.role })
+        assertTrue((second[1].content.single() as LlmContent.Text).text.contains("2. [IMAGE_TEXT] (core) Der Graph zeigt die Steigung"))
+        // The critic checks against the material, without the planning instructions.
+        val critic = client.requests[2].messages.single().content.filterIsInstance<LlmContent.Text>().joinToString("\n") { it.text }
+        assertTrue(critic.contains("--- Page 2 ---") && !critic.contains("Topic or focus"))
 
-        assertEquals("Ableiten", presentation.title)
+        // High findings are applied, low ones are left to the student.
+        assertEquals("Ableiten verstehen", presentation.title)
         assertEquals("kreide", presentation.themeId)
         assertEquals(listOf(0 to 2), requested)
         val picture = presentation.slides[1].elements.single { it.kind == ElementKind.IMAGE }
         assertEquals("page-2.png", picture.image)
-        // Fitted into the 400 × 340 box with the page's aspect ratio.
+        // Fitted into the 420 × 340 box with the page's aspect ratio.
         assertEquals(0.75f, picture.width / picture.height, 0.001f)
         assertEquals(340f, picture.height, 0.01f)
-        // An image layout without a page falls back to bullets.
+        // A picture layout without a page falls back to bullets.
         assertTrue(presentation.slides[2].elements.none { it.kind == ElementKind.IMAGE || it.shape == ShapeType.ROUNDED && it.kind == ElementKind.SHAPE })
+        assertTrue(presentation.slides[2].elements.any { it.bullets && it.text == "a" })
         assertEquals("m1", presentation.slides[1].sources.single().materialId)
         assertEquals("Seht her", presentation.slides[1].notes)
+    }
+
+    @Test
+    fun aFailedReviewKeepsTheDraft() = runTest {
+        val outline = """{"title":"T","thesis":"t","slides":[{"role":"core","message":"M","layout":"BULLETS","content":""}]}"""
+        val reply = """{"title":"T","slides":[{"layout":"BULLETS","title":"M","bullets":["a"],"notes":"n"}]}"""
+        val client = ScriptedClient(mutableListOf(outline, reply, "kaputt", "immer noch kaputt"))
+        val presentation = PresentationAssistant(client).generate(
+            listOf(PresentationAssistant.Material("m", "Demo", byteArrayOf(1))), "", 6, 5, "quill", { FakeDocument(listOf(text)) }, { _, _ -> null },
+        )
+        assertEquals(1, presentation.slides.size)
+        assertEquals(4, client.requests.size)
+    }
+
+    @Test
+    fun visualLayoutsStayOnTheSlide() {
+        for (layout in SlideLayout.entries) {
+            for (element in SlideLayouts.preset(layout).elements) {
+                assertTrue("$layout ${element.text}", element.x >= 0f && element.y >= 0f)
+                assertTrue("$layout ${element.text}", element.x + element.width <= SlideSize.WIDTH + 0.01f)
+                assertTrue("$layout ${element.text}", element.y + element.height <= SlideSize.HEIGHT + 0.01f)
+            }
+        }
+    }
+
+    @Test
+    fun textShrinksToFitItsBox() {
+        assertEquals(36f, SlideLayouts.fitSize("Kurz", 800f, 90f, 36f, 24f), 0.01f)
+        val long = "Die Lichtreaktion wandelt Lichtenergie in chemische Energie um und findet in den Thylakoiden statt"
+        val size = SlideLayouts.fitSize(long, 832f, 90f, 36f, 20f, bold = true)
+        assertTrue(size < 36f && size >= 20f)
+        assertTrue(SlideLayouts.fits(long, 832f, 90f, size, bold = true, bullets = false))
+        assertEquals(3, SlideLayouts.lineCount("a\nb\nc", 500f, 20f, false))
+        // One very long word wraps over several lines.
+        assertEquals(2, SlideLayouts.lineCount("x".repeat(30), 20f * 0.54f * 20, 20f, false))
+    }
+
+    @Test
+    fun chartsAreDrawnFromTheNumbers() {
+        val bars = SlideLayouts.chart(ChartDraft(ChartKind.BAR, listOf("A", "B", "C"), listOf(10.0, 20.0, -5.0), "%"))
+        val rects = bars.filter { it.kind == ElementKind.SHAPE && it.shape == ShapeType.RECT }
+        assertEquals(3, rects.size)
+        assertEquals(2f, rects[1].height / rects[0].height, 0.01f)
+        val zero = bars.first { it.shape == ShapeType.LINE }.centerY
+        assertEquals(zero, rects[0].y + rects[0].height, 0.01f)
+        assertEquals(zero, rects[2].y, 0.01f)
+        assertTrue(bars.any { it.text == "20 %" } && bars.any { it.text == "−5 %" })
+
+        val line = SlideLayouts.chart(ChartDraft(ChartKind.LINE, listOf("1", "2", "3"), listOf(1.0, 4.0, 13.0)))
+        val segments = line.filter { it.shape == ShapeType.LINE }.drop(1)
+        val dots = line.filter { it.shape == ShapeType.ELLIPSE }
+        assertEquals(2, segments.size)
+        assertEquals(3, dots.size)
+        // Each segment runs from one dot to the next.
+        val (sx, sy) = segments[0].toSlide(0f, segments[0].height / 2)
+        val (ex, ey) = segments[0].toSlide(segments[0].width, segments[0].height / 2)
+        assertEquals(dots[0].centerX, sx, 0.1f)
+        assertEquals(dots[0].centerY, sy, 0.1f)
+        assertEquals(dots[1].centerX, ex, 0.1f)
+        assertEquals(dots[1].centerY, ey, 0.1f)
+    }
+
+    @Test
+    fun layoutsFallBackWhenContentIsMissing() {
+        fun kinds(draft: SlideDraft, image: PlacedImage? = null) = SlideLayouts.resolve(draft, image).layout
+        assertEquals(SlideLayout.BULLETS, kinds(SlideDraft(SlideLayout.CHART, title = "T", chart = ChartDraft(labels = listOf("A"), values = listOf(1.0)))))
+        assertEquals(SlideLayout.BULLETS, kinds(SlideDraft(SlideLayout.CARDS, title = "T", items = listOf(DraftItem("Nur", "eins")))))
+        assertEquals(SlideLayout.STATEMENT, kinds(SlideDraft(SlideLayout.IMAGE_FULL, title = "T")))
+        assertEquals(SlideLayout.IMAGE_FULL, kinds(SlideDraft(SlideLayout.IMAGE_FULL, title = "T"), PlacedImage("p.png", 1.5f)))
+        assertEquals(SlideLayout.STATEMENT, kinds(SlideDraft(SlideLayout.BIG_NUMBER, title = "T")))
+        assertEquals(SlideLayout.BULLETS, kinds(SlideDraft(SlideLayout.TABLE, title = "T", table = listOf(listOf("a", "b")))))
+        val chart = SlideLayouts.resolve(SlideDraft(SlideLayout.CHART, title = "T", chart = ChartDraft(labels = listOf("A"), values = listOf(1.5), unit = "%")), null)
+        assertEquals(listOf("A: 1,5 %"), chart.bullets)
+    }
+
+    @Test
+    fun numbersAndIconsAreFormatted() {
+        assertEquals("1.500", SlideLayouts.formatNumber(1500.0))
+        assertEquals("2,5", SlideLayouts.formatNumber(2.5))
+        assertEquals("−3", SlideLayouts.formatNumber(-3.0))
+        assertEquals("0,13", SlideLayouts.formatNumber(0.125))
+        assertEquals("1.234.567,89", SlideLayouts.formatNumber(1234567.891))
+        assertEquals("🧪", SlideLayouts.icon(" 🧪 "))
+        assertEquals("⚡️", SlideLayouts.icon("⚡️"))
+        assertNull(SlideLayouts.icon("Labor"))
+        assertNull(SlideLayouts.icon(""))
+    }
+
+    @Test
+    fun newSlideTypesAreParsed() {
+        val deck = PresentationPrompt.parseDeck(
+            """{"title":"T","slides":[
+            {"layout":"chart","title":"C","chart":{"kind":"line","labels":["2020","2021"],"values":[1.5,"2,5 %"],"unit":"%"}},
+            {"layout":"CARDS","title":"K","items":[{"title":"A","text":"a","icon":"🌱"},{"title":"","text":""},{"title":"B"}]},
+            {"layout":"TABLE","title":"T","table":[["a","b"],[" c ","d"],["",""]]},
+            {"layout":"BIG_NUMBER","title":"N","value":" 70 % ","subtitle":"s"}]}""",
+        )
+        val chart = deck.slides[0].chart!!
+        assertEquals(ChartKind.LINE, chart.kind)
+        assertEquals(listOf(1.5, 2.5), chart.values)
+        assertEquals(listOf(DraftItem("A", "a", "🌱"), DraftItem("B", "", "")), deck.slides[1].items)
+        assertEquals(listOf(listOf("a", "b"), listOf("c", "d")), deck.slides[2].table)
+        assertEquals("70 %", deck.slides[3].value)
     }
 
     @Test
@@ -181,7 +308,9 @@ class PresentationTest {
         val deck = assistant.generate(
             listOf(PresentationAssistant.Material("m", "Demo", byteArrayOf(1))), "", 6, 5, "quill", { null }, { _, _ -> null },
         )
-        assertEquals(6, deck.slides.size)
+        // The demo critic inserts an exercise slide before the summary.
+        assertEquals(11, deck.slides.size)
+        assertTrue(deck.slides.any { slide -> slide.elements.any { it.text == "Probier es selbst" } })
         val shorter = assistant.rewrite(deck.slides[1], PresentationPrompt.Rewrite.SHORTER)
         assertTrue(shorter.elements.filter { it.kind == ElementKind.TEXT }.all { it.text.lines().size <= 3 })
         assertEquals("Neu gestaltet", assistant.redesign(deck.slides[1]).elements.first { it.kind == ElementKind.TEXT }.text)
