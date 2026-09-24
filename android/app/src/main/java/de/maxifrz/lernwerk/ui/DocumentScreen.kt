@@ -142,7 +142,10 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
     val pdf by produceState<Result<PdfPages>?>(null, file) {
         value = withContext(Dispatchers.IO) { PdfPages.open(file)?.let { Result.success(it) } ?: Result.failure(IllegalStateException()) }
     }
-    DisposableEffect(pdf) { onDispose { pdf?.getOrNull()?.close() } }
+    // Captured, not read through the delegate: onDispose must close the renderer this effect was keyed on,
+    // not the one that just replaced it.
+    val openedPdf = pdf?.getOrNull()
+    DisposableEffect(openedPdf) { onDispose { openedPdf?.close() } }
 
     val ink = remember(material.id) { InkState() }
     LaunchedEffect(material.id) { ink.pages.putAll(repository.loadInk(material.id)) }
@@ -399,8 +402,12 @@ private fun drawStroke(canvas: android.graphics.Canvas, stroke: InkStroke, width
 private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: InteractionMode, modifier: Modifier = Modifier) {
     val size = pages.sizes[index]
     var widthPx by remember { mutableIntStateOf(0) }
+    var renderFailed by remember { mutableStateOf(false) }
     val bitmap by produceState<Bitmap?>(null, index, widthPx) {
-        if (widthPx > 0) value = pages.render(index, min(widthPx, 2000))
+        if (widthPx > 0) {
+            value = pages.render(index, min(widthPx, 2000))
+            renderFailed = value == null
+        }
     }
     val current = remember { mutableStateListOf<Float>() }
     val tool = (mode as? InteractionMode.Draw)?.tool
@@ -416,6 +423,14 @@ private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: Interactio
             .onSizeChanged { widthPx = it.width },
     ) {
         bitmap?.let { Image(it.asImageBitmap(), contentDescription = "Seite ${index + 1}", modifier = Modifier.fillMaxSize()) }
+        if (renderFailed) {
+            QText(
+                "Seite ${index + 1} konnte nicht angezeigt werden.",
+                work(14f),
+                hex(0x6E6B62),
+                Modifier.align(Alignment.Center),
+            )
+        }
         Canvas(
             Modifier
                 .fillMaxSize()
