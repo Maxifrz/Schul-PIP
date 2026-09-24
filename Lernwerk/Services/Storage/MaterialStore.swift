@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 import PencilKit
 import UIKit
 import UniformTypeIdentifiers
@@ -113,7 +114,9 @@ enum MaterialStore {
         let longest = max(image.size.width, image.size.height)
         let scale = min(1, 2000 / max(longest, 1))
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let resized = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         guard let data = resized.jpegData(compressionQuality: 0.85) else { return nil }
         let name = UUID().uuidString + ".jpg"
         do {
@@ -154,11 +157,13 @@ enum MaterialStore {
         guard document.write(to: material.fileURL) else { return false }
         saveDrawings(PageShift.deleting(loadDrawings(for: material.fileName), at: index), for: material.fileName)
         var notes = loadNotes(for: material.fileName)
-        for annotation in notes.annotations where annotation.page == index {
-            if let image = annotation.image { try? FileManager.default.removeItem(at: noteImageURL(image)) }
-        }
+        let before = Set(notes.annotations.compactMap(\.image))
         notes.deletePage(at: index)
         saveNotes(notes, for: material.fileName)
+        // Pictures only the deleted page showed; a duplicate elsewhere keeps its file.
+        for image in before.subtracting(notes.annotations.compactMap(\.image)) {
+            try? FileManager.default.removeItem(at: noteImageURL(image))
+        }
         MaterialTextIndex.remove(fileName: material.fileName)
         return true
     }

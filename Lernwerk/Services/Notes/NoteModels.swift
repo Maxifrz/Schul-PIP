@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// The paper of a notebook page or of a page added to a PDF.
 enum PaperStyle: String, CaseIterable, Codable, Identifiable {
