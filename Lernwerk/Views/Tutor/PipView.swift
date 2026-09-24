@@ -53,7 +53,7 @@ final class PipSimulation {
     static let size = CGSize(width: CGFloat(gridWidth) * pixel, height: CGFloat(gridHeight) * pixel)
 
     private static let bodyY = 5
-    private static let cat: [[Character]] = [
+    fileprivate static let cat: [[Character]] = [
         ".............",
         ".oo.......oo.",
         ".opo.....opo.",
@@ -68,7 +68,7 @@ final class PipSimulation {
         ".offwwfffwwo.",
         "..ooooooooo..",
     ].map(Array.init)
-    private static let tails: [[(Int, Int)]] = [
+    fileprivate static let tails: [[(Int, Int)]] = [
         [(12, 10), (13, 10), (14, 9), (14, 8)],
         [(12, 10), (13, 9), (14, 8), (14, 7)],
         [(12, 11), (13, 10), (14, 10), (15, 9)],
@@ -261,5 +261,45 @@ final class PipSimulation {
                 context.fill(Path(rect), with: .color(index <= active ? on : off))
             }
         }
+    }
+}
+
+/// Pip sitting still, for the wordmark; the same pixel grid as the animated cat.
+struct PipLogo: View {
+    var pixel: CGFloat = 2.5
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Canvas { context, _ in
+            let outline = Color(QuillUIColor.hex(colorScheme == .dark ? 0x0A0A08 : 0x23231F))
+            let palette: [Character: Color] = [
+                "o": outline,
+                "e": outline,
+                "f": Color(QuillUIColor.hex(0x7FA98C)),
+                "p": Color(QuillUIColor.hex(0xE5A8A2)),
+                "w": Color(QuillUIColor.hex(0xFFFDF6)),
+            ]
+            func fill(_ x: Int, _ y: Int, _ color: Color) {
+                context.fill(Path(CGRect(x: CGFloat(x) * pixel, y: CGFloat(y) * pixel, width: pixel, height: pixel)), with: .color(color))
+            }
+            let grid = PipSimulation.cat
+            let tail = PipSimulation.tails[0]
+            var occupied = Set<Int>()
+            for (y, row) in grid.enumerated() {
+                for (x, value) in row.enumerated() where value != "." { occupied.insert(y * 100 + x) }
+            }
+            tail.forEach { occupied.insert($0.1 * 100 + $0.0) }
+            for (x, y) in tail {
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] where !occupied.contains((y + dy) * 100 + x + dx) {
+                    fill(x + dx, y + dy, outline)
+                }
+            }
+            tail.forEach { fill($0.0, $0.1, palette["f"] ?? outline) }
+            for (y, row) in grid.enumerated() {
+                for (x, value) in row.enumerated() where value != "." { fill(x, y, palette[value] ?? outline) }
+            }
+        }
+        .frame(width: 16 * pixel, height: 13 * pixel)
+        .accessibilityHidden(true)
     }
 }

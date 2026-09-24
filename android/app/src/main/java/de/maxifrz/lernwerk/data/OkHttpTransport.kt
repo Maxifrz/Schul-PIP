@@ -23,15 +23,19 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 class OkHttpTransport : HttpTransport {
-    override suspend fun post(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Long): HttpResult {
+    override suspend fun post(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Long): HttpResult =
+        execute(request(url, headers).post(body.toRequestBody("application/json".toMediaType())).build(), timeoutSeconds)
+
+    override suspend fun get(url: String, headers: Map<String, String>, timeoutSeconds: Long): HttpResult =
+        execute(request(url, headers).get().build(), timeoutSeconds)
+
+    private fun request(url: String, headers: Map<String, String>): Request.Builder =
+        Request.Builder().url(url).apply { headers.forEach { (name, value) -> header(name, value) } }
+
+    private suspend fun execute(request: Request, timeoutSeconds: Long): HttpResult {
         val client = base.newBuilder()
             .callTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
-            .build()
-        val request = Request.Builder()
-            .url(url)
-            .apply { headers.forEach { (name, value) -> header(name, value) } }
-            .post(body.toRequestBody("application/json".toMediaType()))
             .build()
 
         return suspendCancellableCoroutine { continuation ->

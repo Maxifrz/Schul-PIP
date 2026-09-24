@@ -2,7 +2,7 @@ import Foundation
 
 struct TopicDraft: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
-        case title, summary, prerequisites, materialIndex, sourcePages, estimatedMinutes
+        case title, summary, prerequisites, materialIndex, sourcePages, estimatedMinutes, videoQuery
     }
 
     var title: String
@@ -11,6 +11,8 @@ struct TopicDraft: Codable, Equatable {
     var materialIndex: Int
     var sourcePages: [Int]
     var estimatedMinutes: Int
+    /// A German YouTube search for an explainer video on the topic.
+    var videoQuery = ""
 }
 
 /// Models without schema enforcement drop fields or send numbers as strings; only the title is mandatory.
@@ -25,6 +27,7 @@ extension TopicDraft {
             ?? (try? container.decode([String].self, forKey: .sourcePages))?.compactMap { Int($0) }
             ?? []
         estimatedMinutes = container.lenientInt(forKey: .estimatedMinutes) ?? 30
+        videoQuery = ((try? container.decode(String.self, forKey: .videoQuery)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

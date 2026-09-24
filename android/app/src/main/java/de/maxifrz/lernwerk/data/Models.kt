@@ -46,6 +46,14 @@ data class PlanTopic(
     /** Days since the epoch, so a topic stays on its day across time zones. */
     val scheduledDay: Long,
     val isDone: Boolean = false,
+    /** A German YouTube search the model suggested for explainer videos; empty for older plans. */
+    val videoQuery: String = "",
+    /** Practice exercises generated on request, with worked solutions. */
+    val exercises: List<Exercise> = emptyList(),
+    /** The Wikipedia introduction to the topic, once looked up. */
+    val wiki: WikiSummary? = null,
+    /** How many flashcards were made from this topic. */
+    val cardCount: Int = 0,
 ) {
     val scheduledDate: LocalDate get() = LocalDate.ofEpochDay(scheduledDay)
 
@@ -59,6 +67,12 @@ data class PlanTopic(
 }
 
 @Serializable
+data class Exercise(val question: String, val hint: String = "", val solution: String)
+
+@Serializable
+data class WikiSummary(val title: String, val url: String, val text: String)
+
+@Serializable
 data class StudyPlan(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -67,6 +81,8 @@ data class StudyPlan(
     val isOverbooked: Boolean,
     val createdAt: Long = System.currentTimeMillis(),
     val topics: List<PlanTopic>,
+    /** Minute of the day for the daily reminder, null when it is off. */
+    val reminderMinute: Int? = null,
 ) {
     val examDate: LocalDate get() = LocalDate.ofEpochDay(examDay)
 }

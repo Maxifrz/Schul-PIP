@@ -65,6 +65,7 @@ private val dayTitle = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMA
 @Composable
 fun PlanListScreen(app: AppState) {
     val plans = app.repository.plans
+    val context = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         ContentColumn {
             if (plans.isEmpty()) {
@@ -84,7 +85,10 @@ fun PlanListScreen(app: AppState) {
                     PrimaryButton("Neuer Lernplan", { app.push(Route.CreatePlan) })
                 }
                 Box(Modifier.padding(top = 30.dp)) { QuillDivider() }
-                plans.forEach { plan -> PlanRow(plan, { app.push(Route.Plan(plan.id)) }, { app.repository.deletePlan(plan) }) }
+                plans.forEach { plan -> PlanRow(plan, { app.push(Route.Plan(plan.id)) }, {
+                    app.repository.deletePlan(plan)
+                    de.maxifrz.lernwerk.notify.Reminders.cancel(context, plan.id)
+                }) }
             }
         }
     }
@@ -125,6 +129,7 @@ fun PlanDetailScreen(app: AppState, planId: String) {
     }
     val colors = Quill.colors
     val today = LocalDate.now()
+    var expanded by remember { mutableStateOf<String?>(null) }
 
     fun reschedule() {
         // Missed days happen; this moves every open topic forward from today without losing the order.
@@ -154,6 +159,8 @@ fun PlanDetailScreen(app: AppState, planId: String) {
                     QText("Prüfung am ${plan.examDate.format(longDate)} · noch $daysLeft Tage", work(13f), colors.faint)
                 }
                 QuillDivider()
+                PlanTools(app, plan)
+                QuillDivider()
                 if (plan.isOverbooked) {
                     Notice(
                         "Bei ${plan.minutesPerDay} Minuten pro Tag passt der Stoff nicht bis zur Prüfung. Erhöh die tägliche Lernzeit oder streich Themen.",
@@ -169,6 +176,9 @@ fun PlanDetailScreen(app: AppState, planId: String) {
                             TopicRow(
                                 topic = topic,
                                 hasMaterial = app.repository.material(topic.materialId) != null,
+                                expanded = expanded == topic.id,
+                                onExpand = { expanded = if (expanded == topic.id) null else topic.id },
+                                extras = { TopicExtras(app, plan.id, topic) },
                                 onToggle = {
                                     app.repository.updatePlan(
                                         plan.copy(topics = plan.topics.map { if (it.id == topic.id) it.copy(isDone = !it.isDone) else it }),
@@ -195,7 +205,15 @@ private fun dayLabel(day: LocalDate, today: LocalDate): String = when {
 }
 
 @Composable
-private fun TopicRow(topic: PlanTopic, hasMaterial: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
+private fun TopicRow(
+    topic: PlanTopic,
+    hasMaterial: Boolean,
+    expanded: Boolean,
+    onExpand: () -> Unit,
+    extras: @Composable () -> Unit,
+    onToggle: () -> Unit,
+    onOpen: () -> Unit,
+) {
     val colors = Quill.colors
     Row(Modifier.fillMaxWidth().padding(vertical = 15.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.padding(top = 1.dp).pressable(androidx.compose.foundation.shape.CircleShape, onClick = onToggle)) {
@@ -211,11 +229,16 @@ private fun TopicRow(topic: PlanTopic, hasMaterial: Boolean, onToggle: () -> Uni
                 if (topic.isDone) colors.faint else colors.ink,
             )
             QText(topic.summary, work(14f, lineHeight = 20f), colors.muted)
-            Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 QText("${topic.estimatedMinutes} min", work(12.5f), colors.faint)
                 if (topic.pagesLabel.isNotEmpty()) QText(topic.pagesLabel, work(12.5f), colors.faint)
+                Box(Modifier.weight(1f))
+                LinkButton(if (expanded) "Lernhilfen ▴" else "Lernhilfen ▾", onExpand, style = work(13f, FontWeight.Medium))
             }
         }
+    }
+    if (expanded) {
+        Box(Modifier.padding(start = 38.dp, end = 2.dp, bottom = 16.dp)) { extras() }
     }
     QuillDivider()
 }
@@ -267,6 +290,7 @@ fun PlanCreateScreen(app: AppState) {
                                 estimatedMinutes = item.draft.estimatedMinutes,
                                 order = item.order,
                                 scheduledDay = item.date.toEpochDay(),
+                                videoQuery = item.draft.videoQuery,
                             )
                         },
                     ),

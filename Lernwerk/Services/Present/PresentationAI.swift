@@ -4,7 +4,8 @@ import Foundation
 enum PresentationPrompt {
     static let deckSystem = """
     You help a German upper-secondary student build a school presentation (Referat) from their own material.
-    Only use content that is actually in the material; never invent facts, numbers, dates or quotes.
+    Only use content that is actually in the material (or in the research, if there is any); never invent facts,
+    numbers, dates or quotes.
     Write everything in German. Write math with Unicode characters, never LaTeX.
 
     What makes a good school talk:
@@ -49,10 +50,27 @@ enum PresentationPrompt {
     - QUOTE: quote taken literally from the material, attribution
     """
 
-    static func deckInstructions(topic: String, slideCount: Int, minutes: Int) -> String {
+    /// Added to `deckSystem` when the app looks things up on Wikipedia.
+    static let researchRules = """
+    Research: besides the material you may get excerpts of German Wikipedia articles, each with an id (W1, W2 …).
+    - The student's material comes first. Use the research for context, background, current numbers and examples
+      the material does not give.
+    - Only use facts that are literally stated in the excerpts or the material, never facts from your own memory.
+    - Every slide that uses a fact from an article lists the article ids in webSources, and its notes say where the
+      fact comes from ("laut Wikipedia …").
+    - If the research contradicts the material, follow the material and mention the difference in the notes.
+    """
+
+    static func system(research: Bool) -> String {
+        research ? deckSystem + "\n\n" + researchRules : deckSystem
+    }
+
+    static func deckInstructions(topic: String, slideCount: Int, minutes: Int, research: Bool = false, hasMaterial: Bool = true) -> String {
         let focus = topic.isBlank ? "the main content of the material" : topic
+        let source = hasMaterial ? "from the material above" : "from the Wikipedia research above; there is no material"
         return """
-        Plan a presentation from the material above. First only the outline: the red thread, not the finished slides.
+        Plan a presentation \(source).
+        First only the outline: the red thread, not the finished slides.
         Topic or focus: \(focus)
         Number of slides: about \(slideCount) (title and sources slides included)
         Talk length: \(minutes) minutes
@@ -61,17 +79,26 @@ enum PresentationPrompt {
         example, comparison, summary, sources …), its message as one German sentence, the slide type that shows it
         best, what goes on it (facts, numbers with units, dates, the material page of a figure) and the material
         (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
-        """ + "\n\n" + layoutGuide
+        """ + (research ? "\n\n" + researchInstructions(hasMaterial: hasMaterial) : "") + "\n\n" + layoutGuide
     }
 
-    static func slidesInstructions(slideCount: Int, minutes: Int) -> String {
+    private static func researchInstructions(hasMaterial: Bool) -> String {
+        """
+        Research: before the slides are written, the app looks up the German Wikipedia for you. Give up to
+        \(Research.maxQueries) short German search terms in research (ideally article titles) for context, background,
+        current numbers or examples the talk needs beyond \(hasMaterial ? "the material" : "the research above").
+        Leave research empty if nothing is missing.
+        """
+    }
+
+    static func slidesInstructions(slideCount: Int, minutes: Int, research: Bool = false) -> String {
         let seconds = max(15, minutes * 60 / max(1, slideCount))
         return """
         Now write the finished slides for this outline, in the same order. Use the planned slide type unless the
         material does not give enough for it. Each title is the slide's message, shortened to at most 10 words.
         Keep texts short, move details into the notes. Each slide's notes should take about
         \(seconds) seconds to say and lead over to the next slide.
-        Give every slide its sourceMaterial and sourcePages.
+        Give every slide its sourceMaterial and sourcePages\(research ? ", and webSources for facts from the research" : "").
         """
     }
 
@@ -88,7 +115,8 @@ enum PresentationPrompt {
           "content": { "type": "string" },
           "sourceMaterial": { "type": "integer" },
           "sourcePages": { "type": "array", "items": { "type": "integer" } }
-        }, "required": ["role", "message", "layout", "content"] } }
+        }, "required": ["role", "message", "layout", "content"] } },
+        "research": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["title", "thesis", "slides"]
     }
@@ -125,7 +153,8 @@ enum PresentationPrompt {
     "imageMaterial": { "type": "integer" },
     "imagePage": { "type": "integer" },
     "sourceMaterial": { "type": "integer" },
-    "sourcePages": { "type": "array", "items": { "type": "integer" } }
+    "sourcePages": { "type": "array", "items": { "type": "integer" } },
+    "webSources": { "type": "array", "items": { "type": "string" } }
     """
 
     static let slideSchema = JSONSchema.object(
@@ -329,7 +358,8 @@ enum PresentationPrompt {
             imagePage: int(object["imagePage"]).flatMap { $0 > 0 ? $0 : nil },
             notes: object["notes"] as? String ?? "",
             sourceMaterial: int(object["sourceMaterial"]),
-            sourcePages: (object["sourcePages"] as? [Any])?.compactMap(int) ?? []
+            sourcePages: (object["sourcePages"] as? [Any])?.compactMap(int) ?? [],
+            webSources: strings(object["webSources"]).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "[] ")).uppercased() }
         )
         let hasContent = !draft.title.isBlank || !draft.bullets.isEmpty || !draft.quote.isBlank || !draft.left.isEmpty
             || !draft.items.isEmpty || !draft.table.isEmpty || draft.chart != nil
@@ -362,6 +392,7 @@ enum PresentationPrompt {
         var title: String
         var thesis: String
         var slides: [OutlineSlide]
+        var research: [String] = []
     }
 
     static func parseOutline(_ text: String) -> Outline? {
@@ -376,7 +407,12 @@ enum PresentationPrompt {
             )
             return slide.message.isEmpty && slide.content.isBlank ? nil : slide
         }
-        return Outline(title: root["title"] as? String ?? "", thesis: root["thesis"] as? String ?? "", slides: parsed)
+        return Outline(
+            title: root["title"] as? String ?? "",
+            thesis: root["thesis"] as? String ?? "",
+            slides: parsed,
+            research: Array(strings(root["research"]).prefix(Research.maxQueries))
+        )
     }
 
     /// The outline as the model's own earlier answer, compact, for the second step.
@@ -387,6 +423,49 @@ enum PresentationPrompt {
             if !slide.content.isBlank { lines.append("   \(slide.content.trimmingCharacters(in: .whitespacesAndNewlines))") }
         }
         return lines.map { $0 + "\n" }.joined()
+    }
+
+    /// Names the Wikipedia articles a slide used in its notes and lists them on the sources slide, which is added if the
+    /// model left it out. If no slide says what it used, all researched articles are listed: they shaped the talk.
+    static func citingSources(_ drafts: [SlideDraft], sources: [WebSource], materialTitles: [String], date: Date = Date()) -> [SlideDraft] {
+        guard !sources.isEmpty else { return drafts }
+        let byID = Dictionary(sources.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        func used(_ draft: SlideDraft) -> [WebSource] {
+            var seen = Set<String>()
+            return draft.webSources.compactMap { byID[$0] }.filter { seen.insert($0.id).inserted }
+        }
+        var cited: [WebSource] = []
+        for draft in drafts {
+            for source in used(draft) where !cited.contains(source) {
+                cited.append(source)
+            }
+        }
+        let listed = (cited.isEmpty ? sources : cited).map { Research.citation($0, date: date) }
+        var result = drafts.map { draft -> SlideDraft in
+            let articles = used(draft)
+            guard !articles.isEmpty else { return draft }
+            var copy = draft
+            let line = "Quelle: " + articles.map { "Wikipedia – „\($0.title)“" }.joined(separator: "; ")
+            copy.notes = [draft.notes.trimmingCharacters(in: .whitespacesAndNewlines), line].filter { !$0.isEmpty }.joined(separator: "\n\n")
+            return copy
+        }
+        if let index = result.lastIndex(where: { $0.title.range(of: "Quelle", options: .caseInsensitive) != nil }) {
+            var slide = result[index]
+            let own = (slide.bullets + slide.left + slide.right).filter { $0.range(of: "wikipedia", options: .caseInsensitive) == nil }
+            slide.layout = .bullets
+            slide.bullets = own + listed
+            slide.left = []
+            slide.right = []
+            result[index] = slide
+        } else {
+            result.append(SlideDraft(
+                layout: .bullets,
+                title: "Quellen",
+                bullets: materialTitles.map { "Material: \($0)" } + listed,
+                notes: "Zum Schluss nenne ich meine Quellen."
+            ))
+        }
+        return result
     }
 
     private static func strings(_ value: Any?) -> [String] {
@@ -428,17 +507,29 @@ func autoApply(_ presentation: Presentation, _ critique: Critique) -> Presentati
     return PresentationEdits.apply(presentation, changes).presentation
 }
 
+enum ResearchError: LocalizedError, Equatable {
+    case nothingFound(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .nothingFound(topic):
+            return "Zu „\(topic)“ hat Wikipedia nichts gefunden. Formulier das Thema anders oder wähl Material aus."
+        }
+    }
+}
+
 /// The AI features of the presentation tab; all of them are ordinary LLM requests through the chosen provider.
 struct PresentationAssistant {
     let client: any LLMClient
 
     /// The steps of building a deck, for the progress shown while the student waits.
     enum Stage: Int, CaseIterable {
-        case outline, slides, review
+        case outline, research, slides, review
 
         var label: String {
             switch self {
             case .outline: return "Die KI plant den roten Faden …"
+            case .research: return "Die KI recherchiert auf Wikipedia …"
             case .slides: return "Die KI schreibt die Folien …"
             case .review: return "Der Kritiker prüft und verbessert …"
             }
@@ -448,22 +539,39 @@ struct PresentationAssistant {
     /// Builds a whole presentation in three steps: an outline with one message per slide, then the slides for that
     /// outline in the same conversation, then (with `review`) the critic's important findings applied automatically.
     /// `content` is the material as the plan generator prepares it for this provider, ending with the planning
-    /// instructions; `pageImage` renders a material page and stores it as a media file.
+    /// instructions; `pageImage` renders a material page and stores it as a media file. With `wikipedia` the outline
+    /// names search terms, the articles found go into the slides step and the critic's check, and the slides cite
+    /// them; without materials the talk is built from the research on `topic` alone.
     func generate(
-        content: [LLMContent],
+        content prepared: [LLMContent],
         materialIDs: [String],
+        materialTitles: [String] = [],
         topic: String,
         slideCount: Int,
         minutes: Int,
         themeID: String,
         review: Bool = true,
+        wikipedia: WikipediaClient? = nil,
+        today: Date = Date(),
         onStage: (Stage) -> Void = { _ in },
         pageImage: (_ materialIndex: Int, _ page: Int) async -> PlacedImage?
     ) async throws -> Presentation {
+        let research = wikipedia != nil
+        let system = PresentationPrompt.system(research: research)
+        var sources: [WebSource] = []
+        if let wikipedia, materialIDs.isEmpty {
+            onStage(.research)
+            sources = try await Research.gather(wikipedia, queries: [topic])
+            if sources.isEmpty { throw ResearchError.nothingFound(topic) }
+        }
+        // The research on the topic sits between the material and the instructions.
+        let researchBlock: [LLMContent] = sources.isEmpty ? [] : [.text(Research.prompt(sources))]
+        let content = Array(prepared.dropLast()) + researchBlock + Array(prepared.suffix(1))
+
         onStage(.outline)
         let outlineRequest = LLMRequest(
             purpose: .presentationOutline,
-            system: PresentationPrompt.deckSystem,
+            system: system,
             messages: [LLMMessage(role: .user, content: content)],
             maxTokens: 8000,
             effort: .high,
@@ -471,14 +579,22 @@ struct PresentationAssistant {
         )
         let outline = try await StructuredOutput.complete(request: outlineRequest, client: client, parse: PresentationPrompt.parseOutline) { !$0.slides.isEmpty }
 
+        let known = sources.count
+        if let wikipedia, !outline.research.isEmpty {
+            onStage(.research)
+            sources = try await Research.gather(wikipedia, queries: outline.research, existing: sources)
+        }
+        let found = Array(sources.dropFirst(known))
+
         onStage(.slides)
+        let slidesPrompt = PresentationPrompt.slidesInstructions(slideCount: outline.slides.count, minutes: minutes, research: research && !sources.isEmpty)
         let request = LLMRequest(
             purpose: .presentation,
-            system: PresentationPrompt.deckSystem,
+            system: system,
             messages: [
                 LLMMessage(role: .user, content: content),
                 LLMMessage(role: .assistant, content: [.text(PresentationPrompt.outlineText(outline))]),
-                LLMMessage(role: .user, content: [.text(PresentationPrompt.slidesInstructions(slideCount: outline.slides.count, minutes: minutes))]),
+                LLMMessage(role: .user, content: (found.isEmpty ? [] : [.text(Research.prompt(found))]) + [.text(slidesPrompt)]),
             ],
             maxTokens: 16000,
             effort: .medium,
@@ -486,7 +602,8 @@ struct PresentationAssistant {
         )
         let deck = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseDeck) { !$0.slides.isEmpty }
         var slides: [Slide] = []
-        for draft in deck.slides {
+        let drafts = PresentationPrompt.citingSources(deck.slides, sources: sources, materialTitles: materialTitles, date: today)
+        for draft in drafts {
             var image: PlacedImage?
             if draft.layout == .imageText || draft.layout == .imageFull, let page = draft.imagePage {
                 let index = draft.imageMaterial ?? draft.sourceMaterial ?? 0
@@ -505,7 +622,8 @@ struct PresentationAssistant {
         if review {
             onStage(.review)
             // The critic improves the draft before the student sees it; a failed review keeps the draft.
-            if let critique = try? await PresentationCritic(client: client).critique(presentation, material: Array(content.dropLast())) {
+            let material = Array(prepared.dropLast()) + (sources.isEmpty ? [] : [LLMContent.text(Research.prompt(sources))])
+            if let critique = try? await PresentationCritic(client: client).critique(presentation, material: material) {
                 presentation = autoApply(presentation, critique)
             }
         }

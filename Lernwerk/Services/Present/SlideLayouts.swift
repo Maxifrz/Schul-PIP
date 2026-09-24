@@ -82,6 +82,8 @@ struct SlideDraft: Equatable {
     var notes = ""
     var sourceMaterial: Int?
     var sourcePages: [Int] = []
+    /// Ids of the Wikipedia articles (W1, W2 …) the slide's facts come from.
+    var webSources: [String] = []
 }
 
 /// A picture for a layout: its media file name and width / height.

@@ -12,6 +12,7 @@ import de.maxifrz.lernwerk.llm.LlmProvider
 import de.maxifrz.lernwerk.llm.LlmTask
 import de.maxifrz.lernwerk.llm.ModelSelection
 import de.maxifrz.lernwerk.llm.OpenAiCompatibleClient
+import de.maxifrz.lernwerk.research.WikipediaClient
 import de.maxifrz.lernwerk.tutor.DemoLlmClient
 import kotlinx.serialization.json.Json
 
@@ -19,6 +20,9 @@ class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val keys = ApiKeyStore(context)
     private val transport = OkHttpTransport()
+
+    /** Wikipedia for research in presentations and the study plan; free and without a key. */
+    val wikipedia = WikipediaClient(transport)
 
     /** Model for the help panel and the flashcards created from it. */
     var tutor by mutableStateOf(load(KEY_TUTOR) ?: ModelSelection.default(LlmTask.TUTOR, LlmProvider.NVIDIA))

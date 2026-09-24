@@ -92,6 +92,8 @@ class PlanGenerator(
             - materialIndex: the number of the material that covers the topic
             - sourcePages: the 1-based page numbers in that material (use the "--- Page N ---" markers when present)
             - estimatedMinutes: realistic study time between 15 and 60 minutes, including practice
+            - videoQuery: a short German YouTube search for a good explainer video on exactly this topic, with the
+              subject and school level if it helps (e.g. "Kettenregel Ableitung einfach erklärt Oberstufe")
         """.trimIndent()
 
         val schema: JsonObject = Json.parseToJsonElement(
@@ -109,9 +111,10 @@ class PlanGenerator(
                       "prerequisites": { "type": "array", "items": { "type": "string" } },
                       "materialIndex": { "type": "integer" },
                       "sourcePages": { "type": "array", "items": { "type": "integer" } },
-                      "estimatedMinutes": { "type": "integer" }
+                      "estimatedMinutes": { "type": "integer" },
+                      "videoQuery": { "type": "string" }
                     },
-                    "required": ["title", "summary", "prerequisites", "materialIndex", "sourcePages", "estimatedMinutes"],
+                    "required": ["title", "summary", "prerequisites", "materialIndex", "sourcePages", "estimatedMinutes", "videoQuery"],
                     "additionalProperties": false
                   }
                 }

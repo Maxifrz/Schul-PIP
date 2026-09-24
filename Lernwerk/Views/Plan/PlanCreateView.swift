@@ -201,7 +201,7 @@ struct PlanCreateView: View {
                 modelContext.insert(plan)
                 for item in schedule.topics {
                     let index = item.draft.materialIndex
-                    plan.topics.append(PlanTopic(
+                    let topic = PlanTopic(
                         title: item.draft.title,
                         summary: item.draft.summary,
                         materialID: chosen.indices.contains(index) ? chosen[index].id : nil,
@@ -209,7 +209,9 @@ struct PlanCreateView: View {
                         estimatedMinutes: item.draft.estimatedMinutes,
                         order: item.order,
                         scheduledDate: item.date
-                    ))
+                    )
+                    topic.videoQuery = item.draft.videoQuery
+                    plan.topics.append(topic)
                 }
                 dismiss()
             } catch {

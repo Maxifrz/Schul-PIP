@@ -36,6 +36,8 @@ class LernwerkApp : Application() {
         repository = Repository(this)
         settings = AppSettings(this)
         presentations = PresentationStore(this)
+        // Alarms do not survive every update or a force stop; setting them again is harmless.
+        de.maxifrz.lernwerk.notify.Reminders.scheduleAll(this, repository.plans)
     }
 }
 

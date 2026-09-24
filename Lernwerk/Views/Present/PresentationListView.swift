@@ -211,7 +211,16 @@ struct PresentationCreateView: View {
     @State private var isGenerating = false
     @State private var stage = PresentationAssistant.Stage.outline
     @State private var review = true
+    @State private var research = true
+    @State private var step = 0
     @State private var errorMessage: String?
+
+    private var canGenerate: Bool { !selection.isEmpty || research && !topic.isBlank }
+
+    /// Outline, slides and the optional steps; researching a bare topic takes a round before the outline.
+    private var stepCount: Int {
+        2 + (review ? 1 : 0) + (research ? 1 : 0) + (research && selection.isEmpty ? 1 : 0)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -229,7 +238,7 @@ struct PresentationCreateView: View {
                     Spacer()
                     Button("Erstellen", action: generate)
                         .buttonStyle(QuillPrimaryButtonStyle(height: 34, fontSize: 14))
-                        .disabled(selection.isEmpty || isGenerating)
+                        .disabled(!canGenerate || isGenerating)
                 }
             }
             .padding(.horizontal, 20)
@@ -238,10 +247,10 @@ struct PresentationCreateView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    PixelCaption(text: "Material")
+                    PixelCaption(text: research ? "Material (optional)" : "Material")
                         .padding(.bottom, 6)
                     if materials.isEmpty {
-                        Text("Importiere zuerst ein PDF in der Bibliothek.")
+                        Text(research ? "Kein Material in der Bibliothek – die KI baut den Vortrag dann nur aus der Wikipedia-Recherche." : "Importiere zuerst ein PDF in der Bibliothek.")
                             .font(.work(15))
                             .foregroundStyle(Quill.faint)
                             .padding(.vertical, 14)
@@ -271,7 +280,11 @@ struct PresentationCreateView: View {
                         Text("Thema oder Schwerpunkt")
                             .font(.work(15.5))
                             .foregroundStyle(Quill.ink)
-                        TextField("z. B. „Die Kettenregel mit Beispielen“ – leer lassen für das ganze Material", text: $topic, axis: .vertical)
+                        TextField(
+                            selection.isEmpty && research ? "z. B. „Photosynthese“ – ohne Material ist das Thema Pflicht" : "z. B. „Die Kettenregel mit Beispielen“ – leer lassen für das ganze Material",
+                            text: $topic,
+                            axis: .vertical
+                        )
                             .font(.work(15))
                             .lineLimit(1...3)
                             .padding(.horizontal, 14)
@@ -294,8 +307,17 @@ struct PresentationCreateView: View {
                     QuillRow(label: "Kritiker überarbeitet automatisch", verticalPadding: 10) {
                         Toggle("", isOn: $review).labelsHidden().tint(Quill.accent)
                     }
-                    Text("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
-                        .quillFootnote()
+                    QuillRow(label: "Wikipedia-Recherche", verticalPadding: 10) {
+                        Toggle("", isOn: $research).labelsHidden().tint(Quill.accent)
+                    }
+                    Text(
+                        "Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. "
+                            + (research
+                                ? "Mit Recherche schlägt sie fehlende Hintergründe, Zahlen und Beispiele in der deutschen Wikipedia nach. Jede Folie nennt ihre Quellen – Material-Seiten und Wikipedia-Artikel mit Link und Abrufdatum. "
+                                : "Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. ")
+                            + "Danach kannst du jede Folie frei bearbeiten."
+                    )
+                    .quillFootnote()
                     if let errorMessage {
                         HStack(alignment: .firstTextBaseline, spacing: 9) {
                             StatusDot(color: Quill.warn)
@@ -323,7 +345,7 @@ struct PresentationCreateView: View {
                         Text(stage.label)
                             .font(.work(16, .medium))
                             .foregroundStyle(Quill.ink)
-                        Text("Schritt \(stage.rawValue + 1) von \(review ? 3 : 2) · je nach Umfang einige Minuten")
+                        Text("Schritt \(max(step, 1)) von \(max(stepCount, step)) · je nach Umfang einige Minuten")
                             .font(.work(12.5))
                             .foregroundStyle(Quill.faint)
                     }
@@ -347,8 +369,11 @@ struct PresentationCreateView: View {
         let minutes = minutes
         let themeID = themeID
         let store = store
+        let wikipedia = research ? WikipediaClient() : nil
+        let hasMaterial = !chosen.isEmpty
         isGenerating = true
         errorMessage = nil
+        step = 0
 
         Task { @MainActor in
             defer { isGenerating = false }
@@ -357,18 +382,31 @@ struct PresentationCreateView: View {
                 let content = try PlanGenerator.content(
                     for: inputs,
                     capabilities: client.capabilities,
-                    instructions: PresentationPrompt.deckInstructions(topic: topic, slideCount: slideCount, minutes: minutes)
+                    instructions: PresentationPrompt.deckInstructions(
+                        topic: topic,
+                        slideCount: slideCount,
+                        minutes: minutes,
+                        research: wikipedia != nil,
+                        hasMaterial: hasMaterial
+                    )
                 )
                 let urls = chosen.map(\.fileURL)
                 let presentation = try await PresentationAssistant(client: client).generate(
                     content: content,
                     materialIDs: chosen.map(\.id.uuidString),
+                    materialTitles: chosen.map(\.title),
                     topic: topic,
                     slideCount: slideCount,
                     minutes: minutes,
                     themeID: themeID,
                     review: review,
-                    onStage: { next in Task { @MainActor in stage = next } },
+                    wikipedia: wikipedia,
+                    onStage: { next in
+                        Task { @MainActor in
+                            stage = next
+                            step += 1
+                        }
+                    },
                     pageImage: { index, page in
                         await MainActor.run {
                             guard let pdfPage = PDFDocument(url: urls[index])?.page(at: page - 1) else { return nil }
