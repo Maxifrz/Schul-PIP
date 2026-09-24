@@ -9,6 +9,9 @@ import de.maxifrz.lernwerk.llm.LlmResponse
 import de.maxifrz.lernwerk.llm.LlmRole
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** Bundled sample material and canned answers so the app can be tried without an API key. */
 object DemoContent {
@@ -67,6 +70,53 @@ object DemoContent {
         ),
     )
 
+    val deckJson = """
+        {"title":"Die Kettenregel","slides":[
+        {"layout":"TITLE","title":"Die Kettenregel","subtitle":"Name · Mathematik","notes":"Hallo zusammen, heute geht es um die Kettenregel – eine der wichtigsten Ableitungsregeln fürs Abi.","sourceMaterial":0,"sourcePages":[1]},
+        {"layout":"BULLETS","title":"Verkettete Funktionen","bullets":["Äußere Funktion wirkt auf innere","Beispiel: (3x² + 1)⁵","Innen: 3x² + 1, außen: v⁵"],"notes":"Viele Funktionen bestehen aus zwei Teilen: Erst wird innen gerechnet, dann wird das Ergebnis außen weiterverarbeitet.","sourceMaterial":0,"sourcePages":[1]},
+        {"layout":"QUOTE","title":"Merksatz","quote":"Äußere Ableitung mal innere Ableitung.","attribution":"Demo: Kettenregel, S. 1","notes":"Diesen Satz solltet ihr euch merken – er ist die ganze Regel in einem Satz.","sourceMaterial":0,"sourcePages":[1]},
+        {"layout":"TWO_COLUMNS","title":"Richtig und falsch","leftTitle":"Richtig","left":["5(3x² + 1)⁴ · 6x","= 30x(3x² + 1)⁴"],"rightTitle":"Typischer Fehler","right":["Nur 5(3x² + 1)⁴","Innere Ableitung vergessen"],"notes":"Der häufigste Fehler ist, die innere Ableitung zu vergessen. Links seht ihr die richtige Lösung.","sourceMaterial":0,"sourcePages":[1]},
+        {"layout":"BULLETS","title":"Fazit","bullets":["Verkettung erkennen","Außen ableiten, innen stehen lassen","Mit innerer Ableitung multiplizieren"],"notes":"Zusammengefasst: erkennen, außen ableiten, mit der inneren Ableitung multiplizieren.","sourceMaterial":0,"sourcePages":[1,2]},
+        {"layout":"BULLETS","title":"Quellen","bullets":["Demo: Kettenregel, S. 1–2"],"notes":"Alle Inhalte stammen aus dem Demo-Material.","sourceMaterial":0,"sourcePages":[1,2]}
+        ]}
+    """.trimIndent()
+
+    const val FEEDBACK = """**Das gelingt dir schon:**
+- Klarer Aufbau von der Definition über das Beispiel zum Fazit
+- Der Merksatz bekommt eine eigene Folie
+
+**Fragen zum Weiterdenken:**
+1. Folie 2: Woran erkennt deine Klasse ohne Vorwissen, welcher Teil die *innere* Funktion ist?
+2. Folie 4: Würde ein eigenes Rechenbeispiel Schritt für Schritt helfen, bevor du den Fehler zeigst?
+3. Passen sechs Folien zu deiner geplanten Redezeit, oder bleibt Zeit für eine Übungsaufgabe mit der Klasse?"""
+
+    fun slideEdit(request: de.maxifrz.lernwerk.llm.LlmRequest): String {
+        val prompt = request.messages.flatMap { it.content }.filterIsInstance<de.maxifrz.lernwerk.llm.LlmContent.Text>().joinToString("\n") { it.text }
+        if (prompt.startsWith("Redesign")) {
+            return """{"layout":"BULLETS","title":"Neu gestaltet","bullets":["Kernaussage zuerst","Höchstens drei Punkte"],"notes":"Diese Folie wurde im Demo-Modus neu gestaltet."}"""
+        }
+        val texts = Regex("<text id=\"([^\"]+)\"[^>]*>\n([\\s\\S]*?)\n</text>").findAll(prompt).map { match ->
+            val shortened = match.groupValues[2].lines().take(3).joinToString("\n") { line -> line.split(" ").take(5).joinToString(" ") }
+            buildJsonObject {
+                put("id", match.groupValues[1])
+                put("text", shortened)
+            }
+        }.toList()
+        return buildJsonObject { put("texts", JsonArray(texts)) }.toString()
+    }
+
+    fun speakerNotes(request: de.maxifrz.lernwerk.llm.LlmRequest): String {
+        val prompt = request.messages.flatMap { it.content }.filterIsInstance<de.maxifrz.lernwerk.llm.LlmContent.Text>().joinToString("\n") { it.text }
+        val count = Regex("<slide number=").findAll(prompt).count()
+        val notes = (1..count).map { number ->
+            buildJsonObject {
+                put("slide", number)
+                put("notes", "Demo-Notiz für Folie $number: Erkläre in zwei, drei Sätzen, was die Folie zeigt, und schau dabei in die Klasse.")
+            }
+        }
+        return buildJsonObject { put("notes", JsonArray(notes)) }.toString()
+    }
+
     val planJson = """
         {"topics":[
         {"title":"Verkettete Funktionen erkennen","summary":"Du kannst bei einer Funktion innere und äußere Funktion benennen.","prerequisites":[],"materialIndex":0,"sourcePages":[1],"estimatedMinutes":20},
@@ -88,6 +138,10 @@ class DemoLlmClient(private val latencyMillis: Long = 700) : LlmClient {
             )
             LlmPurpose.Flashcard -> DemoContent.flashcardJson
             LlmPurpose.StudyPlan -> DemoContent.planJson
+            LlmPurpose.Presentation -> DemoContent.deckJson
+            LlmPurpose.SlideRewrite -> DemoContent.slideEdit(request)
+            LlmPurpose.SpeakerNotes -> DemoContent.speakerNotes(request)
+            LlmPurpose.PresentationFeedback -> DemoContent.FEEDBACK
         }
         return LlmResponse(text, "end_turn", "demo")
     }

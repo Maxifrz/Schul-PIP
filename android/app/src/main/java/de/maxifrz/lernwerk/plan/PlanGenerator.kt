@@ -58,7 +58,7 @@ class PlanGenerator(
     class Input(val title: String, val pdf: ByteArray)
 
     suspend fun generate(inputs: List<Input>): List<TopicDraft> {
-        val content = content(inputs, client.capabilities, openDocument)
+        val content = content(inputs, client.capabilities, openDocument = openDocument)
         val request = LlmRequest(
             purpose = LlmPurpose.StudyPlan,
             system = SYSTEM,
@@ -129,6 +129,7 @@ class PlanGenerator(
         suspend fun content(
             inputs: List<Input>,
             capabilities: LlmCapabilities,
+            instructions: String = INSTRUCTIONS,
             openDocument: suspend (ByteArray) -> MaterialDocument?,
         ): List<LlmContent> {
             val content = mutableListOf<LlmContent>()
@@ -180,7 +181,7 @@ class PlanGenerator(
             }
 
             if (pdfBytes > MAX_TOTAL_BYTES || textCharacters > MAX_TEXT_CHARACTERS) throw LlmError.RequestTooLarge
-            content += LlmContent.Text(INSTRUCTIONS)
+            content += LlmContent.Text(instructions)
             return content
         }
     }

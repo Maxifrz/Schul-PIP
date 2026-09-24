@@ -20,14 +20,25 @@ enum LLMPurpose: Equatable {
     case tutor(HintLevel)
     case flashcard
     case studyPlan
+    case presentation
+    case slideRewrite
+    case speakerNotes
+    case presentationFeedback
 
     /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
     var timeout: TimeInterval {
         switch self {
         case .tutor: return 75
-        case .flashcard: return 90
-        case .studyPlan: return 600
+        case .flashcard, .slideRewrite: return 90
+        case .studyPlan, .presentation: return 600
+        case .speakerNotes: return 180
+        case .presentationFeedback: return 120
         }
+    }
+
+    /// Reading whole materials benefits from reasoning; everything else is answered while the student waits.
+    var needsDepth: Bool {
+        self == .studyPlan || self == .presentation
     }
 }
 

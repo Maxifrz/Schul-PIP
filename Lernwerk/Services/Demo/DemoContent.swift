@@ -151,6 +151,14 @@ struct DemoLLMClient: LLMClient {
             text = DemoContent.flashcardJSON
         case .studyPlan:
             text = DemoContent.planJSON
+        case .presentation:
+            text = DemoPresentation.deckJSON
+        case .slideRewrite:
+            text = DemoPresentation.slideEdit(request)
+        case .speakerNotes:
+            text = DemoPresentation.speakerNotes(request)
+        case .presentationFeedback:
+            text = DemoPresentation.feedback
         }
         return LLMResponse(text: text, stopReason: "end_turn", model: "demo")
     }

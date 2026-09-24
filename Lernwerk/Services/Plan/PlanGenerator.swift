@@ -86,6 +86,7 @@ struct PlanGenerator {
     static func content(
         for inputs: [Input],
         capabilities: LLMCapabilities,
+        instructions: String = PlanGenerator.instructions,
         recognizeText: (PDFDocument, Int) -> String = TextRecognizer.text(of:pageNumber:)
     ) throws -> [LLMContent] {
         var content: [LLMContent] = []
