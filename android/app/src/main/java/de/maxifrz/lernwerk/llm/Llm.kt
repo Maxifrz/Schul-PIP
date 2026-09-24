@@ -128,9 +128,13 @@ class FailingClient(private val error: LlmError) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResponse = throw error
 }
 
-/** One HTTP POST, so the clients can be tested without a network. */
+/** One HTTP request, so the clients can be tested without a network. */
 interface HttpTransport {
     suspend fun post(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Long): HttpResult
+
+    /** A GET for public APIs such as Wikipedia. */
+    suspend fun get(url: String, headers: Map<String, String>, timeoutSeconds: Long): HttpResult =
+        throw LlmError.Network("GET is not supported by this transport")
 }
 
 data class HttpResult(val status: Int, val body: String)

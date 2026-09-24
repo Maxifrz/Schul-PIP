@@ -266,13 +266,19 @@ fun PresentationCreateScreen(app: AppState) {
     var isGenerating by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf(PresentationAssistant.Stage.OUTLINE) }
     var review by remember { mutableStateOf(true) }
+    var research by remember { mutableStateOf(true) }
+    var step by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val canGenerate = selection.isNotEmpty() || research && topic.isNotBlank()
+    // Outline, slides and the optional steps; researching a bare topic takes a round before the outline.
+    val stepCount = 2 + (if (review) 1 else 0) + (if (research) 1 else 0) + (if (research && selection.isEmpty()) 1 else 0)
 
     fun generate() {
         val chosen = materials.filter { it.id in selection }
         val client = app.settings.makeClient(LlmTask.PLAN)
         isGenerating = true
         errorMessage = null
+        step = 0
         scope.launch {
             val opened = mutableListOf<Closeable>()
             try {
@@ -295,7 +301,11 @@ fun PresentationCreateScreen(app: AppState) {
                         PlacedImage(name, bitmap.width.toFloat() / bitmap.height)
                     },
                     review = review,
-                    onStage = { stage = it },
+                    onStage = {
+                        stage = it
+                        step += 1
+                    },
+                    wikipedia = if (research) app.settings.wikipedia else null,
                 )
                 app.presentations.add(presentation)
                 app.replace(Route.PresentationEditor(presentation.id))
@@ -319,15 +329,15 @@ fun PresentationCreateScreen(app: AppState) {
                 Row(Modifier.fillMaxWidth().align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                     LinkButton("Abbrechen", { if (!isGenerating) app.pop() }, colors.muted, work(15f))
                     Box(Modifier.weight(1f))
-                    PrimaryButton("Erstellen", ::generate, height = 34.dp, fontSize = 14f, enabled = selection.isNotEmpty() && !isGenerating)
+                    PrimaryButton("Erstellen", ::generate, height = 34.dp, fontSize = 14f, enabled = canGenerate && !isGenerating)
                 }
             }
             QuillDivider(colors.lineSoft)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 ContentColumn(maxWidth = 680.dp, top = 22.dp) {
-                    PixelCaption("Material", Modifier.padding(bottom = 6.dp))
+                    PixelCaption(if (research) "Material (optional)" else "Material", Modifier.padding(bottom = 6.dp))
                     if (materials.isEmpty()) {
-                        QText("Importiere zuerst ein PDF in der Bibliothek.", work(15f), colors.faint, Modifier.padding(vertical = 14.dp, horizontal = 2.dp))
+                        QText(if (research) "Kein Material in der Bibliothek – die KI baut den Vortrag dann nur aus der Wikipedia-Recherche." else "Importiere zuerst ein PDF in der Bibliothek.", work(15f), colors.faint, Modifier.padding(vertical = 14.dp, horizontal = 2.dp))
                         QuillDivider()
                     }
                     materials.forEach { material ->
@@ -355,7 +365,13 @@ fun PresentationCreateScreen(app: AppState) {
                                 .border(1.dp, colors.line2, RoundedCornerShape(14.dp))
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                         ) {
-                            if (topic.isEmpty()) QText("z. B. „Die Kettenregel mit Beispielen“ – leer lassen für das ganze Material", work(15f), colors.hint)
+                            if (topic.isEmpty()) {
+                                QText(
+                                    if (selection.isEmpty() && research) "z. B. „Photosynthese“ – ohne Material ist das Thema Pflicht" else "z. B. „Die Kettenregel mit Beispielen“ – leer lassen für das ganze Material",
+                                    work(15f),
+                                    colors.hint,
+                                )
+                            }
                             BasicTextField(
                                 topic,
                                 { topic = it },
@@ -378,7 +394,20 @@ fun PresentationCreateScreen(app: AppState) {
                     QuillRow("Kritiker überarbeitet automatisch", verticalPadding = 10.dp) {
                         QuillSwitch(review) { review = it }
                     }
-                    Footnote("Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. Danach kannst du jede Folie frei bearbeiten.")
+                    QuillRow("Wikipedia-Recherche", verticalPadding = 10.dp) {
+                        QuillSwitch(research) { research = it }
+                    }
+                    Footnote(
+                        "Nutzt das Lernplan-Modell aus den Einstellungen. Die KI plant zuerst den roten Faden, schreibt dann die Folien und lässt sie vom Kritiker prüfen. " +
+                            (
+                                if (research) {
+                                    "Mit Recherche schlägt sie fehlende Hintergründe, Zahlen und Beispiele in der deutschen Wikipedia nach. Jede Folie nennt ihre Quellen – Material-Seiten und Wikipedia-Artikel mit Link und Abrufdatum. "
+                                } else {
+                                    "Sie verwendet nur Inhalte aus deinem Material und nennt die Seiten als Quellen. "
+                                }
+                                ) +
+                            "Danach kannst du jede Folie frei bearbeiten.",
+                    )
                     errorMessage?.let { Notice(it, modifier = Modifier.padding(top = 20.dp)) }
                 }
             }
@@ -398,7 +427,7 @@ fun PresentationCreateScreen(app: AppState) {
                     PulsingDots(6.dp)
                     QText(stage.label, work(16f, FontWeight.Medium, tracking = -0.16f), colors.ink)
                     QText(
-                        "Schritt ${stage.ordinal + 1} von ${if (review) 3 else 2} · je nach Umfang einige Minuten",
+                        "Schritt ${step.coerceAtLeast(1)} von ${maxOf(stepCount, step)} · je nach Umfang einige Minuten",
                         work(12.5f),
                         colors.faint,
                     )

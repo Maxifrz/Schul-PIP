@@ -144,7 +144,7 @@ class PresentationTest {
             pageImage = { material, page -> requested += material to page; PlacedImage("page-$page.png", 0.75f) },
             onStage = { stages += it },
         )
-        assertEquals(PresentationAssistant.Stage.entries, stages)
+        assertEquals(PresentationAssistant.Stage.entries - PresentationAssistant.Stage.RESEARCH, stages)
         assertEquals(listOf(LlmPurpose.PresentationOutline, LlmPurpose.Presentation, LlmPurpose.PresentationCritique), client.requests.map { it.purpose })
         val prompt = client.requests[0].messages[0].content.filterIsInstance<LlmContent.Text>().joinToString("\n") { it.text }
         assertTrue(prompt.contains("--- Page 2 ---"))

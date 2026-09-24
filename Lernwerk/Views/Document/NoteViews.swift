@@ -214,7 +214,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             imageView.layer.cornerRadius = 4
             addSubview(imageView)
             self.imageView = imageView
-            let drag = UIPanGestureRecognizer(target: self, action: #selector(move(_:)))
+            let drag = UIPanGestureRecognizer(target: self, action: #selector(dragged(_:)))
             addGestureRecognizer(drag)
         case .sticker:
             let label = UILabel()
@@ -224,7 +224,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             label.clipsToBounds = true
             addSubview(label)
             self.label = label
-            let drag = UIPanGestureRecognizer(target: self, action: #selector(move(_:)))
+            let drag = UIPanGestureRecognizer(target: self, action: #selector(dragged(_:)))
             addGestureRecognizer(drag)
         }
         for handle in [moveHandle, resizeHandle] {
@@ -235,8 +235,8 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             handle.isHidden = true
             addSubview(handle)
         }
-        moveHandle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(move(_:))))
-        resizeHandle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(resize(_:))))
+        moveHandle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragged(_:))))
+        resizeHandle.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(resized(_:))))
         addInteraction(UIContextMenuInteraction(delegate: self))
         update(annotation)
     }
@@ -308,7 +308,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
         if abs(height - frame.height) > 0.5 { frame.size.height = height }
     }
 
-    @objc private func move(_ gesture: UIPanGestureRecognizer) {
+    @objc private func dragged(_ gesture: UIPanGestureRecognizer) {
         guard let superview else { return }
         switch gesture.state {
         case .began:
@@ -324,7 +324,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
         }
     }
 
-    @objc private func resize(_ gesture: UIPanGestureRecognizer) {
+    @objc private func resized(_ gesture: UIPanGestureRecognizer) {
         guard let superview else { return }
         switch gesture.state {
         case .began:
@@ -495,12 +495,12 @@ final class ZoomPanelView: UIView {
         buttons.distribution = .fillEqually
         buttons.spacing = 4
         let items: [(String, String, Selector)] = [
-            ("chevron.up", "Nach oben", #selector(up)),
-            ("chevron.left", "Nach links", #selector(left)),
-            ("chevron.right", "Nach rechts", #selector(right)),
-            ("chevron.down", "Nach unten", #selector(down)),
-            ("return", "Neue Zeile", #selector(newLine)),
-            ("xmark", "Zoom-Fenster schließen", #selector(close)),
+            ("chevron.up", "Nach oben", #selector(moveUp)),
+            ("chevron.left", "Nach links", #selector(moveLeft)),
+            ("chevron.right", "Nach rechts", #selector(moveRight)),
+            ("chevron.down", "Nach unten", #selector(moveDown)),
+            ("return", "Neue Zeile", #selector(startNewLine)),
+            ("xmark", "Zoom-Fenster schließen", #selector(closePanel)),
         ]
         for (symbol, label, action) in items {
             let button = UIButton(type: .system)
@@ -526,10 +526,10 @@ final class ZoomPanelView: UIView {
         buttons.frame = CGRect(x: bounds.width - 52, y: 8, width: 44, height: bounds.height - 16)
     }
 
-    @objc private func up() { onMove?(0, -1) }
-    @objc private func left() { onMove?(-1, 0) }
-    @objc private func right() { onMove?(1, 0) }
-    @objc private func down() { onMove?(0, 1) }
-    @objc private func newLine() { onNewLine?() }
-    @objc private func close() { onClose?() }
+    @objc private func moveUp() { onMove?(0, -1) }
+    @objc private func moveLeft() { onMove?(-1, 0) }
+    @objc private func moveRight() { onMove?(1, 0) }
+    @objc private func moveDown() { onMove?(0, 1) }
+    @objc private func startNewLine() { onNewLine?() }
+    @objc private func closePanel() { onClose?() }
 }

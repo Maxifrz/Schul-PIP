@@ -62,6 +62,8 @@ data class SlideDraft(
     val notes: String = "",
     val sourceMaterial: Int? = null,
     val sourcePages: List<Int> = emptyList(),
+    /** Ids of the Wikipedia articles (W1, W2 …) the slide's facts come from. */
+    val webSources: List<String> = emptyList(),
 )
 
 /** A picture for a layout: its media file name and width / height. */

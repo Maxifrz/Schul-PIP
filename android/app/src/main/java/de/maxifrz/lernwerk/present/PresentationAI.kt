@@ -13,18 +13,23 @@ import de.maxifrz.lernwerk.llm.intOrNull
 import de.maxifrz.lernwerk.llm.string
 import de.maxifrz.lernwerk.plan.MaterialDocument
 import de.maxifrz.lernwerk.plan.PlanGenerator
+import de.maxifrz.lernwerk.research.Research
+import de.maxifrz.lernwerk.research.WebSource
+import de.maxifrz.lernwerk.research.WikipediaClient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import java.util.Date
 
 /** Prompts, schemas and tolerant parsing for everything the AI does with presentations. */
 object PresentationPrompt {
     val deckSystem = """
         You help a German upper-secondary student build a school presentation (Referat) from their own material.
-        Only use content that is actually in the material; never invent facts, numbers, dates or quotes.
+        Only use content that is actually in the material (or in the research, if there is any); never invent facts,
+        numbers, dates or quotes.
         Write everything in German. Write math with Unicode characters, never LaTeX.
 
         What makes a good school talk:
@@ -46,6 +51,19 @@ object PresentationPrompt {
         - Speaker notes are what the student says: full spoken sentences that explain the slide and lead over to the
           next one.
     """.trimIndent()
+
+    /** Added to [deckSystem] when the app looks things up on Wikipedia. */
+    val researchRules = """
+        Research: besides the material you may get excerpts of German Wikipedia articles, each with an id (W1, W2 …).
+        - The student's material comes first. Use the research for context, background, current numbers and examples
+          the material does not give.
+        - Only use facts that are literally stated in the excerpts or the material, never facts from your own memory.
+        - Every slide that uses a fact from an article lists the article ids in webSources, and its notes say where the
+          fact comes from ("laut Wikipedia …").
+        - If the research contradicts the material, follow the material and mention the difference in the notes.
+    """.trimIndent()
+
+    fun system(research: Boolean): String = if (research) deckSystem + "\n\n" + researchRules else deckSystem
 
     /** Slide types as the model may choose them; BLANK is for the editor only. */
     private val layoutNames = SlideLayout.entries.filter { it != SlideLayout.BLANK }.joinToString(", ") { "\"${it.name}\"" }
@@ -69,8 +87,9 @@ object PresentationPrompt {
         - QUOTE: quote taken literally from the material, attribution
     """.trimIndent()
 
-    fun deckInstructions(topic: String, slideCount: Int, minutes: Int): String = """
-        Plan a presentation from the material above. First only the outline: the red thread, not the finished slides.
+    fun deckInstructions(topic: String, slideCount: Int, minutes: Int, research: Boolean = false, hasMaterial: Boolean = true): String = """
+        Plan a presentation ${if (hasMaterial) "from the material above" else "from the Wikipedia research above; there is no material"}.
+        First only the outline: the red thread, not the finished slides.
         Topic or focus: ${topic.ifBlank { "the main content of the material" }}
         Number of slides: about $slideCount (title and sources slides included)
         Talk length: $minutes minutes
@@ -79,14 +98,21 @@ object PresentationPrompt {
         example, comparison, summary, sources …), its message as one German sentence, the slide type that shows it
         best, what goes on it (facts, numbers with units, dates, the material page of a figure) and the material
         (sourceMaterial, the number of the material) and pages (sourcePages) it is based on.
-    """.trimIndent() + "\n\n" + layoutGuide
+    """.trimIndent() + (if (research) "\n\n" + researchInstructions(hasMaterial) else "") + "\n\n" + layoutGuide
 
-    fun slidesInstructions(slideCount: Int, minutes: Int): String = """
+    private fun researchInstructions(hasMaterial: Boolean): String = """
+        Research: before the slides are written, the app looks up the German Wikipedia for you. Give up to
+        ${Research.MAX_QUERIES} short German search terms in research (ideally article titles) for context, background,
+        current numbers or examples the talk needs beyond ${if (hasMaterial) "the material" else "the research above"}.
+        Leave research empty if nothing is missing.
+    """.trimIndent()
+
+    fun slidesInstructions(slideCount: Int, minutes: Int, research: Boolean = false): String = """
         Now write the finished slides for this outline, in the same order. Use the planned slide type unless the
         material does not give enough for it. Each title is the slide's message, shortened to at most 10 words.
         Keep texts short, move details into the notes. Each slide's notes should take about
         ${maxOf(15, minutes * 60 / maxOf(1, slideCount))} seconds to say and lead over to the next slide.
-        Give every slide its sourceMaterial and sourcePages.
+        Give every slide its sourceMaterial and sourcePages${if (research) ", and webSources for facts from the research" else ""}.
     """.trimIndent()
 
     val outlineSchema: JsonObject = Json.parseToJsonElement(
@@ -103,7 +129,8 @@ object PresentationPrompt {
               "content": { "type": "string" },
               "sourceMaterial": { "type": "integer" },
               "sourcePages": { "type": "array", "items": { "type": "integer" } }
-            }, "required": ["role", "message", "layout", "content"] } }
+            }, "required": ["role", "message", "layout", "content"] } },
+            "research": { "type": "array", "items": { "type": "string" } }
           },
           "required": ["title", "thesis", "slides"]
         }
@@ -140,7 +167,8 @@ object PresentationPrompt {
         "imageMaterial": { "type": "integer" },
         "imagePage": { "type": "integer" },
         "sourceMaterial": { "type": "integer" },
-        "sourcePages": { "type": "array", "items": { "type": "integer" } }
+        "sourcePages": { "type": "array", "items": { "type": "integer" } },
+        "webSources": { "type": "array", "items": { "type": "string" } }
     """
 
     val slideSchema: JsonObject = Json.parseToJsonElement(
@@ -325,6 +353,7 @@ object PresentationPrompt {
             notes = obj.string("notes") ?: "",
             sourceMaterial = obj["sourceMaterial"].intOrNull(),
             sourcePages = (obj["sourcePages"] as? JsonArray)?.mapNotNull { it.intOrNull() } ?: emptyList(),
+            webSources = strings(obj["webSources"]).map { it.trim('[', ']', ' ').uppercase() },
         )
         val hasContent = draft.title.isNotBlank() || draft.bullets.isNotEmpty() || draft.quote.isNotBlank() || draft.left.isNotEmpty() ||
             draft.items.isNotEmpty() || draft.table.isNotEmpty() || draft.chart != null
@@ -352,7 +381,7 @@ object PresentationPrompt {
         }
     }
 
-    data class Outline(val title: String, val thesis: String, val slides: List<OutlineSlide>)
+    data class Outline(val title: String, val thesis: String, val slides: List<OutlineSlide>, val research: List<String> = emptyList())
 
     data class OutlineSlide(val role: String, val message: String, val layout: String, val content: String)
 
@@ -363,7 +392,41 @@ object PresentationPrompt {
             OutlineSlide(obj.string("role") ?: "", obj.string("message")?.trim() ?: "", obj.string("layout") ?: "", obj.string("content") ?: "")
                 .takeIf { it.message.isNotEmpty() || it.content.isNotBlank() }
         }
-        return Outline(root.string("title") ?: "", root.string("thesis") ?: "", slides)
+        return Outline(root.string("title") ?: "", root.string("thesis") ?: "", slides, strings(root["research"]).take(Research.MAX_QUERIES))
+    }
+
+    /**
+     * Names the Wikipedia articles a slide used in its notes and lists them on the sources slide, which is added if the
+     * model left it out. If no slide says what it used, all researched articles are listed: they shaped the talk.
+     */
+    fun citingSources(drafts: List<SlideDraft>, sources: List<WebSource>, materialTitles: List<String>, date: Date = Date()): List<SlideDraft> {
+        if (sources.isEmpty()) return drafts
+        val byId = sources.associateBy { it.id }
+        val cited = drafts.flatMap { draft -> draft.webSources.mapNotNull(byId::get) }.distinct()
+        val listed = cited.ifEmpty { sources }.map { Research.citation(it, date) }
+        val withNotes = drafts.map { draft ->
+            val used = draft.webSources.mapNotNull(byId::get).distinct()
+            if (used.isEmpty()) {
+                draft
+            } else {
+                val line = "Quelle: " + used.joinToString("; ") { "Wikipedia – „${it.title}“" }
+                draft.copy(notes = listOf(draft.notes.trim(), line).filter { it.isNotEmpty() }.joinToString("\n\n"))
+            }
+        }.toMutableList()
+        val index = withNotes.indexOfLast { it.title.contains("Quelle", ignoreCase = true) }
+        if (index >= 0) {
+            val slide = withNotes[index]
+            val own = (slide.bullets + slide.left + slide.right).filterNot { it.contains("wikipedia", ignoreCase = true) }
+            withNotes[index] = slide.copy(layout = SlideLayout.BULLETS, bullets = own + listed, left = emptyList(), right = emptyList())
+        } else {
+            withNotes += SlideDraft(
+                layout = SlideLayout.BULLETS,
+                title = "Quellen",
+                bullets = materialTitles.map { "Material: $it" } + listed,
+                notes = "Zum Schluss nenne ich meine Quellen.",
+            )
+        }
+        return withNotes
     }
 
     private fun strings(element: JsonElement?): List<String> =
@@ -404,6 +467,7 @@ class PresentationAssistant(private val client: LlmClient) {
     /** The steps of building a deck, for the progress shown while the student waits. */
     enum class Stage(val label: String) {
         OUTLINE("Die KI plant den roten Faden …"),
+        RESEARCH("Die KI recherchiert auf Wikipedia …"),
         SLIDES("Die KI schreibt die Folien …"),
         REVIEW("Der Kritiker prüft und verbessert …"),
     }
@@ -411,7 +475,9 @@ class PresentationAssistant(private val client: LlmClient) {
     /**
      * Builds a whole presentation from the chosen materials in three steps: an outline with one message per slide,
      * then the slides for that outline in the same conversation, then (with [review]) the critic's important findings
-     * applied automatically. [pageImage] renders a material page and stores it as a media file.
+     * applied automatically. [pageImage] renders a material page and stores it as a media file. With [wikipedia] the
+     * outline names search terms, the articles found go into the slides step and the critic's check, and the slides
+     * cite them; without materials the talk is built from the research on [topic] alone.
      */
     suspend fun generate(
         materials: List<Material>,
@@ -423,17 +489,29 @@ class PresentationAssistant(private val client: LlmClient) {
         pageImage: suspend (materialIndex: Int, page: Int) -> PlacedImage?,
         review: Boolean = true,
         onStage: (Stage) -> Unit = {},
+        wikipedia: WikipediaClient? = null,
+        today: Date = Date(),
     ): Presentation {
-        val content = PlanGenerator.content(
+        val research = wikipedia != null
+        val system = PresentationPrompt.system(research)
+        var sources = emptyList<WebSource>()
+        if (wikipedia != null && materials.isEmpty()) {
+            onStage(Stage.RESEARCH)
+            sources = Research.gather(wikipedia, listOf(topic))
+            if (sources.isEmpty()) throw NothingFound(topic)
+        }
+        val prepared = PlanGenerator.content(
             materials.map { PlanGenerator.Input(it.title, it.pdf) },
             client.capabilities,
-            PresentationPrompt.deckInstructions(topic, slideCount, minutes),
+            PresentationPrompt.deckInstructions(topic, slideCount, minutes, research, materials.isNotEmpty()),
             openDocument,
         )
+        // The research on the topic sits between the material and the instructions.
+        val content = prepared.dropLast(1) + sources.takeIf { it.isNotEmpty() }?.let { listOf(LlmContent.Text(Research.prompt(it))) }.orEmpty() + prepared.last()
         onStage(Stage.OUTLINE)
         val outlineRequest = LlmRequest(
             purpose = LlmPurpose.PresentationOutline,
-            system = PresentationPrompt.deckSystem,
+            system = system,
             messages = listOf(LlmMessage(LlmRole.USER, content)),
             maxTokens = 8000,
             effort = LlmEffort.HIGH,
@@ -441,21 +519,33 @@ class PresentationAssistant(private val client: LlmClient) {
         )
         val outline = StructuredOutput.complete(outlineRequest, client, PresentationPrompt::parseOutline) { it.slides.isNotEmpty() }
 
+        val known = sources.size
+        if (wikipedia != null && outline.research.isNotEmpty()) {
+            onStage(Stage.RESEARCH)
+            sources = Research.gather(wikipedia, outline.research, sources)
+        }
+        val found = sources.drop(known)
+
         onStage(Stage.SLIDES)
+        val slidesPrompt = PresentationPrompt.slidesInstructions(outline.slides.size, minutes, research && sources.isNotEmpty())
         val request = LlmRequest(
             purpose = LlmPurpose.Presentation,
-            system = PresentationPrompt.deckSystem,
+            system = system,
             messages = listOf(
                 LlmMessage(LlmRole.USER, content),
                 LlmMessage(LlmRole.ASSISTANT, listOf(LlmContent.Text(PresentationPrompt.outlineText(outline)))),
-                LlmMessage(LlmRole.USER, listOf(LlmContent.Text(PresentationPrompt.slidesInstructions(outline.slides.size, minutes)))),
+                LlmMessage(
+                    LlmRole.USER,
+                    found.takeIf { it.isNotEmpty() }?.let { listOf(LlmContent.Text(Research.prompt(it))) }.orEmpty() + LlmContent.Text(slidesPrompt),
+                ),
             ),
             maxTokens = 16000,
             effort = LlmEffort.MEDIUM,
             jsonSchema = PresentationPrompt.deckSchema,
         )
         val deck = StructuredOutput.complete(request, client, PresentationPrompt::parseDeck) { it.slides.isNotEmpty() }
-        val slides = deck.slides.map { draft ->
+        val drafts = PresentationPrompt.citingSources(deck.slides, sources, materials.map { it.title }, today)
+        val slides = drafts.map { draft ->
             val image = if (draft.layout == SlideLayout.IMAGE_TEXT || draft.layout == SlideLayout.IMAGE_FULL) {
                 val index = draft.imageMaterial ?: draft.sourceMaterial ?: 0
                 draft.imagePage?.takeIf { index in materials.indices }?.let { pageImage(index, it) }
@@ -480,12 +570,16 @@ class PresentationAssistant(private val client: LlmClient) {
             onStage(Stage.REVIEW)
             // The critic improves the draft before the student sees it; a failed review keeps the draft.
             presentation = runCatching {
-                val critique = PresentationCritic(client).critique(presentation, content.dropLast(1))
+                val material = prepared.dropLast(1) + sources.takeIf { it.isNotEmpty() }?.let { listOf(LlmContent.Text(Research.prompt(it))) }.orEmpty()
+                val critique = PresentationCritic(client).critique(presentation, material)
                 autoApply(presentation, critique)
             }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else presentation }
         }
         return presentation
     }
+
+    class NothingFound(topic: String) :
+        Exception("Zu „$topic“ hat Wikipedia nichts gefunden. Formulier das Thema anders oder wähl Material aus.")
 
     /** New texts for the slide's text boxes; ids the model dropped keep their old text. */
     suspend fun rewrite(slide: Slide, rewrite: PresentationPrompt.Rewrite): Slide {
