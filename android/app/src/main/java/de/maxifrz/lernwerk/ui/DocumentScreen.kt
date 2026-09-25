@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.boundsInWindow
@@ -79,8 +81,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import de.maxifrz.lernwerk.ink.InstrumentKind
+import de.maxifrz.lernwerk.ink.MathNotes
+import de.maxifrz.lernwerk.calc.CasEngine
 import de.maxifrz.lernwerk.ink.Instruments
 import de.maxifrz.lernwerk.data.ImageCompressor
 import de.maxifrz.lernwerk.data.InkStroke
@@ -107,6 +112,8 @@ sealed interface InteractionMode {
     data object Read : InteractionMode
     data class Draw(val tool: DrawingTool) : InteractionMode
     data object Mark : InteractionMode
+    /** Frame handwritten maths to calculate it, draw it or chart it. */
+    data object Math : InteractionMode
 }
 
 enum class DrawingTool { PEN, HIGHLIGHTER, ERASER }
@@ -213,6 +220,29 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
 
     var mode by remember { mutableStateOf<InteractionMode>(InteractionMode.Read) }
     val instruments = remember(material.id) { InstrumentState() }
+    val math = remember(material.id) { MathNotesState(scope) }
+    val engine = remember { CasEngine.get(context) }
+    var mathRegion by remember { mutableStateOf<MarkedRegion?>(null) }
+    // A written "=": read the line and what is defined above it, calculate on the device, offer the result.
+    math.onLine = { request ->
+        scope.launch {
+            val recognition = readMath(request.imageJpeg, MathNotes.LINE_HINT, app.settings.makeClient(LlmTask.TUTOR)) ?: return@launch
+            val (expression, answer) = calculateMath(recognition, engine) ?: return@launch
+            val text = MathNotes.resultText(answer.pretty, answer.prettyApprox)
+            if (!answer.ok || text == null || !MathNotes.isWorthShowing(expression, text)) return@launch
+            val (x, baseline) = MathNotes.resultBaseline(request.equals, request.line)
+            math.preview = MathPreview(request.page, text, x, baseline, MathNotes.fontSize(request.line))
+        }
+    }
+
+    /** A calculated result in handwriting below a framed region, one line further down for each. */
+    fun writeBelow(region: MarkedRegion, text: String, index: Int) {
+        val size = pdf?.getOrNull()?.sizes?.getOrNull(region.pageIndex) ?: return
+        val area = region.area ?: return
+        val letter = 20.0
+        val baseline = area.bottom * size.height + letter * 1.4 * (index + 1)
+        ink.add(region.pageIndex, math.stroke(MathPreview(region.pageIndex, text, (area.left * size.width).toDouble(), baseline, letter), size))
+    }
     var tutor by remember { mutableStateOf<TutorSession?>(null) }
     // Keeps the panel's content while it animates out.
     var shownTutor by remember { mutableStateOf<TutorSession?>(null) }
@@ -308,9 +338,11 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
                                 ink = ink,
                                 mode = mode,
                                 instruments = instruments,
+                                math = math,
                                 startPage = route.startPage ?: material.lastOpenedPage,
                                 onPageChange = { repository.setLastOpenedPage(material.id, it) },
                                 onMark = ::openTutor,
+                                onMath = { mathRegion = it },
                             )
                         } ?: Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                             QText("PDF nicht lesbar", work(24f, FontWeight.Light), colors.ink)
@@ -321,6 +353,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
                         mode = mode,
                         onMode = { mode = it },
                         instruments = instruments,
+                        math = math,
                         onInstrument = { kind ->
                             val pages = pdf?.getOrNull()
                             val page = material.lastOpenedPage.coerceIn(0, max(0, (pages?.pageCount ?: 1) - 1))
@@ -345,6 +378,26 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
                 }
             }
             if (!wide) CompactTutor(tutor != null, shownTutor, ::closeTutor)
+            mathRegion?.let { region ->
+                val jpeg = region.imageJpeg
+                if (jpeg == null) {
+                    mathRegion = null
+                } else {
+                    MathRegionDialog(
+                        imageJpeg = jpeg,
+                        client = app.settings.makeClient(LlmTask.TUTOR),
+                        engine = engine,
+                        onWrite = { text, index -> writeBelow(region, text, index) },
+                        onPage = { bitmap ->
+                            scope.launch {
+                                repository.saveInk(material.id, ink.pages.toMap())
+                                if (repository.insertImagePage(material, bitmap, region.pageIndex)) reloadKey++
+                            }
+                        },
+                        onDismiss = { mathRegion = null },
+                    )
+                }
+            }
         }
     }
 }
@@ -379,7 +432,14 @@ private fun BoxScope.CompactTutor(visible: Boolean, session: TutorSession?, onCl
     }
 }
 
-class MarkedRegion(val pageIndex: Int, val selectedText: String, val pageText: String, val imageJpeg: ByteArray?)
+class MarkedRegion(
+    val pageIndex: Int,
+    val selectedText: String,
+    val pageText: String,
+    val imageJpeg: ByteArray?,
+    /** Where it is on the page, as fractions of the page's width and height. */
+    val area: RectF? = null,
+)
 
 /** Pages stacked vertically, each with its ink on top; a marking layer covers everything in help mode. */
 @Composable
@@ -389,9 +449,11 @@ private fun PdfCanvas(
     ink: InkState,
     mode: InteractionMode,
     instruments: InstrumentState,
+    math: MathNotesState,
     startPage: Int,
     onPageChange: (Int) -> Unit,
     onMark: (MarkedRegion) -> Unit,
+    onMath: (MarkedRegion) -> Unit,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = startPage.coerceIn(0, max(0, pages.pageCount - 1)))
     val pageBounds = remember { mutableMapOf<Int, Rect>() }
@@ -432,6 +494,7 @@ private fun PdfCanvas(
                         ink = ink,
                         mode = mode,
                         instruments = instruments,
+                        math = math,
                         trueWidth = trueWidths?.getOrNull(index),
                         modifier = Modifier.onGloballyPositioned { pageBounds[index] = it.boundsInWindow() },
                     )
@@ -439,7 +502,7 @@ private fun PdfCanvas(
             }
         }
 
-        if (mode == InteractionMode.Mark) {
+        if (mode == InteractionMode.Mark || mode == InteractionMode.Math) {
             MarkingOverlay(
                 modifier = Modifier.fillMaxSize().onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
                 onMark = { rect ->
@@ -465,9 +528,10 @@ private fun PdfCanvas(
                                 selectedText = PdfText.textIn(file, index, normalized),
                                 pageText = pageTexts?.getOrNull(index) ?: "",
                                 imageJpeg = snapshot(pages, index, ink.pages[index].orEmpty(), normalized, bounds.width),
+                                area = normalized,
                             )
                         }
-                        onMark(region)
+                        if (mode == InteractionMode.Math) onMath(region) else onMark(region)
                     }
                 },
             )
@@ -489,7 +553,11 @@ private suspend fun snapshot(pages: PdfPages, index: Int, strokes: List<InkStrok
     return ImageCompressor.encode(crop, 80)
 }
 
-private fun drawStroke(canvas: android.graphics.Canvas, stroke: InkStroke, width: Float, height: Float) {
+fun drawStroke(canvas: android.graphics.Canvas, stroke: InkStroke, width: Float, height: Float) {
+    stroke.text?.let { text ->
+        if (stroke.points.size >= 2) canvas.drawText(text, stroke.points[0] * width, stroke.points[1] * height, handwritingPaint(stroke.size * width))
+        return
+    }
     val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE
         strokeCap = android.graphics.Paint.Cap.ROUND
@@ -514,6 +582,7 @@ private fun PdfPage(
     ink: InkState,
     mode: InteractionMode,
     instruments: InstrumentState,
+    math: MathNotesState,
     trueWidth: androidx.compose.ui.unit.Dp?,
     modifier: Modifier = Modifier,
 ) {
@@ -594,17 +663,44 @@ private fun PdfPage(
                         }
                         if (tool != DrawingTool.ERASER && current.isNotEmpty()) {
                             ink.add(index, InkStroke(if (tool == DrawingTool.PEN) InkTool.PEN else InkTool.HIGHLIGHTER, current.toList()))
+                            if (tool == DrawingTool.PEN) {
+                                math.strokeAdded(index, ink.pages[index].orEmpty(), pageSize) { ink.pages[index].orEmpty() }
+                            }
                         }
                         current.clear()
                     }
                 },
         ) {
-            ink.pages[index]?.forEach { drawInk(it.tool, it.points) }
+            ink.pages[index]?.forEach { stroke ->
+                val text = stroke.text
+                if (text != null && stroke.points.size >= 2) {
+                    drawContext.canvas.nativeCanvas.drawText(text, stroke.points[0] * size.width, stroke.points[1] * size.height, handwritingPaint(stroke.size * size.width))
+                } else {
+                    drawInk(stroke.tool, stroke.points)
+                }
+            }
             if (current.isNotEmpty() && tool != null && tool != DrawingTool.ERASER) {
                 drawInk(if (tool == DrawingTool.PEN) InkTool.PEN else InkTool.HIGHLIGHTER, current)
             }
             if (instruments.kind != null && instruments.page == index) {
                 drawInstrument(instruments, size.width / pageSize.width.toDouble())
+            }
+        }
+        // The result offered after a written "=": a tap writes it onto the page.
+        math.preview?.takeIf { it.page == index && widthPx > 0 }?.let { preview ->
+            val scale = widthPx / pageSize.width.toDouble()
+            val colors = Quill.colors
+            Box(
+                Modifier
+                    .offset { IntOffset((preview.x * scale).roundToInt(), ((preview.baseline - preview.size) * scale).roundToInt()) }
+                    .background(colors.accent, CircleShape)
+                    .clickable {
+                        ink.add(index, math.stroke(preview, pageSize))
+                        math.preview = null
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                QText("= ${preview.text}   Einfügen", work(15f, FontWeight.SemiBold), colors.onAccent)
             }
         }
     }
@@ -680,15 +776,17 @@ private fun DocumentToolbar(
     mode: InteractionMode,
     onMode: (InteractionMode) -> Unit,
     instruments: InstrumentState,
+    math: MathNotesState,
     onInstrument: (InstrumentKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Quill.colors
     var instrumentMenuOpen by remember { mutableStateOf(false) }
+    var mathMenuOpen by remember { mutableStateOf(false) }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AnimatedVisibility(mode == InteractionMode.Mark, enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
+        AnimatedVisibility(mode == InteractionMode.Mark || mode == InteractionMode.Math, enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
             QText(
-                "Zieh einen Rahmen um die Stelle, bei der du Hilfe brauchst.",
+                if (mode == InteractionMode.Math) "Zieh einen Rahmen um Rechnungen, eine Funktion oder eine Wertetabelle." else "Zieh einen Rahmen um die Stelle, bei der du Hilfe brauchst.",
                 work(13f),
                 colors.ink2,
                 Modifier
@@ -738,6 +836,26 @@ private fun DocumentToolbar(
                             },
                         )
                     }
+                }
+            }
+            Box {
+                ToolbarItem("Rechnen", mode == InteractionMode.Math) { mathMenuOpen = true }
+                DropdownMenu(mathMenuOpen, { mathMenuOpen = false }, containerColor = colors.surface) {
+                    DropdownMenuItem(
+                        text = { QText("Bereich markieren und rechnen", work(15f), colors.ink) },
+                        onClick = {
+                            mathMenuOpen = false
+                            onMode(InteractionMode.Math)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { QText(if (math.enabled) "✓ Geschriebenes „=“ rechnet" else "Geschriebenes „=“ rechnet", work(15f), colors.ink) },
+                        onClick = {
+                            mathMenuOpen = false
+                            math.enabled = !math.enabled
+                            if (!math.enabled) math.preview = null
+                        },
+                    )
                 }
             }
             Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(26.dp).background(colors.line2))

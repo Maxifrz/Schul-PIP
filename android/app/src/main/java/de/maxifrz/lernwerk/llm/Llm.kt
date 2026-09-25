@@ -26,6 +26,7 @@ sealed interface LlmPurpose {
     data object PresentationChat : LlmPurpose
     data object PresentationCritique : LlmPurpose
     data object StudyAid : LlmPurpose
+    data object MathRecognition : LlmPurpose
 
     /** Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence. */
     val timeoutSeconds: Long
@@ -38,6 +39,7 @@ sealed interface LlmPurpose {
             PresentationFeedback, PresentationChat -> 120
             PresentationCritique -> 600
             StudyAid -> 180
+            MathRecognition -> 60
         }
 
     /** Reading whole materials and critical review benefit from reasoning; the rest is answered while the student waits. */

@@ -107,9 +107,13 @@ data class ReviewCard(
 @Serializable
 enum class InkTool { PEN, HIGHLIGHTER }
 
-/** One stroke on a page; coordinates are fractions of the page width and height. */
+/**
+ * One stroke on a page; coordinates are fractions of the page width and height. A stroke with [text] is a calculated
+ * result written in a handwriting font: its first point is where the text starts on the baseline, the second its
+ * top right corner, and [size] the letter height as a fraction of the page width.
+ */
 @Serializable
-data class InkStroke(val tool: InkTool, val points: List<Float>)
+data class InkStroke(val tool: InkTool, val points: List<Float>, val text: String? = null, val size: Float = 0f)
 
 @Serializable
 data class AppData(
