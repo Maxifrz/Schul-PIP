@@ -14,7 +14,7 @@ struct ExamsPane: View {
     private var today: CalendarDay { .today() }
 
     private var upcoming: [Exam] { allExams.filter { $0.calendarDay >= today } }
-    private var past: [Exam] { allExams.filter { $0.calendarDay < today }.reversed() }
+    private var past: [Exam] { Array(allExams.filter { $0.calendarDay < today }.reversed()) }
 
     var body: some View {
         VStack(spacing: 0) {
