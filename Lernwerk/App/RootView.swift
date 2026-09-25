@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case library, plans, presentations, review, settings
+    case library, plans, presentations, calculator, review, settings
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .library: return "Bibliothek"
         case .plans: return "Lernplan"
         case .presentations: return "Präsentation"
+        case .calculator: return "Rechner"
         case .review: return "Wiederholen"
         case .settings: return "Einstellungen"
         }
@@ -45,6 +46,7 @@ struct RootView: View {
                     case .library: LibraryView()
                     case .plans: PlanListView()
                     case .presentations: PresentationListView()
+                    case .calculator: CalculatorView()
                     case .review: ReviewView()
                     case .settings: SettingsView()
                     }
@@ -108,23 +110,35 @@ private struct TopTabBar: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // On the iPad the capsule keeps its natural width and only the margins beside it give way.
-            HStack(spacing: 2) {
-                ForEach(AppTab.allCases) { tab in
-                    tabButton(tab)
+            // On the iPad the capsule keeps its natural width and only the margins beside it give way; on a phone
+            // the tabs scroll sideways.
+            if sizeClass == .regular {
+                tabCapsule
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    tabCapsule
+                        .fixedSize(horizontal: true, vertical: false)
                 }
             }
-            .padding(4)
-            .background(Quill.surface, in: Capsule())
-            .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
-            .fixedSize(horizontal: sizeClass == .regular, vertical: false)
-            .layoutPriority(1)
             if sizeClass == .regular {
                 Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
             }
         }
         .padding(.horizontal, sizeClass == .regular ? 26 : 10)
         .padding(.top, 8)
+    }
+
+    private var tabCapsule: some View {
+        HStack(spacing: 2) {
+            ForEach(AppTab.allCases) { tab in
+                tabButton(tab)
+            }
+        }
+        .padding(4)
+        .background(Quill.surface, in: Capsule())
+        .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
     }
 
     private func tabButton(_ tab: AppTab) -> some View {

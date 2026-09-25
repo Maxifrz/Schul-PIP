@@ -7,7 +7,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.2.0"
+    MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Lernwerk:
@@ -15,6 +15,9 @@ targets:
     platform: iOS
     sources:
       - path: Lernwerk
+      # Giac (GPL) and the calculator's German layer, loaded by a hidden web view; see cas/README.md.
+      - path: cas/web
+        buildPhase: resources
     # Document types put Lernwerk into the share sheet for PDFs and images; merged with the generated keys below.
     info:
       path: Support/Info.plist
