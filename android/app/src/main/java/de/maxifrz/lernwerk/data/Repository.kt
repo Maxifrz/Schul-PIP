@@ -9,6 +9,13 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import de.maxifrz.lernwerk.pdf.DocxRenderer
+import de.maxifrz.lernwerk.present.DocxReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +31,8 @@ import kotlin.math.roundToInt
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+
+const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 /**
  * All app data in one JSON file plus the PDFs and their ink next to it. For a single student's library this is
@@ -44,12 +53,16 @@ class Repository(context: Context) {
 
     /** Page texts of the materials, read once for the search. */
     private val texts = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    // The newest ink of each document, until it is on disk: writes run in the background, reads must not miss them.
+    private val pendingInk = java.util.concurrent.ConcurrentHashMap<String, Map<Int, List<InkStroke>>>()
 
     /** Every material, including those in the trash; screens use [library] and [trash]. */
     val materials = mutableStateListOf<StudyMaterial>()
     val folders = mutableStateListOf<Folder>()
     val plans = mutableStateListOf<StudyPlan>()
     val cards = mutableStateListOf<ReviewCard>()
+    val timetable = mutableStateListOf<TimetableEntry>()
+    val exams = mutableStateListOf<Exam>()
 
     init {
         val data = runCatching { json.decodeFromString(AppData.serializer(), dataFile.readText()) }.getOrNull() ?: AppData()
@@ -59,6 +72,8 @@ class Repository(context: Context) {
         folders += data.folders
         plans += data.plans
         cards += data.cards
+        timetable += data.timetable
+        exams += data.exams
         expired.forEach(::deleteFiles)
         if (expired.isNotEmpty()) save()
     }
@@ -79,8 +94,15 @@ class Repository(context: Context) {
         val name = displayName(uri)
         val title = name?.substringBeforeLast('.')?.ifBlank { null } ?: "Dokument"
         val type = resolver.getType(uri) ?: ""
-        val isImage = type.startsWith("image/") ||
-            name?.substringAfterLast('.', "")?.lowercase() in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val extension = name?.substringAfterLast('.', "")?.lowercase()
+        val isImage = type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val isDocx = type == DOCX_MIME || extension == "docx"
+        if (isDocx) {
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
+            val pdf = runCatching { DocxRenderer.pdfData(DocxReader.open(bytes)) }
+                .getOrElse { throw IOException("Das Word-Dokument lässt sich nicht lesen.") }
+            return@withContext savePdf(pdf, title, folderId)
+        }
         if (isImage) {
             val bitmap = runCatching {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
@@ -119,6 +141,62 @@ class Repository(context: Context) {
         material
     }
 
+    // Inserting pages into an existing document
+
+    /** Inserts every page of [source] after 0-based [afterIndex], moving the ink of later pages along. */
+    suspend fun insertPdfPages(material: StudyMaterial, source: ByteArray, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                PDDocument.load(source).use { insertPages(target, material, it, afterIndex) }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Inserts a picture as a new page after 0-based [afterIndex], fit to the size of the document's other pages. */
+    suspend fun insertImagePage(material: StudyMaterial, bitmap: Bitmap, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                val size = target.getPage(afterIndex.coerceIn(0, target.numberOfPages - 1)).mediaBox
+                PDDocument().use { source ->
+                    val page = PDPage(PDRectangle(size.width, size.height))
+                    source.addPage(page)
+                    val scale = minOf(size.width / bitmap.width, size.height / bitmap.height)
+                    val width = bitmap.width * scale
+                    val height = bitmap.height * scale
+                    PDPageContentStream(source, page).use { stream ->
+                        stream.drawImage(JPEGFactory.createFromImage(source, bitmap), (size.width - width) / 2, (size.height - height) / 2, width, height)
+                    }
+                    insertPages(target, material, source, afterIndex)
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Splices every page of [source] into [target], [material]'s own open document, right after 0-based
+     * [afterIndex]; saves the file and moves the ink of later pages along. */
+    private fun insertPages(target: PDDocument, material: StudyMaterial, source: PDDocument, afterIndex: Int): Boolean {
+        val count = source.numberOfPages
+        if (count == 0) return false
+        val position = (afterIndex + 1).coerceIn(0, target.numberOfPages)
+        val anchor = if (position < target.numberOfPages) target.getPage(position) else null
+        for (i in 0 until count) {
+            val imported = target.importPage(source.getPage(i))
+            if (anchor != null) {
+                target.pages.remove(imported)
+                target.pages.insertBefore(imported, anchor)
+            }
+        }
+        target.save(pdfFile(material))
+        saveInk(material.id, shiftedInk(currentInk(material.id), at = position, count = count))
+        texts.remove(material.id)
+        textFile(material.id).delete()
+        return true
+    }
+
+    /** Pages from [at] on move [count] forward: that many pages were inserted at [at]. */
+    private fun shiftedInk(ink: Map<Int, List<InkStroke>>, at: Int, count: Int): Map<Int, List<InkStroke>> =
+        ink.mapKeys { (page, _) -> if (page >= at) page + count else page }
+
     /** Deletes for good, with the PDF and its ink; the trash uses this. */
     fun deleteMaterial(material: StudyMaterial) {
         materials.removeAll { it.id == material.id }
@@ -128,6 +206,7 @@ class Repository(context: Context) {
 
     private fun deleteFiles(material: StudyMaterial) {
         texts.remove(material.id)
+        pendingInk.remove(material.id)
         scope.launch {
             pdfFile(material).delete()
             inkFile(material.id).delete()
@@ -202,6 +281,44 @@ class Repository(context: Context) {
         save()
     }
 
+    // Timetable
+
+    fun addTimetableEntry(entry: TimetableEntry) {
+        timetable += entry
+        save()
+    }
+
+    fun updateTimetableEntry(entry: TimetableEntry) {
+        val index = timetable.indexOfFirst { it.id == entry.id }
+        if (index < 0) return
+        timetable[index] = entry
+        save()
+    }
+
+    fun deleteTimetableEntry(entry: TimetableEntry) {
+        timetable.removeAll { it.id == entry.id }
+        save()
+    }
+
+    // Exams
+
+    fun addExam(exam: Exam) {
+        exams += exam
+        save()
+    }
+
+    fun updateExam(exam: Exam) {
+        val index = exams.indexOfFirst { it.id == exam.id }
+        if (index < 0) return
+        exams[index] = exam
+        save()
+    }
+
+    fun deleteExam(exam: Exam) {
+        exams.removeAll { it.id == exam.id }
+        save()
+    }
+
     /** Removes the folder and its subfolders; the materials inside go to the trash and come back to the top level. */
     fun deleteFolder(folder: Folder) {
         val removed = Library.descendants(folders, folder.id)
@@ -250,14 +367,21 @@ class Repository(context: Context) {
 
     private val inkSerializer = MapSerializer(Int.serializer(), ListSerializer(InkStroke.serializer()))
 
-    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) {
-        runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
-    }
+    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) { currentInk(materialId) }
+
+    private fun currentInk(materialId: String): Map<Int, List<InkStroke>> = pendingInk[materialId]
+        ?: runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
 
     fun saveInk(materialId: String, ink: Map<Int, List<InkStroke>>) {
         val snapshot = ink.filterValues { it.isNotEmpty() }
+        pendingInk[materialId] = snapshot
         scope.launch {
-            writeLock.withLock { writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, snapshot)) }
+            writeLock.withLock {
+                // Background writes may run out of order; each writes whatever is newest, so the last one wins.
+                val newest = pendingInk[materialId] ?: return@withLock
+                writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, newest))
+                pendingInk.remove(materialId, newest)
+            }
         }
     }
 
@@ -300,7 +424,7 @@ class Repository(context: Context) {
 
     /** Snapshots on the calling (main) thread, writes in the background. */
     fun save() {
-        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList())
+        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList(), timetable.toList(), exams.toList())
         scope.launch {
             writeLock.withLock { writeAtomically(dataFile, json.encodeToString(AppData.serializer(), data)) }
         }

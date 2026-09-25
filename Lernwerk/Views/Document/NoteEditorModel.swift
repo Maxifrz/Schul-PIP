@@ -18,7 +18,13 @@ final class NoteEditorModel: ObservableObject {
     @Published var zoomActive = false {
         didSet { controller?.setZoom(zoomActive) }
     }
+    /// The drawing instrument on the page, if any.
+    @Published var instrument: InstrumentKind? {
+        didSet { controller?.showInstrument(instrument) }
+    }
     @Published private(set) var controller: NotesController?
+    /// A region framed with the calculate tool, shown in a sheet.
+    @Published var mathRegion: MathRegionRequest?
     @Published private(set) var currentPage = 0
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
@@ -28,6 +34,7 @@ final class NoteEditorModel: ObservableObject {
 
     let material: StudyMaterial
     var onMark: ((MarkedRegion) -> Void)?
+    var onMathLine: ((MathLineRequest) -> Void)?
     private var lastWritingTool: NoteTool = .pen
 
     init(material: StudyMaterial) {
@@ -75,6 +82,12 @@ final class NoteEditorModel: ObservableObject {
         controller.onZoomClosed = { [weak self] in
             MainActor.assumeIsolated { self?.zoomActive = false }
         }
+        controller.onMathLine = { [weak self] request in
+            MainActor.assumeIsolated { self?.onMathLine?(request) }
+        }
+        controller.onMathRegion = { [weak self] request in
+            MainActor.assumeIsolated { self?.mathRegion = request }
+        }
         controller.apply(tool: tool, settings: settings)
         bookmarks = controller.notes.bookmarks
         currentPage = page
@@ -82,6 +95,7 @@ final class NoteEditorModel: ObservableObject {
         canRedo = false
         self.controller = controller
         if zoomActive { controller.setZoom(true) }
+        if let instrument { controller.showInstrument(instrument) }
     }
 
     private func push() {
@@ -102,6 +116,16 @@ final class NoteEditorModel: ObservableObject {
         zoomActive.toggle()
         if zoomActive, !tool.writesInZoom { tool = lastWritingTool }
     }
+
+    /// Lays an instrument on the page in view; the pen comes back, so it can be used right away.
+    func chooseInstrument(_ kind: InstrumentKind) {
+        instrument = kind
+        if !tool.writesInZoom { tool = lastWritingTool }
+    }
+
+    func trueScale() { controller?.setTrueScale() }
+
+    func fitWidth() { controller?.fitWidth() }
 
     func undo() { controller?.undo() }
 
@@ -131,6 +155,22 @@ final class NoteEditorModel: ObservableObject {
         let index = page ?? currentPage
         controller?.saveNow()
         guard MaterialStore.insertPage(in: material, after: index, paper: paper) else { return }
+        reopen(at: index + 1)
+    }
+
+    /// Inserts a PDF file's pages after `page` and opens the document there.
+    func insertPDF(from source: URL, after page: Int? = nil) {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertPDF(from: source, in: material, after: index) else { return }
+        reopen(at: index + 1)
+    }
+
+    /// Inserts a picture as a new page after `page`, fit to the document's page size.
+    func insertImagePage(_ image: UIImage, after page: Int? = nil) {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertImagePage(image, in: material, after: index) else { return }
         reopen(at: index + 1)
     }
 

@@ -89,6 +89,34 @@ enum OfficeXML {
         }
     }
 
+    /// Relationship ids of a part mapped to resolved package paths, e.g. `word/document.xml` to its
+    /// `word/_rels/document.xml.rels`. Shared by every Office file reader.
+    static func relationships(_ files: [String: Data], part: String) -> [String: String] {
+        let folder = part.contains("/") ? String(part[part.startIndex..<part.range(of: "/", options: .backwards)!.lowerBound]) : ""
+        let name = part.contains("/") ? String(part[part.range(of: "/", options: .backwards)!.upperBound...]) : part
+        let relsPath = (folder.isEmpty ? "" : folder + "/") + "_rels/\(name).rels"
+        guard let data = files[relsPath], let root = parse(data) else { return [:] }
+        var result: [String: String] = [:]
+        for rel in root.all("Relationship") {
+            let target = rel.attr("Target") ?? ""
+            result[rel.attr("Id") ?? ""] = rel.attr("TargetMode") == "External" ? "" : resolve(folder, target)
+        }
+        return result
+    }
+
+    private static func resolve(_ folder: String, _ target: String) -> String {
+        if target.hasPrefix("/") { return String(target.drop { $0 == "/" }) }
+        var parts = folder.isEmpty ? [] : folder.split(separator: "/").map(String.init)
+        for piece in target.split(separator: "/") {
+            switch piece {
+            case "..": if !parts.isEmpty { parts.removeLast() }
+            case ".", "": break
+            default: parts.append(String(piece))
+            }
+        }
+        return parts.joined(separator: "/")
+    }
+
     /// Parses a document; returns its root element, or nil for anything that is not well-formed XML.
     static func parse(_ data: Data) -> Element? {
         let delegate = Builder()

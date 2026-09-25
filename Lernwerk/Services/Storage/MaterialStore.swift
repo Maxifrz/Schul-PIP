@@ -30,9 +30,18 @@ enum MaterialStore {
         return StudyMaterial(title: source.deletingPathExtension().lastPathComponent, fileName: fileName)
     }
 
-    /// PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF.
+    /// The type Word actually writes for a `.docx` file; `UTType(filenameExtension:)` alone also resolves it, but
+    /// only once the system knows the extension, which a file shared from another app does not always guarantee.
+    static let docxType = UTType("org.openxmlformats.wordprocessingml.document") ?? UTType(filenameExtension: "docx") ?? .data
+
+    /// PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF; Word
+    /// documents are read into a PDF with the same headings, paragraphs, lists, tables and pictures.
     static func importFile(from source: URL) throws -> StudyMaterial {
         let type = UTType(filenameExtension: source.pathExtension)
+        let title = source.deletingPathExtension().lastPathComponent
+        if type?.conforms(to: docxType) == true || source.pathExtension.lowercased() == "docx" {
+            return try importDocx(from: source, title: title)
+        }
         guard let type, type.conforms(to: .image), !type.conforms(to: .pdf) else {
             return try importPDF(from: source)
         }
@@ -44,7 +53,17 @@ enum MaterialStore {
         guard let image = UIImage(data: data) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        return try save(pdfData: pdf(from: image), title: source.deletingPathExtension().lastPathComponent)
+        return try save(pdfData: pdf(from: image), title: title)
+    }
+
+    private static func importDocx(from source: URL, title: String) throws -> StudyMaterial {
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        let data = try Data(contentsOf: source)
+        let document = try DocxReader.open(data)
+        return try save(pdfData: DocxRenderer.pdfData(document), title: title)
     }
 
     /// One page as wide as A4, as tall as the image needs.
@@ -148,6 +167,53 @@ enum MaterialStore {
         saveNotes(notes, for: material.fileName)
         MaterialTextIndex.remove(fileName: material.fileName)
         return true
+    }
+
+    /// Inserts every page of `document` after `index`, moving ink, notes and bookmarks of later pages along.
+    private static func insertPages(_ document: PDFDocument, in material: StudyMaterial, after index: Int) -> Bool {
+        guard document.pageCount > 0, let target = PDFDocument(url: material.fileURL) else { return false }
+        let position = min(max(index, -1) + 1, target.pageCount)
+        for offset in 0..<document.pageCount {
+            guard let page = document.page(at: offset)?.copy() as? PDFPage else { return false }
+            target.insert(page, at: position + offset)
+        }
+        guard target.write(to: material.fileURL) else { return false }
+        let count = document.pageCount
+        saveDrawings(PageShift.inserting(loadDrawings(for: material.fileName), at: position, count: count), for: material.fileName)
+        var notes = loadNotes(for: material.fileName)
+        notes.insertPage(at: position, count: count)
+        saveNotes(notes, for: material.fileName)
+        MaterialTextIndex.remove(fileName: material.fileName)
+        return true
+    }
+
+    /// Inserts every page of a PDF file after `index`.
+    static func insertPDF(from source: URL, in material: StudyMaterial, after index: Int) -> Bool {
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        guard let document = PDFDocument(url: source) else { return false }
+        return insertPages(document, in: material, after: index)
+    }
+
+    /// One picture as a new page after `index`, fit to the size of the document's other pages.
+    static func insertImagePage(_ image: UIImage, in material: StudyMaterial, after index: Int) -> Bool {
+        guard let target = PDFDocument(url: material.fileURL) else { return false }
+        let reference = target.page(at: min(max(index, 0), target.pageCount - 1))
+        let size = reference?.bounds(for: .cropBox).size ?? PaperRenderer.a4
+        let bounds = CGRect(origin: .zero, size: size)
+        let data = UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
+            context.beginPage()
+            UIColor.white.setFill()
+            context.cgContext.fill(bounds)
+            let scale = min(size.width / max(image.size.width, 1), size.height / max(image.size.height, 1))
+            let fitted = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            let origin = CGPoint(x: (size.width - fitted.width) / 2, y: (size.height - fitted.height) / 2)
+            image.draw(in: CGRect(origin: origin, size: fitted))
+        }
+        guard let document = PDFDocument(data: data) else { return false }
+        return insertPages(document, in: material, after: index)
     }
 
     /// Removes a page with its ink and notes; the last page of a document stays.

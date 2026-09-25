@@ -2,6 +2,22 @@ import PDFKit
 import PencilKit
 import UIKit
 
+/// A line that ends in a written "=": where it is, and the ink of it and the lines above as a picture.
+struct MathLineRequest {
+    var page: Int
+    var equals: CGRect
+    var line: CGRect
+    var imageJPEG: Data
+}
+
+/// A region framed with the calculate tool, as the student sees it.
+struct MathRegionRequest: Identifiable {
+    let id = UUID()
+    var page: Int
+    var frame: CGRect
+    var imageJPEG: Data
+}
+
 /// Runs the document canvas: PDFKit shows the pages, each page gets an overlay with its texts, pictures, stickers
 /// and a PencilKit canvas. Ink and notes are saved shortly after every change.
 final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewDelegate {
@@ -24,12 +40,22 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     private var zoomTarget: (page: Int, rect: CGRect)?
     private var isClearingZoom = false
 
+    private(set) var instrument: InstrumentKind?
+    private var instrumentPage = 0
+    private var instrumentPose: InstrumentPose?
+
     var onPageChange: ((Int) -> Void)?
     var onUndoChange: ((Bool, Bool) -> Void)?
     var onMark: ((MarkedRegion) -> Void)?
     var onNotesChange: ((DocumentNotes) -> Void)?
     var onEditingChange: ((Bool) -> Void)?
     var onZoomClosed: (() -> Void)?
+    /// A written "=" wants its line calculated.
+    var onMathLine: ((MathLineRequest) -> Void)?
+    /// A frame was drawn with the calculate tool.
+    var onMathRegion: ((MathRegionRequest) -> Void)?
+    private var pendingMathCheck: DispatchWorkItem?
+    private var mathPreview: (page: Int, text: String, origin: CGPoint, size: CGFloat)?
 
     init(document: PDFDocument, fileName: String, startPage: Int) {
         self.document = document
@@ -89,8 +115,9 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         if toolChanged, !tool.editsAnnotations { container.endEditing(true) }
         let markup = tool.usesCanvas
         if container.pdfView.isInMarkupMode != markup { container.pdfView.isInMarkupMode = markup }
-        if tool != .mark { container.markingView.clearSelection() }
-        container.markingView.isHidden = tool != .mark
+        if !tool.marksRegion { container.markingView.clearSelection() }
+        container.markingView.isHidden = !tool.marksRegion
+        if toolChanged { hideMathPreview() }
         container.laserView.isUserInteractionEnabled = tool == .laser
         overlays.values.forEach(configure)
         applyTextSettings()
@@ -98,11 +125,103 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     }
 
     private func configure(_ overlay: PageOverlayView) {
-        overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations
+        let showsInstrument = instrument != nil && overlay.pageIndex == instrumentPage
+        overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations || showsInstrument
         overlay.canvas.isUserInteractionEnabled = tool.usesCanvas
         if let pkTool = settings.pkTool(for: tool) { overlay.canvas.tool = pkTool }
         overlay.tap.isEnabled = tool == .typing || tool == .textBox
         overlay.updateHandles()
+        if showsInstrument, var pose = instrumentPose {
+            if overlay.bounds.width > 0 { pose.unitsPerCm = unitsPerCm(on: overlay.pageIndex, width: overlay.bounds.width) }
+            instrumentPose = pose
+            overlay.instrumentLayer.show(instrument, pose: pose)
+        } else {
+            overlay.instrumentLayer.show(nil, pose: overlay.instrumentLayer.pose)
+        }
+    }
+
+    // Instruments
+
+    /// Lays the instrument on the page in view, in the middle of what is visible; nil takes it away.
+    func showInstrument(_ kind: InstrumentKind?) {
+        instrument = kind
+        if kind != nil {
+            let page = currentPage
+            let size = pageCanvasSize(page)
+            var center = CGPoint(x: size.width / 2, y: size.height / 2)
+            if let overlay = overlays[page] {
+                let visible = overlay.convert(CGPoint(x: container.pdfView.bounds.midX, y: container.pdfView.bounds.midY), from: container.pdfView)
+                center.y = min(max(visible.y, 0), size.height)
+            }
+            var pose = instrumentPose ?? InstrumentPose(center: center, unitsPerCm: Instruments.pointsPerCm)
+            pose.center = center
+            pose.unitsPerCm = unitsPerCm(on: page, width: size.width)
+            if kind == .compass { pose.angle = 0 }
+            instrumentPose = pose
+            instrumentPage = page
+        }
+        overlays.values.forEach(configure)
+    }
+
+    func instrumentMoved(_ pose: InstrumentPose) {
+        instrumentPose = pose
+    }
+
+    /// The ink an instrument draws with: the pen or the highlighter, as set; nil in other tools, where the
+    /// instrument only moves.
+    var instrumentInk: (ink: PKInk, width: CGFloat)? {
+        switch tool {
+        case .pen, .shapes:
+            return (PKInk(settings.penKind.inkType, color: QuillUIColor.hex(settings.penColor)), settings.penWidth)
+        case .highlighter:
+            return (PKInk(.marker, color: QuillUIColor.hex(settings.highlighterColor)), settings.highlighterWidth)
+        default:
+            return nil
+        }
+    }
+
+    /// Adds a line or arc drawn with an instrument to a page, as one stroke that can be undone.
+    func addInstrumentStroke(_ points: [CGPoint], page: Int) {
+        guard let pen = instrumentInk, points.count > 1 else { return }
+        let width = pen.width
+        let controlPoints = points.enumerated().map { index, point in
+            PKStrokePoint(
+                location: point,
+                timeOffset: TimeInterval(index) * 0.004,
+                size: CGSize(width: width, height: width),
+                opacity: 1,
+                force: 1,
+                azimuth: 0,
+                altitude: .pi / 2
+            )
+        }
+        var drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        drawing.strokes.append(PKStroke(ink: pen.ink, path: PKStrokePath(controlPoints: controlPoints, creationDate: Date())))
+        setDrawing(drawing, page: page)
+    }
+
+    /// Zooms so a centimetre of the page is a centimetre on the screen, for measuring with a real ruler too.
+    func setTrueScale() {
+        let pdfView = container.pdfView
+        let page = pdfView.currentPage
+        let screenScale = container.window?.screen.nativeScale ?? UIScreen.main.nativeScale
+        pdfView.autoScales = false
+        pdfView.scaleFactor = Instruments.trueScaleFactor(ppi: DeviceScreen.ppi, screenScale: screenScale)
+        if let page { pdfView.go(to: page) }
+    }
+
+    func fitWidth() {
+        container.pdfView.autoScales = true
+    }
+
+    private func pageCanvasSize(_ page: Int) -> CGSize {
+        if let overlay = overlays[page], overlay.bounds.width > 0 { return overlay.bounds.size }
+        return notes.canvasSizes[page] ?? document.page(at: page)?.bounds(for: .cropBox).size ?? CGSize(width: 595, height: 842)
+    }
+
+    private func unitsPerCm(on page: Int, width: CGFloat) -> Double {
+        let pageWidth = document.page(at: page)?.bounds(for: .cropBox).width ?? 595
+        return Instruments.unitsPerCm(canvasWidth: Double(width), pageWidth: Double(pageWidth))
     }
 
     // Pages
@@ -132,6 +251,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         guard size.width > 0, notes.canvasSizes[overlay.pageIndex] != size else { return }
         notes.canvasSizes[overlay.pageIndex] = size
         scheduleSave()
+        if instrument != nil, overlay.pageIndex == instrumentPage { configure(overlay) }
         if zoomTarget?.page == overlay.pageIndex { updateZoomBackground() }
     }
 
@@ -161,6 +281,10 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         let count = canvasView.drawing.strokes.count
         if tool == .shapes, count > (strokeCounts[index] ?? 0) {
             recognizeLastStroke(on: canvasView)
+        }
+        if count > (strokeCounts[index] ?? 0) {
+            hideMathPreview()
+            if tool == .pen, settings.mathPreview { watchForEquals(on: index, drawing: canvasView.drawing) }
         }
         strokeCounts[index] = canvasView.drawing.strokes.count
         drawings[index] = canvasView.drawing
@@ -397,7 +521,119 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
 
     private func handleMark(_ rect: CGRect) {
         guard let region = container.region(for: rect) else { return }
+        if tool == .math {
+            guard let overlay = overlays[region.pageIndex] else { return }
+            let frame = overlay.convert(rect, from: container).intersection(overlay.bounds)
+            guard !frame.isNull, let image = region.imageJPEG else { return }
+            onMathRegion?(MathRegionRequest(page: region.pageIndex, frame: frame, imageJPEG: image))
+            container.markingView.clearSelection()
+            return
+        }
         onMark?(region)
+    }
+
+    // Calculating in notes
+
+    /// When the newest two strokes form an "=", the line before it is read once the pen has rested a moment.
+    private func watchForEquals(on page: Int, drawing: PKDrawing) {
+        pendingMathCheck?.cancel()
+        let strokes = drawing.strokes
+        guard strokes.count >= 3 else { return }
+        let last = strokes[strokes.count - 1].renderBounds
+        let before = strokes[strokes.count - 2].renderBounds
+        guard MathNotes.isEqualsSign(before, last) else { return }
+        let equals = before.union(last)
+        let count = strokes.count
+        let work = DispatchWorkItem { [weak self] in
+            self?.readLine(on: page, equals: equals, strokeCount: count)
+        }
+        pendingMathCheck = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: work)
+    }
+
+    private func readLine(on page: Int, equals: CGRect, strokeCount: Int) {
+        let drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        // Written on since: the "=" was part of something else.
+        guard drawing.strokes.count == strokeCount else { return }
+        let boxes = drawing.strokes.dropLast(2).map(\.renderBounds)
+        guard let line = MathNotes.lineRegion(of: equals, among: Array(boxes)) else { return }
+        // The line with the "=" and what is written above it, where values may be defined.
+        let width = overlays[page]?.bounds.width ?? line.maxX + 40
+        let context = CGRect(x: 0, y: max(0, line.minY - 500), width: max(width, equals.maxX + 20), height: 0)
+            .union(CGRect(x: 0, y: line.minY, width: equals.maxX + 20, height: max(line.maxY, equals.maxY) - line.minY + 8))
+        guard let image = inkImage(drawing, in: context) else { return }
+        onMathLine?(MathLineRequest(page: page, equals: equals, line: line, imageJPEG: image))
+    }
+
+    /// Ink only, dark on white, as a model reads it best.
+    private func inkImage(_ drawing: PKDrawing, in rect: CGRect) -> Data? {
+        guard rect.width > 1, rect.height > 1 else { return nil }
+        let scale = min(2, 1600 / max(rect.width, rect.height))
+        var ink: UIImage?
+        UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+            ink = drawing.image(from: rect, scale: scale)
+        }
+        guard let ink else { return nil }
+        let image = UIGraphicsImageRenderer(size: rect.size).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: rect.size))
+            ink.draw(in: CGRect(origin: .zero, size: rect.size))
+        }
+        return image.jpegData(compressionQuality: 0.85)
+    }
+
+    /// Offers a result right of the "=", as a button on the page; tapping it writes the result there.
+    func showMathPreview(_ text: String, page: Int, equals: CGRect, line: CGRect) {
+        let size = MathNotes.fontSize(for: line)
+        let origin = MathNotes.resultOrigin(after: equals, line: line)
+        mathPreview = (page, text, origin, size)
+        overlays[page]?.showMathChip(text, at: CGPoint(x: origin.x, y: equals.midY)) { [weak self] in
+            self?.acceptMathPreview()
+        }
+    }
+
+    func hideMathPreview() {
+        guard let preview = mathPreview else { return }
+        mathPreview = nil
+        overlays[preview.page]?.showMathChip(nil, at: .zero, onTap: nil)
+    }
+
+    private func acceptMathPreview() {
+        guard let preview = mathPreview else { return }
+        hideMathPreview()
+        writeResult(preview.text, page: preview.page, origin: preview.origin, size: preview.size)
+    }
+
+    /// Writes text in the handwriting font and the pen's color, as one step that can be undone.
+    func writeResult(_ text: String, page: Int, origin: CGPoint, size: CGFloat) {
+        let font = NoteTextStyle.handwriting.font(size: size)
+        let width = (text as NSString).size(withAttributes: [.font: font]).width + 16
+        var annotation = PageAnnotation(
+            page: page,
+            kind: .text,
+            x: origin.x,
+            y: origin.y,
+            width: width,
+            height: size * 1.6 + 8,
+            text: text,
+            style: .handwriting,
+            color: settings.penColor
+        )
+        annotation.fontSize = size
+        commitAnnotations(notes.annotations + [annotation], previous: notes.annotations, name: "Ergebnis")
+    }
+
+    /// A picture placed below a marked region, at most as wide as the page allows.
+    func insertImage(_ image: UIImage, below frame: CGRect, page: Int) {
+        guard let name = MaterialStore.saveNoteImage(image) else { return }
+        let pageSize = overlays[page]?.bounds.size ?? notes.canvasSizes[page] ?? CGSize(width: 595, height: 842)
+        let width = min(max(frame.width, pageSize.width * 0.45), pageSize.width - 24)
+        let height = width * image.size.height / max(image.size.width, 1)
+        let x = min(max(12, frame.minX), pageSize.width - width - 12)
+        let y = min(frame.maxY + 10, max(0, pageSize.height - height))
+        var annotation = PageAnnotation(page: page, kind: .image, x: x, y: y, width: width, height: height)
+        annotation.image = name
+        commitAnnotations(notes.annotations + [annotation], previous: notes.annotations, name: "Einfügen")
     }
 
     // Zoom window

@@ -2,6 +2,7 @@ import PDFKit
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A PDF or notebook with a GoodNotes-style toolbar: the document row on top, the tools below it and the options of
 /// the selected tool next to them.
@@ -23,9 +24,14 @@ struct DocumentScreen: View {
     @State private var sheet: DocumentSheet?
     @State private var exported: ExportedFile?
     @State private var photoItem: PhotosPickerItem?
+    @State private var pageImageItem: PhotosPickerItem?
     @State private var isRenaming = false
     @State private var draftTitle = ""
     @State private var pageToDelete: Int?
+    @State private var importingImage = false
+    @State private var importingPDFPage = false
+    @State private var importingImagePage = false
+    @State private var importError: String?
 
     init(material: StudyMaterial, startPage: Int? = nil, backTitle: String = "Bibliothek") {
         self.material = material
@@ -77,6 +83,24 @@ struct DocumentScreen: View {
         .sheet(item: $exported) { file in
             ShareSheet(url: file.url)
         }
+        .sheet(item: $editor.mathRegion) { request in
+            MathRegionSheet(
+                request: request,
+                client: settings.makeClient(for: .tutor),
+                onWrite: { text, index in
+                    editor.controller?.writeResult(
+                        text,
+                        page: request.page,
+                        origin: CGPoint(x: request.frame.minX, y: request.frame.maxY + 6 + CGFloat(index) * 36),
+                        size: 22
+                    )
+                },
+                onImage: { image in
+                    editor.controller?.insertImage(image, below: request.frame, page: request.page)
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
         .alert("Umbenennen", isPresented: $isRenaming) {
             TextField("Titel", text: $draftTitle)
             Button("Abbrechen", role: .cancel) {}
@@ -103,12 +127,37 @@ struct DocumentScreen: View {
             photoItem = nil
             Task { await insertPhoto(item) }
         }
+        .onChange(of: pageImageItem) { _, item in
+            guard let item else { return }
+            pageImageItem = nil
+            Task { await insertPhotoPage(item) }
+        }
+        .fileImporter(isPresented: $importingImage, allowedContentTypes: [.image], onCompletion: { result in
+            handleFileResult(result) { editor.insertImage($0) }
+        })
+        .fileImporter(isPresented: $importingPDFPage, allowedContentTypes: [.pdf]) { result in
+            switch result {
+            case let .success(url):
+                editor.insertPDF(from: url)
+            case let .failure(error):
+                importError = error.localizedDescription
+            }
+        }
+        .fileImporter(isPresented: $importingImagePage, allowedContentTypes: [.image], onCompletion: { result in
+            handleFileResult(result) { editor.insertImagePage($0) }
+        })
+        .alert("Import fehlgeschlagen", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importError ?? "")
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { editor.close() }
         }
         .task {
             material.lastOpenedAt = .now
             editor.onMark = { region in openTutor(region) }
+            editor.onMathLine = { request in Task { await calculateLine(request) } }
             editor.load(startPage: startPage ?? material.lastOpenedPage)
         }
         .onDisappear { editor.close() }
@@ -215,19 +264,44 @@ struct DocumentScreen: View {
 
     private var addPageMenu: some View {
         Menu {
-            Section("Seite danach einfügen") {
-                ForEach(PaperStyle.allCases) { paper in
-                    Button {
-                        editor.insertPage(paper: paper)
-                    } label: {
-                        Label(paper.label, systemImage: paper.icon)
-                    }
-                }
-            }
+            insertPageMenuItems
         } label: {
             BarIcon(icon: "doc.badge.plus")
         }
         .accessibilityLabel("Seite hinzufügen")
+    }
+
+    /// Every way to add a page after the current one: blank paper, another PDF's pages, or a picture.
+    @ViewBuilder
+    private var insertPageMenuItems: some View {
+        Section("Seite danach einfügen") {
+            ForEach(PaperStyle.allCases) { paper in
+                Button {
+                    editor.insertPage(paper: paper)
+                } label: {
+                    Label(paper.label, systemImage: paper.icon)
+                }
+            }
+        }
+        Section {
+            Button {
+                importingPDFPage = true
+            } label: {
+                Label("PDF", systemImage: "doc.badge.plus")
+            }
+            Menu {
+                PhotosPicker(selection: $pageImageItem, matching: .images) {
+                    Label("Aus Fotos", systemImage: "photo.on.rectangle")
+                }
+                Button {
+                    importingImagePage = true
+                } label: {
+                    Label("Aus Dateien", systemImage: "folder")
+                }
+            } label: {
+                Label("Bild", systemImage: "photo.badge.plus")
+            }
+        }
     }
 
     private var moreMenu: some View {
@@ -252,9 +326,7 @@ struct DocumentScreen: View {
                     )
                 }
                 Menu {
-                    ForEach(PaperStyle.allCases) { paper in
-                        Button(paper.label) { editor.insertPage(paper: paper) }
-                    }
+                    insertPageMenuItems
                 } label: {
                     Label("Seite einfügen", systemImage: "doc.badge.plus")
                 }
@@ -332,9 +404,19 @@ struct DocumentScreen: View {
             ToolButton(icon: "eraser", label: "Radierer", isOn: editor.tool == .eraser) { editor.tool = .eraser }
             ToolButton(icon: "highlighter", label: "Textmarker", isOn: editor.tool == .highlighter) { editor.tool = .highlighter }
             ToolButton(icon: "square.on.circle", label: "Formen", isOn: editor.tool == .shapes) { editor.tool = .shapes }
+            instrumentMenu
             ToolButton(icon: "lasso", label: "Lasso", isOn: editor.tool == .lasso) { editor.tool = .lasso }
             ToolButton(icon: "star.circle", label: "Sticker", isOn: false) { sheet = .stickers }
-            PhotosPicker(selection: $photoItem, matching: .images) {
+            Menu {
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("Aus Fotos", systemImage: "photo.on.rectangle")
+                }
+                Button {
+                    importingImage = true
+                } label: {
+                    Label("Aus Dateien", systemImage: "folder")
+                }
+            } label: {
                 BarIcon(icon: "photo", size: 17)
                     .frame(width: 40, height: 36)
             }
@@ -342,6 +424,7 @@ struct DocumentScreen: View {
             ToolButton(icon: "keyboard", label: "Tippen", isOn: editor.tool == .typing) { editor.tool = .typing }
             ToolButton(icon: "character.textbox", label: "Textfeld", isOn: editor.tool == .textBox) { editor.tool = .textBox }
             ToolButton(icon: "wand.and.rays", label: "Laserpointer", isOn: editor.tool == .laser) { editor.tool = .laser }
+            ToolButton(icon: "function", label: "Rechnen", isOn: editor.tool == .math) { editor.tool = .math }
             Button {
                 editor.tool = editor.tool == .mark ? .read : .mark
             } label: {
@@ -359,6 +442,45 @@ struct DocumentScreen: View {
             .buttonStyle(QuillPressStyle())
             .padding(.leading, 6)
         }
+    }
+
+    /// Ruler, set square, protractor and compass, and a zoom at which the page is true to scale.
+    private var instrumentMenu: some View {
+        Menu {
+            ForEach(InstrumentKind.allCases) { kind in
+                Button {
+                    editor.chooseInstrument(kind)
+                } label: {
+                    Label(kind.label, systemImage: editor.instrument == kind ? "checkmark" : kind.symbol)
+                }
+            }
+            Divider()
+            Button {
+                editor.trueScale()
+            } label: {
+                Label("Echtgröße (1 cm = 1 cm)", systemImage: "1.magnifyingglass")
+            }
+            Button {
+                editor.fitWidth()
+            } label: {
+                Label("An Breite anpassen", systemImage: "arrow.left.and.right")
+            }
+            if editor.instrument != nil {
+                Button(role: .destructive) {
+                    editor.instrument = nil
+                } label: {
+                    Label("Instrument weglegen", systemImage: "xmark")
+                }
+            }
+        } label: {
+            Image(systemName: "ruler")
+                .font(.system(size: 17, weight: editor.instrument != nil ? .semibold : .regular))
+                .foregroundStyle(editor.instrument != nil ? Quill.link : Quill.ink)
+                .frame(width: 40, height: 36)
+                .background(RoundedRectangle(cornerRadius: 9).fill(editor.instrument != nil ? Quill.accent.opacity(0.18) : .clear))
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Geometrie")
     }
 
     // MARK: - Content
@@ -416,6 +538,40 @@ struct DocumentScreen: View {
     private func insertPhoto(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
         editor.insertImage(image)
+    }
+
+    private func insertPhotoPage(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+        editor.insertImagePage(image)
+    }
+
+    /// A file the student picked from Files, loaded as a picture.
+    private func handleFileResult(_ result: Result<URL, Error>, use: (UIImage) -> Void) {
+        switch result {
+        case let .success(url):
+            let isScoped = url.startAccessingSecurityScopedResource()
+            defer {
+                if isScoped { url.stopAccessingSecurityScopedResource() }
+            }
+            guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else {
+                importError = "Das Bild lässt sich nicht öffnen."
+                return
+            }
+            use(image)
+        case let .failure(error):
+            importError = error.localizedDescription
+        }
+    }
+
+    /// A written "=": read the line and what is defined above it, calculate on the device, offer the result.
+    private func calculateLine(_ request: MathLineRequest) async {
+        guard let recognition = await MathReader.read(request.imageJPEG, hint: MathNotes.lineHint, client: settings.makeClient(for: .tutor)),
+              let result = await MathReader.calculate(recognition, engine: .shared),
+              result.answer.ok,
+              let text = MathNotes.resultText(pretty: result.answer.pretty, approx: result.answer.prettyApprox),
+              MathNotes.isWorthShowing(expression: result.expression, result: text)
+        else { return }
+        editor.controller?.showMathPreview(text, page: request.page, equals: request.equals, line: request.line)
     }
 
     private func openTutor(_ region: MarkedRegion) {
@@ -495,6 +651,21 @@ private struct ToolOptions: View {
                 if editor.tool == .shapes {
                     hint("Zeichne frei: Linien, Kreise, Rechtecke und Vielecke werden automatisch sauber.")
                 }
+                if editor.tool == .pen {
+                    Toggle(isOn: $editor.settings.mathPreview) {
+                        Text("= rechnet")
+                            .font(.work(13, .medium))
+                            .foregroundStyle(Quill.ink2)
+                    }
+                    .toggleStyle(.button)
+                    .tint(Quill.accent)
+                    .accessibilityHint("Ein geschriebenes Gleichheitszeichen bietet das Ergebnis an.")
+                }
+                if let instrument = editor.instrument {
+                    hint(instrument == .compass
+                        ? "Zirkel: Spitze und Mitte mit dem Finger ziehen, mit dem Stift den Kreis zeichnen."
+                        : "\(instrument.label): mit einem Finger schieben, mit zwei drehen, am Rand entlang zeichnen.")
+                }
             case .highlighter:
                 widths(InkSettings.highlighterWidths, selected: editor.settings.highlighterWidth, dot: 0.55) { editor.settings.highlighterWidth = $0 }
                 colors(InkSettings.highlighterColors, selected: editor.settings.highlighterColor) { editor.settings.highlighterColor = $0 }
@@ -519,6 +690,8 @@ private struct ToolOptions: View {
                 hint("Striche einkreisen zum Verschieben. Texte, Bilder und Sticker antippen und ziehen, gedrückt halten für mehr.")
             case .laser:
                 hint("Zum Zeigen: Die Spur verblasst nach dem Loslassen.")
+            case .math:
+                hint("Zieh einen Rahmen um Rechnungen, eine Funktion oder eine Wertetabelle: ausrechnen, Graph oder Diagramm.")
             case .mark:
                 hint("Zieh einen Rahmen um die Stelle, bei der Pip helfen soll.")
             case .read:

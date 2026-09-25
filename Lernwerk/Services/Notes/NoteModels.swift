@@ -29,7 +29,7 @@ enum PaperStyle: String, CaseIterable, Codable, Identifiable {
 }
 
 enum NoteTextStyle: String, CaseIterable, Codable {
-    case title, heading, body, small
+    case title, heading, body, small, handwriting
 
     var label: String {
         switch self {
@@ -37,6 +37,7 @@ enum NoteTextStyle: String, CaseIterable, Codable {
         case .heading: return "Überschrift 2"
         case .body: return "Text"
         case .small: return "Klein"
+        case .handwriting: return "Handschrift"
         }
     }
 
@@ -46,6 +47,7 @@ enum NoteTextStyle: String, CaseIterable, Codable {
         case .heading: return 20
         case .body: return 15
         case .small: return 12
+        case .handwriting: return 20
         }
     }
 
@@ -78,6 +80,10 @@ struct PageAnnotation: Codable, Equatable, Identifiable {
     var boxed = false
     /// File name of a picture in the note images folder.
     var image: String?
+    /// A size of its own instead of the style's, like a calculated result written as large as the line before it.
+    var fontSize: CGFloat?
+
+    var textSize: CGFloat { fontSize ?? style.size }
 
     var frame: CGRect {
         get { CGRect(x: x, y: y, width: width, height: height) }
@@ -97,11 +103,11 @@ struct DocumentNotes: Codable, Equatable {
     var bookmarks: Set<Int> = []
     var canvasSizes: [Int: CGSize] = [:]
 
-    /// Pages from `index` on move one back: a page was inserted at `index`.
-    mutating func insertPage(at index: Int) {
-        for i in annotations.indices where annotations[i].page >= index { annotations[i].page += 1 }
-        bookmarks = Set(bookmarks.map { $0 >= index ? $0 + 1 : $0 })
-        canvasSizes = PageShift.inserting(canvasSizes, at: index)
+    /// Pages from `index` on move `count` back: that many pages were inserted at `index`.
+    mutating func insertPage(at index: Int, count: Int = 1) {
+        for i in annotations.indices where annotations[i].page >= index { annotations[i].page += count }
+        bookmarks = Set(bookmarks.map { $0 >= index ? $0 + count : $0 })
+        canvasSizes = PageShift.inserting(canvasSizes, at: index, count: count)
     }
 
     /// The page at `index` is gone with its annotations; later pages move forward.
@@ -119,8 +125,8 @@ struct DocumentNotes: Codable, Equatable {
 
 /// Moving page-keyed data when pages are inserted or deleted; also used for the ink.
 enum PageShift {
-    static func inserting<Value>(_ values: [Int: Value], at index: Int) -> [Int: Value] {
-        Dictionary(uniqueKeysWithValues: values.map { ($0.key >= index ? $0.key + 1 : $0.key, $0.value) })
+    static func inserting<Value>(_ values: [Int: Value], at index: Int, count: Int = 1) -> [Int: Value] {
+        Dictionary(uniqueKeysWithValues: values.map { ($0.key >= index ? $0.key + count : $0.key, $0.value) })
     }
 
     static func deleting<Value>(_ values: [Int: Value], at index: Int) -> [Int: Value] {
