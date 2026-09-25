@@ -36,7 +36,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -78,6 +80,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.maxifrz.lernwerk.ink.InstrumentKind
+import de.maxifrz.lernwerk.ink.Instruments
 import de.maxifrz.lernwerk.data.ImageCompressor
 import de.maxifrz.lernwerk.data.InkStroke
 import de.maxifrz.lernwerk.data.InkTool
@@ -175,6 +179,8 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            // The ink drawn last must be in before the later pages' ink moves along.
+            repository.saveInk(material.id, ink.pages.toMap())
             if (bytes != null && repository.insertPdfPages(material, bytes, material.lastOpenedPage)) reloadKey++
         }
     }
@@ -182,6 +188,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val bitmap = openBitmap(uri)
+            repository.saveInk(material.id, ink.pages.toMap())
             if (bitmap != null && repository.insertImagePage(material, bitmap, material.lastOpenedPage)) reloadKey++
         }
     }
@@ -189,6 +196,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val bitmap = openBitmap(uri)
+            repository.saveInk(material.id, ink.pages.toMap())
             if (bitmap != null && repository.insertImagePage(material, bitmap, material.lastOpenedPage)) reloadKey++
         }
     }
@@ -204,6 +212,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
     }
 
     var mode by remember { mutableStateOf<InteractionMode>(InteractionMode.Read) }
+    val instruments = remember(material.id) { InstrumentState() }
     var tutor by remember { mutableStateOf<TutorSession?>(null) }
     // Keeps the panel's content while it animates out.
     var shownTutor by remember { mutableStateOf<TutorSession?>(null) }
@@ -298,6 +307,7 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
                                 file = file,
                                 ink = ink,
                                 mode = mode,
+                                instruments = instruments,
                                 startPage = route.startPage ?: material.lastOpenedPage,
                                 onPageChange = { repository.setLastOpenedPage(material.id, it) },
                                 onMark = ::openTutor,
@@ -307,7 +317,21 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
                             QText("Die Datei fehlt oder ist beschädigt.", work(15f), colors.muted, Modifier.padding(top = 10.dp))
                         }
                     }
-                    DocumentToolbar(mode, { mode = it }, Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp))
+                    DocumentToolbar(
+                        mode = mode,
+                        onMode = { mode = it },
+                        instruments = instruments,
+                        onInstrument = { kind ->
+                            val pages = pdf?.getOrNull()
+                            val page = material.lastOpenedPage.coerceIn(0, max(0, (pages?.pageCount ?: 1) - 1))
+                            pages?.sizes?.getOrNull(page)?.let { instruments.place(kind, page, it) }
+                            // The pen comes along, so the instrument can be used right away.
+                            if (mode !is InteractionMode.Draw || (mode as InteractionMode.Draw).tool == DrawingTool.ERASER) {
+                                mode = InteractionMode.Draw(DrawingTool.PEN)
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+                    )
                 }
                 AnimatedVisibility(
                     visible = wide && tutor != null,
@@ -364,6 +388,7 @@ private fun PdfCanvas(
     file: File,
     ink: InkState,
     mode: InteractionMode,
+    instruments: InstrumentState,
     startPage: Int,
     onPageChange: (Int) -> Unit,
     onMark: (MarkedRegion) -> Unit,
@@ -379,23 +404,38 @@ private fun PdfCanvas(
         snapshotFlow { listState.firstVisibleItemIndex }.debounce(400).collect(onPageChange)
     }
 
+    // True to scale, pages can be wider than the screen and scroll sideways.
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val trueWidths = if (instruments.trueScale) {
+        val metrics = context.resources.displayMetrics
+        pages.sizes.map { with(density) { (it.width * Instruments.trueScalePixelsPerPoint(metrics.xdpi.toDouble())).toFloat().toDp() } }
+    } else {
+        null
+    }
+    val sideways = if (trueWidths != null) Modifier.horizontalScroll(rememberScrollState(), enabled = mode == InteractionMode.Read) else Modifier
+
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = mode == InteractionMode.Read,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 110.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            items(pages.pageCount) { index ->
-                PdfPage(
-                    pages = pages,
-                    index = index,
-                    ink = ink,
-                    mode = mode,
-                    modifier = Modifier.onGloballyPositioned { pageBounds[index] = it.boundsInWindow() },
-                )
+        Box(Modifier.fillMaxSize().then(sideways)) {
+            LazyColumn(
+                state = listState,
+                userScrollEnabled = mode == InteractionMode.Read,
+                modifier = if (trueWidths != null) Modifier.fillMaxHeight().width((trueWidths.maxOrNull() ?: 0.dp) + 40.dp) else Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 110.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                items(pages.pageCount) { index ->
+                    PdfPage(
+                        pages = pages,
+                        index = index,
+                        ink = ink,
+                        mode = mode,
+                        instruments = instruments,
+                        trueWidth = trueWidths?.getOrNull(index),
+                        modifier = Modifier.onGloballyPositioned { pageBounds[index] = it.boundsInWindow() },
+                    )
+                }
             }
         }
 
@@ -468,8 +508,16 @@ private fun drawStroke(canvas: android.graphics.Canvas, stroke: InkStroke, width
 }
 
 @Composable
-private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: InteractionMode, modifier: Modifier = Modifier) {
-    val size = pages.sizes[index]
+private fun PdfPage(
+    pages: PdfPages,
+    index: Int,
+    ink: InkState,
+    mode: InteractionMode,
+    instruments: InstrumentState,
+    trueWidth: androidx.compose.ui.unit.Dp?,
+    modifier: Modifier = Modifier,
+) {
+    val pageSize = pages.sizes[index]
     var widthPx by remember { mutableIntStateOf(0) }
     var renderFailed by remember { mutableStateOf(false) }
     val bitmap by produceState<Bitmap?>(null, index, widthPx) {
@@ -484,9 +532,8 @@ private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: Interactio
 
     Box(
         modifier
-            .widthIn(max = 980.dp)
-            .fillMaxWidth()
-            .aspectRatio(1f / size.aspect)
+            .then(if (trueWidth != null) Modifier.width(trueWidth) else Modifier.widthIn(max = 980.dp).fillMaxWidth())
+            .aspectRatio(1f / pageSize.aspect)
             .shadow(4.dp, RoundedCornerShape(2.dp))
             .background(Color.White)
             .onSizeChanged { widthPx = it.width },
@@ -504,11 +551,28 @@ private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: Interactio
             Modifier
                 .fillMaxSize()
                 .pointerInput(tool) {
-                    if (tool == null) return@pointerInput
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         val w = size.width.toFloat()
                         val h = size.height.toFloat()
+                        val inkTool = when (tool) {
+                            DrawingTool.PEN -> InkTool.PEN
+                            DrawingTool.HIGHLIGHTER -> InkTool.HIGHLIGHTER
+                            else -> null
+                        }
+                        if (instruments.kind != null && instruments.page == index) {
+                            val handled = instrumentGesture(
+                                down = down,
+                                state = instruments,
+                                pointsPerPixel = pageSize.width / w.toDouble(),
+                                pageSize = pageSize,
+                                penWidth = inkTool?.let { strokeWidth(it) * pageSize.width.toDouble() },
+                                preview = current,
+                                onStroke = { points -> inkTool?.let { ink.add(index, InkStroke(it, points)) } },
+                            )
+                            if (handled) return@awaitEachGesture
+                        }
+                        if (tool == null) return@awaitEachGesture
                         fun handle(position: Offset) {
                             val x = position.x / w
                             val y = position.y / h
@@ -538,6 +602,9 @@ private fun PdfPage(pages: PdfPages, index: Int, ink: InkState, mode: Interactio
             ink.pages[index]?.forEach { drawInk(it.tool, it.points) }
             if (current.isNotEmpty() && tool != null && tool != DrawingTool.ERASER) {
                 drawInk(if (tool == DrawingTool.PEN) InkTool.PEN else InkTool.HIGHLIGHTER, current)
+            }
+            if (instruments.kind != null && instruments.page == index) {
+                drawInstrument(instruments, size.width / pageSize.width.toDouble())
             }
         }
     }
@@ -609,8 +676,15 @@ private fun MarkingOverlay(modifier: Modifier, onMark: (Rect) -> Unit) {
 }
 
 @Composable
-private fun DocumentToolbar(mode: InteractionMode, onMode: (InteractionMode) -> Unit, modifier: Modifier = Modifier) {
+private fun DocumentToolbar(
+    mode: InteractionMode,
+    onMode: (InteractionMode) -> Unit,
+    instruments: InstrumentState,
+    onInstrument: (InstrumentKind) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = Quill.colors
+    var instrumentMenuOpen by remember { mutableStateOf(false) }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AnimatedVisibility(mode == InteractionMode.Mark, enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
             QText(
@@ -636,6 +710,36 @@ private fun DocumentToolbar(mode: InteractionMode, onMode: (InteractionMode) -> 
             ToolbarItem("Stift", mode == InteractionMode.Draw(DrawingTool.PEN)) { onMode(InteractionMode.Draw(DrawingTool.PEN)) }
             ToolbarItem("Marker", mode == InteractionMode.Draw(DrawingTool.HIGHLIGHTER)) { onMode(InteractionMode.Draw(DrawingTool.HIGHLIGHTER)) }
             ToolbarItem("Radierer", mode == InteractionMode.Draw(DrawingTool.ERASER)) { onMode(InteractionMode.Draw(DrawingTool.ERASER)) }
+            Box {
+                ToolbarItem("Geometrie", instruments.kind != null) { instrumentMenuOpen = true }
+                DropdownMenu(instrumentMenuOpen, { instrumentMenuOpen = false }, containerColor = colors.surface) {
+                    InstrumentKind.entries.forEach { kind ->
+                        DropdownMenuItem(
+                            text = { QText(if (instruments.kind == kind) "✓ ${kind.label}" else kind.label, work(15f), colors.ink) },
+                            onClick = {
+                                instrumentMenuOpen = false
+                                onInstrument(kind)
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { QText(if (instruments.trueScale) "✓ Echtgröße (1 cm = 1 cm)" else "Echtgröße (1 cm = 1 cm)", work(15f), colors.ink) },
+                        onClick = {
+                            instrumentMenuOpen = false
+                            instruments.trueScale = !instruments.trueScale
+                        },
+                    )
+                    if (instruments.kind != null) {
+                        DropdownMenuItem(
+                            text = { QText("Instrument weglegen", work(15f), colors.ink) },
+                            onClick = {
+                                instrumentMenuOpen = false
+                                instruments.kind = null
+                            },
+                        )
+                    }
+                }
+            }
             Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(26.dp).background(colors.line2))
             ToolbarItem("Hilfe", mode == InteractionMode.Mark, dot = true) { onMode(InteractionMode.Mark) }
         }

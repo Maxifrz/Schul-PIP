@@ -53,6 +53,8 @@ class Repository(context: Context) {
 
     /** Page texts of the materials, read once for the search. */
     private val texts = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    // The newest ink of each document, until it is on disk: writes run in the background, reads must not miss them.
+    private val pendingInk = java.util.concurrent.ConcurrentHashMap<String, Map<Int, List<InkStroke>>>()
 
     /** Every material, including those in the trash; screens use [library] and [trash]. */
     val materials = mutableStateListOf<StudyMaterial>()
@@ -181,8 +183,7 @@ class Repository(context: Context) {
             }
         }
         target.save(pdfFile(material))
-        val ink = runCatching { json.decodeFromString(inkSerializer, inkFile(material.id).readText()) }.getOrDefault(emptyMap())
-        saveInk(material.id, shiftedInk(ink, at = position, count = count))
+        saveInk(material.id, shiftedInk(currentInk(material.id), at = position, count = count))
         texts.remove(material.id)
         textFile(material.id).delete()
         return true
@@ -201,6 +202,7 @@ class Repository(context: Context) {
 
     private fun deleteFiles(material: StudyMaterial) {
         texts.remove(material.id)
+        pendingInk.remove(material.id)
         scope.launch {
             pdfFile(material).delete()
             inkFile(material.id).delete()
@@ -323,14 +325,21 @@ class Repository(context: Context) {
 
     private val inkSerializer = MapSerializer(Int.serializer(), ListSerializer(InkStroke.serializer()))
 
-    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) {
-        runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
-    }
+    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) { currentInk(materialId) }
+
+    private fun currentInk(materialId: String): Map<Int, List<InkStroke>> = pendingInk[materialId]
+        ?: runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
 
     fun saveInk(materialId: String, ink: Map<Int, List<InkStroke>>) {
         val snapshot = ink.filterValues { it.isNotEmpty() }
+        pendingInk[materialId] = snapshot
         scope.launch {
-            writeLock.withLock { writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, snapshot)) }
+            writeLock.withLock {
+                // Background writes may run out of order; each writes whatever is newest, so the last one wins.
+                val newest = pendingInk[materialId] ?: return@withLock
+                writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, newest))
+                pendingInk.remove(materialId, newest)
+            }
         }
     }
 
