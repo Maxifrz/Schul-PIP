@@ -58,6 +58,7 @@ enum class AppTab(val title: String) {
     PLANS("Lernplan"),
     PRESENT("Präsentation"),
     CALC("Rechner"),
+    CALENDAR("Kalender"),
     REVIEW("Wiederholen"),
     SETTINGS("Einstellungen"),
 }
@@ -149,6 +150,7 @@ fun RootScreen(
                                 AppTab.PLANS -> PlanListScreen(app)
                                 AppTab.PRESENT -> PresentationListScreen(app)
                                 AppTab.CALC -> CalculatorScreen(app)
+                                AppTab.CALENDAR -> CalendarScreen(app)
                                 AppTab.REVIEW -> ReviewScreen(app)
                                 AppTab.SETTINGS -> SettingsScreen(app)
                             }

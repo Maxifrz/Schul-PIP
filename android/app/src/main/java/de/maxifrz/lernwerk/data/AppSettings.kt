@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import de.maxifrz.lernwerk.holidays.Bundesland
 import de.maxifrz.lernwerk.llm.ClaudeClient
 import de.maxifrz.lernwerk.llm.FailingClient
 import de.maxifrz.lernwerk.llm.LlmClient
@@ -35,6 +36,10 @@ class AppSettings(context: Context) {
     var demoMode by mutableStateOf(prefs.getBoolean(KEY_DEMO, false))
         private set
 
+    /** For Ferien and Feiertage; null until the student picks one, so the app never guesses wrong. */
+    var bundesland by mutableStateOf(prefs.getString(KEY_BUNDESLAND, null)?.let { Bundesland.fromCode(it) })
+        private set
+
     var providersWithKey by mutableStateOf(LlmProvider.entries.filter { keys.load(account(it)) != null }.toSet())
         private set
 
@@ -52,6 +57,11 @@ class AppSettings(context: Context) {
     fun updateDemoMode(enabled: Boolean) {
         demoMode = enabled
         prefs.edit().putBoolean(KEY_DEMO, enabled).apply()
+    }
+
+    fun updateBundesland(state: Bundesland?) {
+        bundesland = state
+        prefs.edit().putString(KEY_BUNDESLAND, state?.code).apply()
     }
 
     fun saveKey(key: String, provider: LlmProvider): Boolean {
@@ -104,5 +114,6 @@ class AppSettings(context: Context) {
         const val KEY_TUTOR = "llm.tutor"
         const val KEY_PLAN = "llm.plan"
         const val KEY_DEMO = "demoMode"
+        const val KEY_BUNDESLAND = "bundesland"
     }
 }

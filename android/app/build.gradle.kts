@@ -14,7 +14,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "0.3.0"
+        versionName = "0.4.0"
         // Tablets and phones are ARM; leaving out x86 keeps ML Kit's native libraries from doubling the APK.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

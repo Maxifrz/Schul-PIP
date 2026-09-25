@@ -61,6 +61,8 @@ class Repository(context: Context) {
     val folders = mutableStateListOf<Folder>()
     val plans = mutableStateListOf<StudyPlan>()
     val cards = mutableStateListOf<ReviewCard>()
+    val timetable = mutableStateListOf<TimetableEntry>()
+    val exams = mutableStateListOf<Exam>()
 
     init {
         val data = runCatching { json.decodeFromString(AppData.serializer(), dataFile.readText()) }.getOrNull() ?: AppData()
@@ -70,6 +72,8 @@ class Repository(context: Context) {
         folders += data.folders
         plans += data.plans
         cards += data.cards
+        timetable += data.timetable
+        exams += data.exams
         expired.forEach(::deleteFiles)
         if (expired.isNotEmpty()) save()
     }
@@ -277,6 +281,44 @@ class Repository(context: Context) {
         save()
     }
 
+    // Timetable
+
+    fun addTimetableEntry(entry: TimetableEntry) {
+        timetable += entry
+        save()
+    }
+
+    fun updateTimetableEntry(entry: TimetableEntry) {
+        val index = timetable.indexOfFirst { it.id == entry.id }
+        if (index < 0) return
+        timetable[index] = entry
+        save()
+    }
+
+    fun deleteTimetableEntry(entry: TimetableEntry) {
+        timetable.removeAll { it.id == entry.id }
+        save()
+    }
+
+    // Exams
+
+    fun addExam(exam: Exam) {
+        exams += exam
+        save()
+    }
+
+    fun updateExam(exam: Exam) {
+        val index = exams.indexOfFirst { it.id == exam.id }
+        if (index < 0) return
+        exams[index] = exam
+        save()
+    }
+
+    fun deleteExam(exam: Exam) {
+        exams.removeAll { it.id == exam.id }
+        save()
+    }
+
     /** Removes the folder and its subfolders; the materials inside go to the trash and come back to the top level. */
     fun deleteFolder(folder: Folder) {
         val removed = Library.descendants(folders, folder.id)
@@ -382,7 +424,7 @@ class Repository(context: Context) {
 
     /** Snapshots on the calling (main) thread, writes in the background. */
     fun save() {
-        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList())
+        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList(), timetable.toList(), exams.toList())
         scope.launch {
             writeLock.withLock { writeAtomically(dataFile, json.encodeToString(AppData.serializer(), data)) }
         }

@@ -115,10 +115,49 @@ enum class InkTool { PEN, HIGHLIGHTER }
 @Serializable
 data class InkStroke(val tool: InkTool, val points: List<Float>, val text: String? = null, val size: Float = 0f)
 
+/** One lesson slot in the weekly timetable, like "Mathe, Mo 08:00–08:45, Raum 204". The color comes from
+ * [Subjects.color], the same list the library colors documents with. */
+@Serializable
+data class TimetableEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val subject: String,
+    val room: String = "",
+    /** Monday = 1 ... Sunday = 7. */
+    val weekday: Int,
+    val startMinute: Int,
+    val endMinute: Int,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** One exam or test on the Klausurenplan. */
+@Serializable
+data class Exam(
+    val id: String = UUID.randomUUID().toString(),
+    val subject: String,
+    val topic: String = "",
+    /** Midnight (local time) of the exam day, in milliseconds — like every other timestamp in this file. */
+    val date: Long,
+    val room: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    /** [date], as the day-only value the holiday calendar works with. */
+    val calendarDay: de.maxifrz.lernwerk.holidays.CalendarDay
+        get() {
+            val calendar = java.util.Calendar.getInstance().apply { timeInMillis = date }
+            return de.maxifrz.lernwerk.holidays.CalendarDay(
+                calendar.get(java.util.Calendar.YEAR),
+                calendar.get(java.util.Calendar.MONTH) + 1,
+                calendar.get(java.util.Calendar.DAY_OF_MONTH),
+            )
+        }
+}
+
 @Serializable
 data class AppData(
     val materials: List<StudyMaterial> = emptyList(),
     val folders: List<Folder> = emptyList(),
     val plans: List<StudyPlan> = emptyList(),
     val cards: List<ReviewCard> = emptyList(),
+    val timetable: List<TimetableEntry> = emptyList(),
+    val exams: List<Exam> = emptyList(),
 )
