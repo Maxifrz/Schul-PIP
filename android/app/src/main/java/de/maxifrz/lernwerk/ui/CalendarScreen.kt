@@ -133,7 +133,7 @@ private fun TimetablePane(app: AppState) {
             }
         } else {
             val totalHeight = (end - start) * minuteHeight
-            Row(Modifier.fillMaxSize().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
                 Box(Modifier.width(38.dp).height(totalHeight.dp)) {
                     for (minute in (start / 60) * 60..end step 60) {
                         QText(
@@ -153,8 +153,8 @@ private fun TimetablePane(app: AppState) {
                             }
                             repository.timetable.forEachIndexed { index, entry ->
                                 if (entry.weekday != weekday) return@forEachIndexed
-                                val placement = placements.getOrNull(layoutEntries.indexOf(TimetableLayout.Entry(entry.weekday, entry.startMinute, entry.endMinute)))
-                                    ?: TimetableLayout.Placement(index, 0, 1)
+                                // placements[i] is the layout for layoutEntries[i], which is repository.timetable[i] — same order, same index.
+                                val placement = placements.getOrNull(index) ?: TimetableLayout.Placement(index, 0, 1)
                                 val color = subjectColor(entry.subject) ?: colors.accent
                                 val columnWidth = 96.dp / placement.columns
                                 Column(

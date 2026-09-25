@@ -80,7 +80,7 @@ struct TimetablePane: View {
     private var grid: some View {
         let (start, end) = range
         let totalHeight = CGFloat(end - start) * minuteHeight
-        return ScrollView(.vertical) {
+        return ScrollView([.vertical, .horizontal]) {
             HStack(alignment: .top, spacing: 0) {
                 hourGutter(start: start, end: end, height: totalHeight)
                 ForEach(days) { day in
