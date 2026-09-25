@@ -134,6 +134,22 @@ final class NoteEditorModel: ObservableObject {
         reopen(at: index + 1)
     }
 
+    /// Inserts a PDF file's pages after `page` and opens the document there.
+    func insertPDF(from source: URL, after page: Int? = nil) {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertPDF(from: source, in: material, after: index) else { return }
+        reopen(at: index + 1)
+    }
+
+    /// Inserts a picture as a new page after `page`, fit to the document's page size.
+    func insertImagePage(_ image: UIImage, after page: Int? = nil) {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertImagePage(image, in: material, after: index) else { return }
+        reopen(at: index + 1)
+    }
+
     func deletePage(_ page: Int) {
         controller?.saveNow()
         guard MaterialStore.deletePage(in: material, at: page) else { return }

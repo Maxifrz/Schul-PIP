@@ -2,6 +2,7 @@ import PDFKit
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A PDF or notebook with a GoodNotes-style toolbar: the document row on top, the tools below it and the options of
 /// the selected tool next to them.
@@ -23,9 +24,14 @@ struct DocumentScreen: View {
     @State private var sheet: DocumentSheet?
     @State private var exported: ExportedFile?
     @State private var photoItem: PhotosPickerItem?
+    @State private var pageImageItem: PhotosPickerItem?
     @State private var isRenaming = false
     @State private var draftTitle = ""
     @State private var pageToDelete: Int?
+    @State private var importingImage = false
+    @State private var importingPDFPage = false
+    @State private var importingImagePage = false
+    @State private var importError: String?
 
     init(material: StudyMaterial, startPage: Int? = nil, backTitle: String = "Bibliothek") {
         self.material = material
@@ -102,6 +108,30 @@ struct DocumentScreen: View {
             guard let item else { return }
             photoItem = nil
             Task { await insertPhoto(item) }
+        }
+        .onChange(of: pageImageItem) { _, item in
+            guard let item else { return }
+            pageImageItem = nil
+            Task { await insertPhotoPage(item) }
+        }
+        .fileImporter(isPresented: $importingImage, allowedContentTypes: [.image], onCompletion: { result in
+            handleFileResult(result) { editor.insertImage($0) }
+        })
+        .fileImporter(isPresented: $importingPDFPage, allowedContentTypes: [.pdf]) { result in
+            switch result {
+            case let .success(url):
+                editor.insertPDF(from: url)
+            case let .failure(error):
+                importError = error.localizedDescription
+            }
+        }
+        .fileImporter(isPresented: $importingImagePage, allowedContentTypes: [.image], onCompletion: { result in
+            handleFileResult(result) { editor.insertImagePage($0) }
+        })
+        .alert("Import fehlgeschlagen", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importError ?? "")
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { editor.close() }
@@ -215,19 +245,44 @@ struct DocumentScreen: View {
 
     private var addPageMenu: some View {
         Menu {
-            Section("Seite danach einfügen") {
-                ForEach(PaperStyle.allCases) { paper in
-                    Button {
-                        editor.insertPage(paper: paper)
-                    } label: {
-                        Label(paper.label, systemImage: paper.icon)
-                    }
-                }
-            }
+            insertPageMenuItems
         } label: {
             BarIcon(icon: "doc.badge.plus")
         }
         .accessibilityLabel("Seite hinzufügen")
+    }
+
+    /// Every way to add a page after the current one: blank paper, another PDF's pages, or a picture.
+    @ViewBuilder
+    private var insertPageMenuItems: some View {
+        Section("Seite danach einfügen") {
+            ForEach(PaperStyle.allCases) { paper in
+                Button {
+                    editor.insertPage(paper: paper)
+                } label: {
+                    Label(paper.label, systemImage: paper.icon)
+                }
+            }
+        }
+        Section {
+            Button {
+                importingPDFPage = true
+            } label: {
+                Label("PDF", systemImage: "doc.badge.plus")
+            }
+            Menu {
+                PhotosPicker(selection: $pageImageItem, matching: .images) {
+                    Label("Aus Fotos", systemImage: "photo.on.rectangle")
+                }
+                Button {
+                    importingImagePage = true
+                } label: {
+                    Label("Aus Dateien", systemImage: "folder")
+                }
+            } label: {
+                Label("Bild", systemImage: "photo.badge.plus")
+            }
+        }
     }
 
     private var moreMenu: some View {
@@ -252,9 +307,7 @@ struct DocumentScreen: View {
                     )
                 }
                 Menu {
-                    ForEach(PaperStyle.allCases) { paper in
-                        Button(paper.label) { editor.insertPage(paper: paper) }
-                    }
+                    insertPageMenuItems
                 } label: {
                     Label("Seite einfügen", systemImage: "doc.badge.plus")
                 }
@@ -334,7 +387,16 @@ struct DocumentScreen: View {
             ToolButton(icon: "square.on.circle", label: "Formen", isOn: editor.tool == .shapes) { editor.tool = .shapes }
             ToolButton(icon: "lasso", label: "Lasso", isOn: editor.tool == .lasso) { editor.tool = .lasso }
             ToolButton(icon: "star.circle", label: "Sticker", isOn: false) { sheet = .stickers }
-            PhotosPicker(selection: $photoItem, matching: .images) {
+            Menu {
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("Aus Fotos", systemImage: "photo.on.rectangle")
+                }
+                Button {
+                    importingImage = true
+                } label: {
+                    Label("Aus Dateien", systemImage: "folder")
+                }
+            } label: {
                 BarIcon(icon: "photo", size: 17)
                     .frame(width: 40, height: 36)
             }
@@ -416,6 +478,29 @@ struct DocumentScreen: View {
     private func insertPhoto(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
         editor.insertImage(image)
+    }
+
+    private func insertPhotoPage(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+        editor.insertImagePage(image)
+    }
+
+    /// A file the student picked from Files, loaded as a picture.
+    private func handleFileResult(_ result: Result<URL, Error>, use: (UIImage) -> Void) {
+        switch result {
+        case let .success(url):
+            let isScoped = url.startAccessingSecurityScopedResource()
+            defer {
+                if isScoped { url.stopAccessingSecurityScopedResource() }
+            }
+            guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else {
+                importError = "Das Bild lässt sich nicht öffnen."
+                return
+            }
+            use(image)
+        case let .failure(error):
+            importError = error.localizedDescription
+        }
     }
 
     private func openTutor(_ region: MarkedRegion) {

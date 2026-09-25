@@ -97,11 +97,11 @@ struct DocumentNotes: Codable, Equatable {
     var bookmarks: Set<Int> = []
     var canvasSizes: [Int: CGSize] = [:]
 
-    /// Pages from `index` on move one back: a page was inserted at `index`.
-    mutating func insertPage(at index: Int) {
-        for i in annotations.indices where annotations[i].page >= index { annotations[i].page += 1 }
-        bookmarks = Set(bookmarks.map { $0 >= index ? $0 + 1 : $0 })
-        canvasSizes = PageShift.inserting(canvasSizes, at: index)
+    /// Pages from `index` on move `count` back: that many pages were inserted at `index`.
+    mutating func insertPage(at index: Int, count: Int = 1) {
+        for i in annotations.indices where annotations[i].page >= index { annotations[i].page += count }
+        bookmarks = Set(bookmarks.map { $0 >= index ? $0 + count : $0 })
+        canvasSizes = PageShift.inserting(canvasSizes, at: index, count: count)
     }
 
     /// The page at `index` is gone with its annotations; later pages move forward.
@@ -119,8 +119,8 @@ struct DocumentNotes: Codable, Equatable {
 
 /// Moving page-keyed data when pages are inserted or deleted; also used for the ink.
 enum PageShift {
-    static func inserting<Value>(_ values: [Int: Value], at index: Int) -> [Int: Value] {
-        Dictionary(uniqueKeysWithValues: values.map { ($0.key >= index ? $0.key + 1 : $0.key, $0.value) })
+    static func inserting<Value>(_ values: [Int: Value], at index: Int, count: Int = 1) -> [Int: Value] {
+        Dictionary(uniqueKeysWithValues: values.map { ($0.key >= index ? $0.key + count : $0.key, $0.value) })
     }
 
     static func deleting<Value>(_ values: [Int: Value], at index: Int) -> [Int: Value] {

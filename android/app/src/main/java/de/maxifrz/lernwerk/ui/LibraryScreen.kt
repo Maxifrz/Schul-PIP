@@ -61,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import de.maxifrz.lernwerk.data.DOCX_MIME
 import de.maxifrz.lernwerk.data.Folder
 import de.maxifrz.lernwerk.data.Library
 import de.maxifrz.lernwerk.data.LibrarySort
@@ -124,7 +125,7 @@ fun LibraryScreen(app: AppState) {
             }
         }
     }
-    val import = { importer.launch(arrayOf("application/pdf", "image/*")) }
+    val import = { importer.launch(arrayOf("application/pdf", "image/*", DOCX_MIME)) }
     val loadDemo: () -> Unit = {
         scope.launch {
             runCatching {

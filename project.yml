@@ -29,6 +29,10 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.image]
+          - CFBundleTypeName: Word-Dokument
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [org.openxmlformats.wordprocessingml.document]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.maxifrz.lernwerk

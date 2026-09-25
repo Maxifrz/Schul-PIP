@@ -1,7 +1,11 @@
 package de.maxifrz.lernwerk.ui
 
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.graphics.RectF
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +38,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -67,6 +73,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -139,8 +146,12 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
     val file = remember(material.id) { repository.pdfFile(material) }
     val colors = Quill.colors
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    val pdf by produceState<Result<PdfPages>?>(null, file) {
+    // Bumped after a page is spliced in, so the PDF and its ink are read again from the changed file.
+    var reloadKey by remember(material.id) { mutableIntStateOf(0) }
+
+    val pdf by produceState<Result<PdfPages>?>(null, file, reloadKey) {
         value = withContext(Dispatchers.IO) { PdfPages.open(file)?.let { Result.success(it) } ?: Result.failure(IllegalStateException()) }
     }
     // Captured, not read through the delegate: onDispose must close the renderer this effect was keyed on,
@@ -149,7 +160,40 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
     DisposableEffect(openedPdf) { onDispose { openedPdf?.close() } }
 
     val ink = remember(material.id) { InkState() }
-    LaunchedEffect(material.id) { ink.pages.putAll(repository.loadInk(material.id)) }
+    LaunchedEffect(material.id, reloadKey) {
+        ink.pages.clear()
+        ink.pages.putAll(repository.loadInk(material.id))
+    }
+
+    fun openBitmap(uri: android.net.Uri): Bitmap? = runCatching {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+    }.getOrNull()
+
+    val insertPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            if (bytes != null && repository.insertPdfPages(material, bytes, material.lastOpenedPage)) reloadKey++
+        }
+    }
+    val insertPhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val bitmap = openBitmap(uri)
+            if (bitmap != null && repository.insertImagePage(material, bitmap, material.lastOpenedPage)) reloadKey++
+        }
+    }
+    val insertImageFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val bitmap = openBitmap(uri)
+            if (bitmap != null && repository.insertImagePage(material, bitmap, material.lastOpenedPage)) reloadKey++
+        }
+    }
+    var addPageMenuOpen by remember { mutableStateOf(false) }
+    var addImageMenuOpen by remember { mutableStateOf(false) }
     LaunchedEffect(ink.version) {
         if (ink.version == 0) return@LaunchedEffect
         delay(1000)
@@ -216,6 +260,30 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
         DetailHeader(route.backTitle, material.title, onBack = ::leave) {
             pdf?.getOrNull()?.let { pages ->
                 PixelCaption(if (pages.pageCount == 1) "1 Seite" else "${pages.pageCount} Seiten", Modifier.padding(end = 8.dp))
+            }
+            Box {
+                OutlineButton("+ Seite", { addPageMenuOpen = true })
+                DropdownMenu(addPageMenuOpen, { addPageMenuOpen = false }, containerColor = colors.surface) {
+                    DropdownMenuItem(text = { QText("PDF", work(15f), colors.ink) }, onClick = {
+                        addPageMenuOpen = false
+                        insertPdfLauncher.launch(arrayOf("application/pdf"))
+                    })
+                    Box {
+                        DropdownMenuItem(text = { QText("Bild ▸", work(15f), colors.ink) }, onClick = { addImageMenuOpen = true })
+                        DropdownMenu(addImageMenuOpen, { addImageMenuOpen = false }, containerColor = colors.surface) {
+                            DropdownMenuItem(text = { QText("Aus Fotos", work(15f), colors.ink) }, onClick = {
+                                addImageMenuOpen = false
+                                addPageMenuOpen = false
+                                insertPhotoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            })
+                            DropdownMenuItem(text = { QText("Aus Dateien", work(15f), colors.ink) }, onClick = {
+                                addImageMenuOpen = false
+                                addPageMenuOpen = false
+                                insertImageFileLauncher.launch(arrayOf("image/*"))
+                            })
+                        }
+                    }
+                }
             }
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {

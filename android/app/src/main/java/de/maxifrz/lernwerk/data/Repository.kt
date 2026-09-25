@@ -9,6 +9,13 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import de.maxifrz.lernwerk.pdf.DocxRenderer
+import de.maxifrz.lernwerk.present.DocxReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +31,8 @@ import kotlin.math.roundToInt
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+
+const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 /**
  * All app data in one JSON file plus the PDFs and their ink next to it. For a single student's library this is
@@ -79,8 +88,15 @@ class Repository(context: Context) {
         val name = displayName(uri)
         val title = name?.substringBeforeLast('.')?.ifBlank { null } ?: "Dokument"
         val type = resolver.getType(uri) ?: ""
-        val isImage = type.startsWith("image/") ||
-            name?.substringAfterLast('.', "")?.lowercase() in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val extension = name?.substringAfterLast('.', "")?.lowercase()
+        val isImage = type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val isDocx = type == DOCX_MIME || extension == "docx"
+        if (isDocx) {
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
+            val pdf = runCatching { DocxRenderer.pdfData(DocxReader.open(bytes)) }
+                .getOrElse { throw IOException("Das Word-Dokument lässt sich nicht lesen.") }
+            return@withContext savePdf(pdf, title, folderId)
+        }
         if (isImage) {
             val bitmap = runCatching {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
@@ -118,6 +134,63 @@ class Repository(context: Context) {
         save()
         material
     }
+
+    // Inserting pages into an existing document
+
+    /** Inserts every page of [source] after 0-based [afterIndex], moving the ink of later pages along. */
+    suspend fun insertPdfPages(material: StudyMaterial, source: ByteArray, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                PDDocument.load(source).use { insertPages(target, material, it, afterIndex) }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Inserts a picture as a new page after 0-based [afterIndex], fit to the size of the document's other pages. */
+    suspend fun insertImagePage(material: StudyMaterial, bitmap: Bitmap, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                val size = target.getPage(afterIndex.coerceIn(0, target.numberOfPages - 1)).mediaBox
+                PDDocument().use { source ->
+                    val page = PDPage(PDRectangle(size.width, size.height))
+                    source.addPage(page)
+                    val scale = minOf(size.width / bitmap.width, size.height / bitmap.height)
+                    val width = bitmap.width * scale
+                    val height = bitmap.height * scale
+                    PDPageContentStream(source, page).use { stream ->
+                        stream.drawImage(JPEGFactory.createFromImage(source, bitmap), (size.width - width) / 2, (size.height - height) / 2, width, height)
+                    }
+                    insertPages(target, material, source, afterIndex)
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Splices every page of [source] into [target], [material]'s own open document, right after 0-based
+     * [afterIndex]; saves the file and moves the ink of later pages along. */
+    private fun insertPages(target: PDDocument, material: StudyMaterial, source: PDDocument, afterIndex: Int): Boolean {
+        val count = source.numberOfPages
+        if (count == 0) return false
+        val position = (afterIndex + 1).coerceIn(0, target.numberOfPages)
+        val anchor = if (position < target.numberOfPages) target.getPage(position) else null
+        for (i in 0 until count) {
+            val imported = target.importPage(source.getPage(i))
+            if (anchor != null) {
+                target.pages.remove(imported)
+                target.pages.insertBefore(imported, anchor)
+            }
+        }
+        target.save(pdfFile(material))
+        val ink = runCatching { json.decodeFromString(inkSerializer, inkFile(material.id).readText()) }.getOrDefault(emptyMap())
+        saveInk(material.id, shiftedInk(ink, at = position, count = count))
+        texts.remove(material.id)
+        textFile(material.id).delete()
+        return true
+    }
+
+    /** Pages from [at] on move [count] forward: that many pages were inserted at [at]. */
+    private fun shiftedInk(ink: Map<Int, List<InkStroke>>, at: Int, count: Int): Map<Int, List<InkStroke>> =
+        ink.mapKeys { (page, _) -> if (page >= at) page + count else page }
 
     /** Deletes for good, with the PDF and its ink; the trash uses this. */
     fun deleteMaterial(material: StudyMaterial) {

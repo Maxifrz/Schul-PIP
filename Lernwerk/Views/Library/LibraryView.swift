@@ -107,7 +107,7 @@ struct LibraryView: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.pdf, .image],
+            allowedContentTypes: [.pdf, .image, MaterialStore.docxType],
             allowsMultipleSelection: true,
             onCompletion: handleImport
         )
