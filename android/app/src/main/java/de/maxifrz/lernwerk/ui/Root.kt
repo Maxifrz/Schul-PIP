@@ -11,6 +11,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +57,7 @@ enum class AppTab(val title: String) {
     LIBRARY("Bibliothek"),
     PLANS("Lernplan"),
     PRESENT("Präsentation"),
+    CALC("Rechner"),
     REVIEW("Wiederholen"),
     SETTINGS("Einstellungen"),
 }
@@ -145,6 +148,7 @@ fun RootScreen(
                                 AppTab.LIBRARY -> LibraryScreen(app)
                                 AppTab.PLANS -> PlanListScreen(app)
                                 AppTab.PRESENT -> PresentationListScreen(app)
+                                AppTab.CALC -> CalculatorScreen(app)
                                 AppTab.REVIEW -> ReviewScreen(app)
                                 AppTab.SETTINGS -> SettingsScreen(app)
                             }
@@ -178,8 +182,10 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
                     QText("SCHUL-PIP", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
                 }
             }
+            // On a phone the tabs scroll sideways.
             Row(
                 Modifier
+                    .then(if (regular) Modifier else Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()))
                     .background(colors.surface, CircleShape)
                     .border(1.dp, colors.line2, CircleShape)
                     .padding(4.dp),
