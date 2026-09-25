@@ -18,6 +18,10 @@ final class NoteEditorModel: ObservableObject {
     @Published var zoomActive = false {
         didSet { controller?.setZoom(zoomActive) }
     }
+    /// The drawing instrument on the page, if any.
+    @Published var instrument: InstrumentKind? {
+        didSet { controller?.showInstrument(instrument) }
+    }
     @Published private(set) var controller: NotesController?
     @Published private(set) var currentPage = 0
     @Published private(set) var canUndo = false
@@ -82,6 +86,7 @@ final class NoteEditorModel: ObservableObject {
         canRedo = false
         self.controller = controller
         if zoomActive { controller.setZoom(true) }
+        if let instrument { controller.showInstrument(instrument) }
     }
 
     private func push() {
@@ -102,6 +107,16 @@ final class NoteEditorModel: ObservableObject {
         zoomActive.toggle()
         if zoomActive, !tool.writesInZoom { tool = lastWritingTool }
     }
+
+    /// Lays an instrument on the page in view; the pen comes back, so it can be used right away.
+    func chooseInstrument(_ kind: InstrumentKind) {
+        instrument = kind
+        if !tool.writesInZoom { tool = lastWritingTool }
+    }
+
+    func trueScale() { controller?.setTrueScale() }
+
+    func fitWidth() { controller?.fitWidth() }
 
     func undo() { controller?.undo() }
 

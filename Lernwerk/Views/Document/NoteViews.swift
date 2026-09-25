@@ -84,13 +84,14 @@ struct MarkedRegion {
     var imageJPEG: Data?
 }
 
-/// Everything on one PDF page: typed text, pictures and stickers below the ink, the ink canvas, and the frame of
-/// the zoom window.
+/// Everything on one PDF page: typed text, pictures and stickers below the ink, the ink canvas, a drawing instrument
+/// and the frame of the zoom window.
 final class PageOverlayView: UIView {
     var pageIndex: Int
     weak var controller: NotesController?
     let annotationLayer = UIView()
     let canvas = PKCanvasView()
+    let instrumentLayer = InstrumentLayerView()
     private let targetLayer = CAShapeLayer()
     private(set) var annotationViews: [String: AnnotationView] = [:]
     let tap = UITapGestureRecognizer()
@@ -108,6 +109,8 @@ final class PageOverlayView: UIView {
         canvas.overrideUserInterfaceStyle = .light
         canvas.drawingPolicy = .default
         addSubview(canvas)
+        instrumentLayer.controller = controller
+        addSubview(instrumentLayer)
         targetLayer.fillColor = QuillUIColor.hex(0x7FA98C, alpha: 0.08).cgColor
         targetLayer.strokeColor = QuillUIColor.hex(0x7FA98C).cgColor
         targetLayer.lineWidth = 1.5
@@ -128,6 +131,7 @@ final class PageOverlayView: UIView {
         super.layoutSubviews()
         annotationLayer.frame = bounds
         canvas.frame = bounds
+        instrumentLayer.frame = bounds
         targetLayer.frame = bounds
         controller?.overlayDidLayout(self)
     }
@@ -135,6 +139,8 @@ final class PageOverlayView: UIView {
     /// Pens get every touch; in the text and lasso tools text, pictures and stickers come first.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isUserInteractionEnabled, !isHidden, self.point(inside: point, with: event), let tool = controller?.tool else { return nil }
+        // The instrument lies on top of everything.
+        if let hit = instrumentLayer.hitTest(convert(point, to: instrumentLayer), with: event) { return hit }
         if tool.editsAnnotations {
             for view in annotationLayer.subviews.reversed() {
                 if let hit = view.hitTest(convert(point, to: view), with: event) { return hit }

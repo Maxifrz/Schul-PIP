@@ -24,6 +24,10 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     private var zoomTarget: (page: Int, rect: CGRect)?
     private var isClearingZoom = false
 
+    private(set) var instrument: InstrumentKind?
+    private var instrumentPage = 0
+    private var instrumentPose: InstrumentPose?
+
     var onPageChange: ((Int) -> Void)?
     var onUndoChange: ((Bool, Bool) -> Void)?
     var onMark: ((MarkedRegion) -> Void)?
@@ -98,11 +102,103 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     }
 
     private func configure(_ overlay: PageOverlayView) {
-        overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations
+        let showsInstrument = instrument != nil && overlay.pageIndex == instrumentPage
+        overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations || showsInstrument
         overlay.canvas.isUserInteractionEnabled = tool.usesCanvas
         if let pkTool = settings.pkTool(for: tool) { overlay.canvas.tool = pkTool }
         overlay.tap.isEnabled = tool == .typing || tool == .textBox
         overlay.updateHandles()
+        if showsInstrument, var pose = instrumentPose {
+            if overlay.bounds.width > 0 { pose.unitsPerCm = unitsPerCm(on: overlay.pageIndex, width: overlay.bounds.width) }
+            instrumentPose = pose
+            overlay.instrumentLayer.show(instrument, pose: pose)
+        } else {
+            overlay.instrumentLayer.show(nil, pose: overlay.instrumentLayer.pose)
+        }
+    }
+
+    // Instruments
+
+    /// Lays the instrument on the page in view, in the middle of what is visible; nil takes it away.
+    func showInstrument(_ kind: InstrumentKind?) {
+        instrument = kind
+        if kind != nil {
+            let page = currentPage
+            let size = pageCanvasSize(page)
+            var center = CGPoint(x: size.width / 2, y: size.height / 2)
+            if let overlay = overlays[page] {
+                let visible = overlay.convert(CGPoint(x: container.pdfView.bounds.midX, y: container.pdfView.bounds.midY), from: container.pdfView)
+                center.y = min(max(visible.y, 0), size.height)
+            }
+            var pose = instrumentPose ?? InstrumentPose(center: center, unitsPerCm: Instruments.pointsPerCm)
+            pose.center = center
+            pose.unitsPerCm = unitsPerCm(on: page, width: size.width)
+            if kind == .compass { pose.angle = 0 }
+            instrumentPose = pose
+            instrumentPage = page
+        }
+        overlays.values.forEach(configure)
+    }
+
+    func instrumentMoved(_ pose: InstrumentPose) {
+        instrumentPose = pose
+    }
+
+    /// The ink an instrument draws with: the pen or the highlighter, as set; nil in other tools, where the
+    /// instrument only moves.
+    var instrumentInk: (ink: PKInk, width: CGFloat)? {
+        switch tool {
+        case .pen, .shapes:
+            return (PKInk(settings.penKind.inkType, color: QuillUIColor.hex(settings.penColor)), settings.penWidth)
+        case .highlighter:
+            return (PKInk(.marker, color: QuillUIColor.hex(settings.highlighterColor)), settings.highlighterWidth)
+        default:
+            return nil
+        }
+    }
+
+    /// Adds a line or arc drawn with an instrument to a page, as one stroke that can be undone.
+    func addInstrumentStroke(_ points: [CGPoint], page: Int) {
+        guard let pen = instrumentInk, points.count > 1 else { return }
+        let width = pen.width
+        let controlPoints = points.enumerated().map { index, point in
+            PKStrokePoint(
+                location: point,
+                timeOffset: TimeInterval(index) * 0.004,
+                size: CGSize(width: width, height: width),
+                opacity: 1,
+                force: 1,
+                azimuth: 0,
+                altitude: .pi / 2
+            )
+        }
+        var drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        drawing.strokes.append(PKStroke(ink: pen.ink, path: PKStrokePath(controlPoints: controlPoints, creationDate: Date())))
+        setDrawing(drawing, page: page)
+    }
+
+    /// Zooms so a centimetre of the page is a centimetre on the screen, for measuring with a real ruler too.
+    func setTrueScale() {
+        let pdfView = container.pdfView
+        let page = pdfView.currentPage
+        let screenScale = container.window?.screen.nativeScale ?? UIScreen.main.nativeScale
+        pdfView.autoScales = false
+        pdfView.scaleFactor = Instruments.trueScaleFactor(ppi: DeviceScreen.ppi, screenScale: screenScale)
+        if let page { pdfView.go(to: page) }
+    }
+
+    func fitWidth() {
+        container.pdfView.autoScales = true
+    }
+
+    private func pageCanvasSize(_ page: Int) -> CGSize {
+        if let overlay = overlays[page], overlay.bounds.width > 0 { return overlay.bounds.size }
+        return notes.canvasSizes[page] ?? document.page(at: page)?.bounds(for: .cropBox).size ?? CGSize(width: 595, height: 842)
+    }
+
+    private func unitsPerCm(on page: Int, width: CGFloat) -> Double {
+        let pageWidth = document.page(at: page)?.bounds(for: .cropBox).width ?? 595
+        return Instruments.unitsPerCm(canvasWidth: Double(width), pageWidth: Double(pageWidth))
     }
 
     // Pages
@@ -132,6 +228,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         guard size.width > 0, notes.canvasSizes[overlay.pageIndex] != size else { return }
         notes.canvasSizes[overlay.pageIndex] = size
         scheduleSave()
+        if instrument != nil, overlay.pageIndex == instrumentPage { configure(overlay) }
         if zoomTarget?.page == overlay.pageIndex { updateZoomBackground() }
     }
 

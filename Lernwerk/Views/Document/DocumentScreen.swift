@@ -385,6 +385,7 @@ struct DocumentScreen: View {
             ToolButton(icon: "eraser", label: "Radierer", isOn: editor.tool == .eraser) { editor.tool = .eraser }
             ToolButton(icon: "highlighter", label: "Textmarker", isOn: editor.tool == .highlighter) { editor.tool = .highlighter }
             ToolButton(icon: "square.on.circle", label: "Formen", isOn: editor.tool == .shapes) { editor.tool = .shapes }
+            instrumentMenu
             ToolButton(icon: "lasso", label: "Lasso", isOn: editor.tool == .lasso) { editor.tool = .lasso }
             ToolButton(icon: "star.circle", label: "Sticker", isOn: false) { sheet = .stickers }
             Menu {
@@ -421,6 +422,45 @@ struct DocumentScreen: View {
             .buttonStyle(QuillPressStyle())
             .padding(.leading, 6)
         }
+    }
+
+    /// Ruler, set square, protractor and compass, and a zoom at which the page is true to scale.
+    private var instrumentMenu: some View {
+        Menu {
+            ForEach(InstrumentKind.allCases) { kind in
+                Button {
+                    editor.chooseInstrument(kind)
+                } label: {
+                    Label(kind.label, systemImage: editor.instrument == kind ? "checkmark" : kind.symbol)
+                }
+            }
+            Divider()
+            Button {
+                editor.trueScale()
+            } label: {
+                Label("Echtgröße (1 cm = 1 cm)", systemImage: "1.magnifyingglass")
+            }
+            Button {
+                editor.fitWidth()
+            } label: {
+                Label("An Breite anpassen", systemImage: "arrow.left.and.right")
+            }
+            if editor.instrument != nil {
+                Button(role: .destructive) {
+                    editor.instrument = nil
+                } label: {
+                    Label("Instrument weglegen", systemImage: "xmark")
+                }
+            }
+        } label: {
+            Image(systemName: "ruler")
+                .font(.system(size: 17, weight: editor.instrument != nil ? .semibold : .regular))
+                .foregroundStyle(editor.instrument != nil ? Quill.link : Quill.ink)
+                .frame(width: 40, height: 36)
+                .background(RoundedRectangle(cornerRadius: 9).fill(editor.instrument != nil ? Quill.accent.opacity(0.18) : .clear))
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Geometrie")
     }
 
     // MARK: - Content
@@ -579,6 +619,11 @@ private struct ToolOptions: View {
                 colors(InkSettings.penColors, selected: editor.settings.penColor) { editor.settings.penColor = $0 }
                 if editor.tool == .shapes {
                     hint("Zeichne frei: Linien, Kreise, Rechtecke und Vielecke werden automatisch sauber.")
+                }
+                if let instrument = editor.instrument {
+                    hint(instrument == .compass
+                        ? "Zirkel: Spitze und Mitte mit dem Finger ziehen, mit dem Stift den Kreis zeichnen."
+                        : "\(instrument.label): mit einem Finger schieben, mit zwei drehen, am Rand entlang zeichnen.")
                 }
             case .highlighter:
                 widths(InkSettings.highlighterWidths, selected: editor.settings.highlighterWidth, dot: 0.55) { editor.settings.highlighterWidth = $0 }
