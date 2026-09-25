@@ -93,6 +93,8 @@ final class PageOverlayView: UIView {
     let canvas = PKCanvasView()
     let instrumentLayer = InstrumentLayerView()
     private let targetLayer = CAShapeLayer()
+    private let mathChip = UIButton(type: .system)
+    private var mathChipAction: (() -> Void)?
     private(set) var annotationViews: [String: AnnotationView] = [:]
     let tap = UITapGestureRecognizer()
 
@@ -117,6 +119,15 @@ final class PageOverlayView: UIView {
         targetLayer.lineDashPattern = [5, 4]
         targetLayer.isHidden = true
         layer.addSublayer(targetLayer)
+        var chip = UIButton.Configuration.filled()
+        chip.baseBackgroundColor = QuillUIColor.hex(0x7FA98C)
+        chip.baseForegroundColor = QuillUIColor.hex(0x16150F)
+        chip.cornerStyle = .capsule
+        chip.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        mathChip.configuration = chip
+        mathChip.isHidden = true
+        mathChip.addTarget(self, action: #selector(mathChipTapped), for: .touchUpInside)
+        addSubview(mathChip)
         tap.addTarget(self, action: #selector(tapped(_:)))
         tap.cancelsTouchesInView = false
         addGestureRecognizer(tap)
@@ -139,7 +150,8 @@ final class PageOverlayView: UIView {
     /// Pens get every touch; in the text and lasso tools text, pictures and stickers come first.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isUserInteractionEnabled, !isHidden, self.point(inside: point, with: event), let tool = controller?.tool else { return nil }
-        // The instrument lies on top of everything.
+        // The offered result and the instrument lie on top of everything.
+        if !mathChip.isHidden, mathChip.frame.contains(point) { return mathChip }
         if let hit = instrumentLayer.hitTest(convert(point, to: instrumentLayer), with: event) { return hit }
         if tool.editsAnnotations {
             for view in annotationLayer.subviews.reversed() {
@@ -150,6 +162,34 @@ final class PageOverlayView: UIView {
             return canvas.hitTest(convert(point, to: canvas), with: event)
         }
         return tool == .typing || tool == .textBox ? self : nil
+    }
+
+    /// The calculated result offered after a written "=", or nil to take it away.
+    func showMathChip(_ text: String?, at point: CGPoint, onTap: (() -> Void)?) {
+        mathChipAction = onTap
+        guard let text else {
+            mathChip.isHidden = true
+            return
+        }
+        var configuration = mathChip.configuration
+        configuration?.attributedTitle = AttributedString(NSAttributedString(
+            string: "= \(text)   Einfügen",
+            attributes: [.font: UIFont.systemFont(ofSize: 15, weight: .semibold)]
+        ))
+        mathChip.configuration = configuration
+        mathChip.transform = .identity
+        mathChip.sizeToFit()
+        mathChip.frame.origin = CGPoint(x: point.x, y: point.y - mathChip.frame.height / 2)
+        // Readable at any zoom: the chip keeps its size on the glass.
+        let zoom = max(convert(CGRect(x: 0, y: 0, width: 100, height: 1), to: nil).width / 100, 0.01)
+        mathChip.transform = CGAffineTransform(scaleX: 1 / zoom, y: 1 / zoom)
+        mathChip.frame.origin = CGPoint(x: point.x, y: point.y - mathChip.frame.height / 2)
+        mathChip.isHidden = false
+        bringSubviewToFront(mathChip)
+    }
+
+    @objc private func mathChipTapped() {
+        mathChipAction?()
     }
 
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
@@ -273,7 +313,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
         case .text:
             guard let textView else { break }
             if textView.text != annotation.text { textView.text = annotation.text }
-            textView.font = annotation.style.font
+            textView.font = annotation.textFont
             textView.textColor = QuillUIColor.hex(annotation.color)
             textView.textAlignment = annotation.align.textAlignment
             layer.borderWidth = annotation.boxed ? 1 : 0
@@ -310,7 +350,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
     func fitText() {
         guard let textView else { return }
         let size = textView.sizeThatFits(CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
-        let height = max(annotation.style.size * 1.6, size.height)
+        let height = max(annotation.textSize * 1.6, size.height)
         if abs(height - frame.height) > 0.5 { frame.size.height = height }
     }
 

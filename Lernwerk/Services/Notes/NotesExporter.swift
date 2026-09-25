@@ -65,7 +65,7 @@ enum NotesExporter {
                 let paragraph = NSMutableParagraphStyle()
                 paragraph.alignment = annotation.align.textAlignment
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .font: annotation.style.font,
+                    .font: annotation.textFont,
                     .foregroundColor: QuillUIColor.hex(annotation.color),
                     .paragraphStyle: paragraph,
                 ]

@@ -83,6 +83,24 @@ struct DocumentScreen: View {
         .sheet(item: $exported) { file in
             ShareSheet(url: file.url)
         }
+        .sheet(item: $editor.mathRegion) { request in
+            MathRegionSheet(
+                request: request,
+                client: settings.makeClient(for: .tutor),
+                onWrite: { text, index in
+                    editor.controller?.writeResult(
+                        text,
+                        page: request.page,
+                        origin: CGPoint(x: request.frame.minX, y: request.frame.maxY + 6 + CGFloat(index) * 36),
+                        size: 22
+                    )
+                },
+                onImage: { image in
+                    editor.controller?.insertImage(image, below: request.frame, page: request.page)
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
         .alert("Umbenennen", isPresented: $isRenaming) {
             TextField("Titel", text: $draftTitle)
             Button("Abbrechen", role: .cancel) {}
@@ -139,6 +157,7 @@ struct DocumentScreen: View {
         .task {
             material.lastOpenedAt = .now
             editor.onMark = { region in openTutor(region) }
+            editor.onMathLine = { request in Task { await calculateLine(request) } }
             editor.load(startPage: startPage ?? material.lastOpenedPage)
         }
         .onDisappear { editor.close() }
@@ -405,6 +424,7 @@ struct DocumentScreen: View {
             ToolButton(icon: "keyboard", label: "Tippen", isOn: editor.tool == .typing) { editor.tool = .typing }
             ToolButton(icon: "character.textbox", label: "Textfeld", isOn: editor.tool == .textBox) { editor.tool = .textBox }
             ToolButton(icon: "wand.and.rays", label: "Laserpointer", isOn: editor.tool == .laser) { editor.tool = .laser }
+            ToolButton(icon: "function", label: "Rechnen", isOn: editor.tool == .math) { editor.tool = .math }
             Button {
                 editor.tool = editor.tool == .mark ? .read : .mark
             } label: {
@@ -543,6 +563,17 @@ struct DocumentScreen: View {
         }
     }
 
+    /// A written "=": read the line and what is defined above it, calculate on the device, offer the result.
+    private func calculateLine(_ request: MathLineRequest) async {
+        guard let recognition = await MathReader.read(request.imageJPEG, hint: MathNotes.lineHint, client: settings.makeClient(for: .tutor)),
+              let result = await MathReader.calculate(recognition, engine: .shared),
+              result.answer.ok,
+              let text = MathNotes.resultText(pretty: result.answer.pretty, approx: result.answer.prettyApprox),
+              MathNotes.isWorthShowing(expression: result.expression, result: text)
+        else { return }
+        editor.controller?.showMathPreview(text, page: request.page, equals: request.equals, line: request.line)
+    }
+
     private func openTutor(_ region: MarkedRegion) {
         closeTutor()
         let pageNumber = region.pageIndex + 1
@@ -620,6 +651,16 @@ private struct ToolOptions: View {
                 if editor.tool == .shapes {
                     hint("Zeichne frei: Linien, Kreise, Rechtecke und Vielecke werden automatisch sauber.")
                 }
+                if editor.tool == .pen {
+                    Toggle(isOn: $editor.settings.mathPreview) {
+                        Text("= rechnet")
+                            .font(.work(13, .medium))
+                            .foregroundStyle(Quill.ink2)
+                    }
+                    .toggleStyle(.button)
+                    .tint(Quill.accent)
+                    .accessibilityHint("Ein geschriebenes Gleichheitszeichen bietet das Ergebnis an.")
+                }
                 if let instrument = editor.instrument {
                     hint(instrument == .compass
                         ? "Zirkel: Spitze und Mitte mit dem Finger ziehen, mit dem Stift den Kreis zeichnen."
@@ -649,6 +690,8 @@ private struct ToolOptions: View {
                 hint("Striche einkreisen zum Verschieben. Texte, Bilder und Sticker antippen und ziehen, gedrückt halten für mehr.")
             case .laser:
                 hint("Zum Zeigen: Die Spur verblasst nach dem Loslassen.")
+            case .math:
+                hint("Zieh einen Rahmen um Rechnungen, eine Funktion oder eine Wertetabelle: ausrechnen, Graph oder Diagramm.")
             case .mark:
                 hint("Zieh einen Rahmen um die Stelle, bei der Pip helfen soll.")
             case .read:

@@ -23,6 +23,8 @@ final class NoteEditorModel: ObservableObject {
         didSet { controller?.showInstrument(instrument) }
     }
     @Published private(set) var controller: NotesController?
+    /// A region framed with the calculate tool, shown in a sheet.
+    @Published var mathRegion: MathRegionRequest?
     @Published private(set) var currentPage = 0
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
@@ -32,6 +34,7 @@ final class NoteEditorModel: ObservableObject {
 
     let material: StudyMaterial
     var onMark: ((MarkedRegion) -> Void)?
+    var onMathLine: ((MathLineRequest) -> Void)?
     private var lastWritingTool: NoteTool = .pen
 
     init(material: StudyMaterial) {
@@ -78,6 +81,12 @@ final class NoteEditorModel: ObservableObject {
         }
         controller.onZoomClosed = { [weak self] in
             MainActor.assumeIsolated { self?.zoomActive = false }
+        }
+        controller.onMathLine = { [weak self] request in
+            MainActor.assumeIsolated { self?.onMathLine?(request) }
+        }
+        controller.onMathRegion = { [weak self] request in
+            MainActor.assumeIsolated { self?.mathRegion = request }
         }
         controller.apply(tool: tool, settings: settings)
         bookmarks = controller.notes.bookmarks

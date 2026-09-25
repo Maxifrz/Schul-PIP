@@ -29,7 +29,7 @@ enum PaperStyle: String, CaseIterable, Codable, Identifiable {
 }
 
 enum NoteTextStyle: String, CaseIterable, Codable {
-    case title, heading, body, small
+    case title, heading, body, small, handwriting
 
     var label: String {
         switch self {
@@ -37,6 +37,7 @@ enum NoteTextStyle: String, CaseIterable, Codable {
         case .heading: return "Überschrift 2"
         case .body: return "Text"
         case .small: return "Klein"
+        case .handwriting: return "Handschrift"
         }
     }
 
@@ -46,6 +47,7 @@ enum NoteTextStyle: String, CaseIterable, Codable {
         case .heading: return 20
         case .body: return 15
         case .small: return 12
+        case .handwriting: return 20
         }
     }
 
@@ -78,6 +80,10 @@ struct PageAnnotation: Codable, Equatable, Identifiable {
     var boxed = false
     /// File name of a picture in the note images folder.
     var image: String?
+    /// A size of its own instead of the style's, like a calculated result written as large as the line before it.
+    var fontSize: CGFloat?
+
+    var textSize: CGFloat { fontSize ?? style.size }
 
     var frame: CGRect {
         get { CGRect(x: x, y: y, width: width, height: height) }

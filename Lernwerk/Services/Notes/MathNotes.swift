@@ -24,8 +24,7 @@ enum MathNotes {
     static func lineRegion(of equals: CGRect, among boxes: [CGRect]) -> CGRect? {
         let band = max(equals.width * 1.1, 28)
         let candidates = boxes
-            .filter { abs($0.midY - equals.midY) <= band && $0.maxX <= equals.minX + 4 && !$0.equalTo(equals) }
-            .filter { !(equals.contains($0) || $0.equalTo(equals)) }
+            .filter { $0 != equals && !equals.contains($0) && abs($0.midY - equals.midY) <= band && $0.maxX <= equals.minX + 4 }
             .sorted { $0.maxX > $1.maxX }
         let reach = max(equals.width * 3, 60)
         var region: CGRect?
