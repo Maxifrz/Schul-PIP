@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -31,6 +32,8 @@ import kotlin.math.roundToInt
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.util.UUID
+import java.util.zip.ZipInputStream
 
 const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -40,6 +43,7 @@ const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocess
  */
 class Repository(context: Context) {
     private val root = context.filesDir
+    private val cacheDir = context.cacheDir
     private val dataFile = File(root, "lernwerk.json")
     val materialsDir = File(root, "materials").apply { mkdirs() }
 
@@ -120,6 +124,100 @@ class Repository(context: Context) {
         withContext(Dispatchers.Main) { materials += material }
         save()
         material
+    }
+
+    /**
+     * Every PDF, picture and Word file in a folder picked with the system's folder picker, subfolders included, which
+     * come back as library folders below [parentId]. For a GoodNotes export with many notebooks.
+     */
+    suspend fun importTree(treeUri: Uri, parentId: String?): FolderImportResult = withContext(Dispatchers.IO) {
+        val rootId = DocumentsContract.getTreeDocumentId(treeUri)
+        val rootName = displayName(DocumentsContract.buildDocumentUriUsingTree(treeUri, rootId))?.ifBlank { null } ?: "Ordner"
+        val files = mutableListOf<Pair<Uri, List<String>>>()
+        val skipped = mutableListOf<String>()
+        fun walk(documentId: String, path: List<String>) {
+            if (path.size > FolderImport.MAX_DEPTH) return
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            val rows = mutableListOf<Triple<String, String, String>>()
+            resolver.query(children, columns, null, null, null)?.use { cursor ->
+                while (cursor.moveToNext()) rows += Triple(cursor.getString(0), cursor.getString(1) ?: "", cursor.getString(2) ?: "")
+            }
+            for ((id, name, mime) in rows.sortedWith(compareBy(FolderImport.nameOrder) { it.second })) {
+                when {
+                    FolderImport.isHidden(name) -> Unit
+                    mime == DocumentsContract.Document.MIME_TYPE_DIR ->
+                        if (FolderImport.isPackage(name)) skipped += name else walk(id, path + name)
+                    FolderImport.isImportable(name) || mime == "application/pdf" || mime == DOCX_MIME || mime.startsWith("image/") ->
+                        files += DocumentsContract.buildDocumentUriUsingTree(treeUri, id) to path
+                    else -> skipped += name
+                }
+            }
+        }
+        walk(rootId, listOf(rootName))
+        importScanned(files, skipped, parentId)
+    }
+
+    /** A ZIP archive, as GoodNotes and file managers write them for several documents, imported like a folder. */
+    suspend fun importArchive(uri: Uri, parentId: String?): FolderImportResult = withContext(Dispatchers.IO) {
+        val archiveName = displayName(uri)?.substringBeforeLast('.')?.ifBlank { null } ?: "Archiv"
+        val staging = File(cacheDir, "zip-" + UUID.randomUUID()).apply { mkdirs() }
+        try {
+            val paths = mutableListOf<String>()
+            val staged = mutableMapOf<String, File>()
+            val input = resolver.openInputStream(uri) ?: throw IOException("Das Archiv lässt sich nicht öffnen.")
+            ZipInputStream(input.buffered()).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    paths += entry.name
+                    val parts = entry.name.replace('\\', '/').split('/').filter { it.isNotEmpty() }
+                    val name = parts.lastOrNull()
+                    // Only the file name is used on disk, in a directory of its own: nothing can escape the staging area.
+                    if (!entry.isDirectory && name != null && FolderImport.isImportable(name)) {
+                        val file = File(File(staging, staged.size.toString()).apply { mkdirs() }, name)
+                        file.outputStream().use { zip.copyTo(it) }
+                        staged[parts.joinToString("/")] = file
+                    }
+                    entry = zip.nextEntry
+                }
+            }
+            val scan = FolderImport.scanArchive(paths, archiveName)
+            val files = scan.files.mapNotNull { entry -> staged[entry.location]?.let { Uri.fromFile(it) to entry.folders } }
+            importScanned(files, scan.skipped, parentId)
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
+
+    fun isArchive(uri: Uri): Boolean {
+        val type = resolver.getType(uri) ?: ""
+        return type == "application/zip" || type == "application/x-zip-compressed" ||
+            displayName(uri)?.substringAfterLast('.', "")?.lowercase() == "zip"
+    }
+
+    /** Creates the folder tree below [parentId], then imports each file into its folder. */
+    private suspend fun importScanned(files: List<Pair<Uri, List<String>>>, skipped: List<String>, parentId: String?): FolderImportResult {
+        val created = mutableMapOf<List<String>, String>()
+        withContext(Dispatchers.Main) {
+            for (path in FolderImport.folderPaths(files.map { it.second })) {
+                val folder = Folder(name = path.last(), parentId = if (path.size > 1) created[path.dropLast(1)] else parentId)
+                folders += folder
+                created[path] = folder.id
+            }
+        }
+        save()
+        var imported = 0
+        val failed = mutableListOf<String>()
+        for ((uri, path) in files) {
+            runCatching { importFile(uri, created[path] ?: parentId) }
+                .onSuccess { imported++ }
+                .onFailure { failed += displayName(uri) ?: uri.lastPathSegment ?: "Datei" }
+        }
+        return FolderImportResult(imported, skipped, failed)
     }
 
     /** One page as wide as A4, as tall as the image needs; the image keeps its full resolution inside. */
@@ -261,6 +359,16 @@ class Repository(context: Context) {
         val trimmed = name.trim().ifEmpty { return null }
         val folder = Folder(name = trimmed, parentId = parentId)
         folders += folder
+        save()
+        return folder
+    }
+
+    /** Puts the documents into a new folder in [parentId]; the screen asks for its name right after. */
+    fun groupIntoNewFolder(ids: Collection<String>, parentId: String?): Folder? {
+        if (ids.isEmpty()) return null
+        val folder = Folder(name = "Neuer Ordner", parentId = parentId)
+        folders += folder
+        updateMaterials(ids) { it.copy(folderId = folder.id) }
         save()
         return folder
     }

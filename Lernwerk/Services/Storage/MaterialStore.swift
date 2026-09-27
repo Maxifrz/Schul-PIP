@@ -20,14 +20,18 @@ enum MaterialStore {
         directory.appendingPathComponent(fileName + ".drawings")
     }
 
-    static func importPDF(from source: URL) throws -> StudyMaterial {
-        let isScoped = source.startAccessingSecurityScopedResource()
-        defer {
-            if isScoped { source.stopAccessingSecurityScopedResource() }
-        }
-        let fileName = UUID().uuidString + ".pdf"
-        try FileManager.default.copyItem(at: source, to: url(for: fileName))
-        return StudyMaterial(title: source.deletingPathExtension().lastPathComponent, fileName: fileName)
+    /// A file copied into the library, before it becomes a `StudyMaterial`; plain values, so a folder import can
+    /// copy on a background thread and create the models on the main one.
+    struct StoredFile: Sendable {
+        let title: String
+        let fileName: String
+    }
+
+    /// Results of importing a folder or ZIP archive: each file with the folders it sits in.
+    struct FolderResult: Sendable {
+        var files: [(folders: [String], file: StoredFile)] = []
+        var skipped: [String] = []
+        var failed: [String] = []
     }
 
     /// The type Word actually writes for a `.docx` file; `UTType(filenameExtension:)` alone also resolves it, but
@@ -37,33 +41,99 @@ enum MaterialStore {
     /// PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF; Word
     /// documents are read into a PDF with the same headings, paragraphs, lists, tables and pictures.
     static func importFile(from source: URL) throws -> StudyMaterial {
-        let type = UTType(filenameExtension: source.pathExtension)
-        let title = source.deletingPathExtension().lastPathComponent
-        if type?.conforms(to: docxType) == true || source.pathExtension.lowercased() == "docx" {
-            return try importDocx(from: source, title: title)
-        }
-        guard let type, type.conforms(to: .image), !type.conforms(to: .pdf) else {
-            return try importPDF(from: source)
-        }
-        let isScoped = source.startAccessingSecurityScopedResource()
-        defer {
-            if isScoped { source.stopAccessingSecurityScopedResource() }
-        }
-        let data = try Data(contentsOf: source)
-        guard let image = UIImage(data: data) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        return try save(pdfData: pdf(from: image), title: title)
+        let stored = try store(from: source)
+        return StudyMaterial(title: stored.title, fileName: stored.fileName)
     }
 
-    private static func importDocx(from source: URL, title: String) throws -> StudyMaterial {
+    static func store(from source: URL) throws -> StoredFile {
         let isScoped = source.startAccessingSecurityScopedResource()
         defer {
             if isScoped { source.stopAccessingSecurityScopedResource() }
         }
-        let data = try Data(contentsOf: source)
-        let document = try DocxReader.open(data)
-        return try save(pdfData: DocxRenderer.pdfData(document), title: title)
+        return try coordinatedRead(source) { url in
+            let type = UTType(filenameExtension: url.pathExtension)
+            let title = source.deletingPathExtension().lastPathComponent
+            if type?.conforms(to: docxType) == true || url.pathExtension.lowercased() == "docx" {
+                let data = try Data(contentsOf: url)
+                let document = try DocxReader.open(data)
+                return try store(pdfData: DocxRenderer.pdfData(document), title: title)
+            }
+            guard let type, type.conforms(to: .image), !type.conforms(to: .pdf) else {
+                let fileName = UUID().uuidString + ".pdf"
+                try FileManager.default.copyItem(at: url, to: self.url(for: fileName))
+                return StoredFile(title: title, fileName: fileName)
+            }
+            let data = try Data(contentsOf: url)
+            guard let image = UIImage(data: data) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return try store(pdfData: pdf(from: image), title: title)
+        }
+    }
+
+    /// Reads through a file coordinator, which also downloads a file iCloud has only listed so far; a GoodNotes
+    /// folder in iCloud Drive is often just that.
+    private static func coordinatedRead<T>(_ url: URL, _ body: (URL) throws -> T) throws -> T {
+        var coordinatorError: NSError?
+        var result: Result<T, Error>?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinatorError) { readURL in
+            result = Result { try body(readURL) }
+        }
+        if let result { return try result.get() }
+        throw coordinatorError ?? CocoaError(.fileReadUnknown)
+    }
+
+    /// Every PDF, picture and Word file in the folder and its subfolders. Slow for big folders; call it off the
+    /// main thread.
+    static func importFolder(at root: URL) -> FolderResult {
+        let isScoped = root.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { root.stopAccessingSecurityScopedResource() }
+        }
+        let scan = FolderImport.scan(root)
+        var result = FolderResult(skipped: scan.skipped)
+        for entry in scan.files {
+            let url = URL(fileURLWithPath: entry.location)
+            do {
+                let stored = try store(from: url)
+                result.files.append((entry.folders, stored))
+            } catch {
+                result.failed.append(url.lastPathComponent)
+            }
+        }
+        return result
+    }
+
+    /// A ZIP archive, as GoodNotes and the Files app write them for several documents, imported like a folder.
+    static func importArchive(at source: URL) throws -> FolderResult {
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        let entries = try coordinatedRead(source) { try ZipArchive.files(Data(contentsOf: $0)) }
+        let scan = FolderImport.scanArchive(Array(entries.keys), archiveName: source.deletingPathExtension().lastPathComponent)
+        var result = FolderResult(skipped: scan.skipped)
+        let staging = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        // Keyed the way `scanArchive` writes locations: slashes only, no empty parts.
+        let byPath = Dictionary(entries.map { entry in
+            (entry.key.replacingOccurrences(of: "\\", with: "/").split(separator: "/").joined(separator: "/"), entry.value)
+        }, uniquingKeysWith: { first, _ in first })
+        for entry in scan.files {
+            let name = (entry.location as NSString).lastPathComponent
+            do {
+                guard let data = byPath[entry.location] else { throw CocoaError(.fileReadNoSuchFile) }
+                let url = staging.appendingPathComponent(UUID().uuidString, isDirectory: true).appendingPathComponent(name)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: url)
+                let stored = try store(from: url)
+                result.files.append((entry.folders, stored))
+            } catch {
+                result.failed.append(name)
+            }
+        }
+        return result
     }
 
     /// One page as wide as A4, as tall as the image needs.
@@ -78,9 +148,14 @@ enum MaterialStore {
     }
 
     static func save(pdfData: Data, title: String) throws -> StudyMaterial {
+        let stored = try store(pdfData: pdfData, title: title)
+        return StudyMaterial(title: stored.title, fileName: stored.fileName)
+    }
+
+    static func store(pdfData: Data, title: String) throws -> StoredFile {
         let fileName = UUID().uuidString + ".pdf"
         try pdfData.write(to: url(for: fileName), options: .atomic)
-        return StudyMaterial(title: title, fileName: fileName)
+        return StoredFile(title: title, fileName: fileName)
     }
 
     /// An empty notebook: one page of the chosen paper, more are added in the document.

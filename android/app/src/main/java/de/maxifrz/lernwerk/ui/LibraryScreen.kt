@@ -59,10 +59,13 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import de.maxifrz.lernwerk.data.DOCX_MIME
 import de.maxifrz.lernwerk.data.Folder
+import de.maxifrz.lernwerk.data.FolderImport
+import de.maxifrz.lernwerk.data.FolderImportResult
 import de.maxifrz.lernwerk.data.Library
 import de.maxifrz.lernwerk.data.LibrarySort
 import de.maxifrz.lernwerk.data.SearchHit
@@ -92,8 +95,8 @@ private sealed interface LibraryDialog {
 
 /**
  * The library: folders like a files app, search over titles and the text of every PDF, sorting, subjects with
- * colors, favorites, a row to continue reading, selecting several documents at once and a trash that empties
- * itself after 30 days.
+ * colors, favorites, a row to continue reading, selecting several documents at once (and putting them into a new
+ * folder), importing whole folders and ZIP archives, and a trash that empties itself after 30 days.
  */
 @Composable
 fun LibraryScreen(app: AppState) {
@@ -101,6 +104,8 @@ fun LibraryScreen(app: AppState) {
     val colors = Quill.colors
     val scope = rememberCoroutineScope()
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var importNote by remember { mutableStateOf<String?>(null) }
+    var importBusy by remember { mutableStateOf(false) }
     var folderId by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var sortName by rememberSaveable { mutableStateOf(LibrarySort.RECENT.name) }
@@ -118,14 +123,39 @@ fun LibraryScreen(app: AppState) {
     // A folder deleted elsewhere (or on another screen) sends the view back to the top level.
     if (folderId != null && folders.none { it.id == folderId }) folderId = null
 
-    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+    // Folders and archives can hold hundreds of documents: one note at the end instead of an error per file.
+    fun runTreeImport(block: suspend () -> FolderImportResult) {
+        importBusy = true
+        errorMessage = null
+        importNote = null
         scope.launch {
-            for (uri in uris) {
-                runCatching { repository.importFile(uri, folderId) }.onFailure { errorMessage = it.message ?: "Import fehlgeschlagen." }
-            }
+            runCatching { block() }
+                .onSuccess { result ->
+                    importNote = FolderImport.summary(result.imported, result.skipped, result.failed)
+                        ?: if (result.imported == 0) "Im Ordner waren keine PDFs, Bilder oder Word-Dateien." else null
+                }
+                .onFailure { errorMessage = it.message ?: "Import fehlgeschlagen." }
+            importBusy = false
         }
     }
-    val import = { importer.launch(arrayOf("application/pdf", "image/*", DOCX_MIME)) }
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val target = folderId
+        val (archives, files) = uris.partition { uri ->
+            repository.isArchive(uri)
+        }
+        scope.launch {
+            for (uri in files) {
+                runCatching { repository.importFile(uri, target) }.onFailure { errorMessage = it.message ?: "Import fehlgeschlagen." }
+            }
+        }
+        for (uri in archives) runTreeImport { repository.importArchive(uri, target) }
+    }
+    val folderImporter = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val target = folderId
+        if (uri != null) runTreeImport { repository.importTree(uri, target) }
+    }
+    val import = { importer.launch(arrayOf("application/pdf", "image/*", DOCX_MIME, "application/zip", "application/x-zip-compressed")) }
+    val importFolder = { folderImporter.launch(null) }
     val loadDemo: () -> Unit = {
         scope.launch {
             runCatching {
@@ -185,13 +215,14 @@ fun LibraryScreen(app: AppState) {
                     Modifier.padding(top = 14.dp, bottom = 30.dp),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    PrimaryButton("PDF importieren", import, height = 48.dp, fontSize = 15.5f)
+                    ImportButton(import, importFolder, importBusy, height = 48.dp, fontSize = 15.5f)
                     LinkButton("Demo-Material laden", loadDemo)
                 }
                 if (repository.trash.isNotEmpty()) {
                     Box(Modifier.padding(top = 24.dp)) { LinkButton("Papierkorb (${repository.trash.size})", { showTrash = true }, colors.muted, work(14f)) }
                 }
                 errorMessage?.let { Notice(it, modifier = Modifier.padding(top = 20.dp)) }
+                importNote?.let { Notice(it, modifier = Modifier.padding(top = 20.dp)) }
             }
         }
         return
@@ -244,7 +275,7 @@ fun LibraryScreen(app: AppState) {
                             }
                             OutlineButton("Auswählen", { selecting = true }, height = 44.dp, fontSize = 15f, weight = FontWeight.Medium)
                             OutlineButton("Neuer Ordner", { dialog = LibraryDialog.NewFolder(folderId) }, height = 44.dp, fontSize = 15f, weight = FontWeight.Medium)
-                            PrimaryButton("Importieren", import)
+                            ImportButton(import, importFolder, importBusy)
                         }
                     }
                     Toolbar(
@@ -259,6 +290,7 @@ fun LibraryScreen(app: AppState) {
                         onFavorites = { favoritesOnly = !favoritesOnly },
                     )
                     errorMessage?.let { Notice(it) }
+                    importNote?.let { Notice(it) }
                 }
             }
 
@@ -340,6 +372,11 @@ fun LibraryScreen(app: AppState) {
                 count = selected.size,
                 allFavorite = selected.isNotEmpty() && library.filter { it.id in selected }.all { it.isFavorite },
                 onMove = { if (selected.isNotEmpty()) dialog = LibraryDialog.MoveMaterials(selected) },
+                onGroup = {
+                    // A new folder with the chosen documents, named right away.
+                    repository.groupIntoNewFolder(selected, folderId)?.let { dialog = LibraryDialog.RenameFolder(it) }
+                    endSelection()
+                },
                 onSubject = { if (selected.isNotEmpty()) dialog = LibraryDialog.SetSubject(selected) },
                 onFavorite = { favorite -> repository.setFavorite(selected, favorite) },
                 onTrash = {
@@ -522,6 +559,19 @@ private fun FolderTile(folder: Folder, count: Int, onOpen: () -> Unit, onDialog:
     }
 }
 
+/** „Importieren“: single files (PDF, picture, Word, ZIP) or a whole folder with its subfolders. */
+@Composable
+private fun ImportButton(onFiles: () -> Unit, onFolder: () -> Unit, busy: Boolean, height: Dp = 44.dp, fontSize: Float = 15f) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        PrimaryButton(if (busy) "Importiere …" else "Importieren", { open = true }, height = height, fontSize = fontSize, enabled = !busy)
+        DropdownMenu(open, onDismissRequest = { open = false }, containerColor = Quill.colors.surface) {
+            LibraryMenuItem("Dateien (PDF, Bild, Word, ZIP)") { open = false; onFiles() }
+            LibraryMenuItem("Ganzen Ordner") { open = false; onFolder() }
+        }
+    }
+}
+
 @Composable
 private fun LibraryMenuItem(label: String, color: Color = Quill.colors.ink, onClick: () -> Unit) {
     DropdownMenuItem(text = { QText(label, work(15f), color) }, onClick = onClick)
@@ -612,6 +662,7 @@ private fun SelectionBar(
     count: Int,
     allFavorite: Boolean,
     onMove: () -> Unit,
+    onGroup: () -> Unit,
     onSubject: () -> Unit,
     onFavorite: (Boolean) -> Unit,
     onTrash: () -> Unit,
@@ -631,6 +682,7 @@ private fun SelectionBar(
         QText(if (count == 1) "1 ausgewählt" else "$count ausgewählt", work(14.5f, FontWeight.Medium), colors.ink, Modifier.padding(end = 6.dp))
         val enabled = count > 0
         OutlineButton("Verschieben", onMove, enabled = enabled)
+        OutlineButton("Neuer Ordner", onGroup, enabled = enabled)
         OutlineButton("Fach", onSubject, enabled = enabled)
         OutlineButton(if (allFavorite) "Kein Favorit" else "Favorit", { onFavorite(!allFavorite) }, enabled = enabled)
         OutlineButton("Papierkorb", onTrash, enabled = enabled)
