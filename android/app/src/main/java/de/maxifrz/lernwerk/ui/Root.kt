@@ -1,6 +1,23 @@
 package de.maxifrz.lernwerk.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -169,10 +186,32 @@ fun RootScreen(
     }
 }
 
-/** Wordmark on the left, the tabs as a capsule in the middle. */
+/** Wordmark on the left, the tabs as a glass capsule in the middle; the dark pill slides to the chosen tab. */
 @Composable
 private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) -> Unit) {
     val colors = Quill.colors
+    val density = LocalDensity.current
+    // Where each tab sits inside the capsule, in pixels: the pill slides between these.
+    val bounds = remember { mutableStateMapOf<AppTab, Pair<Float, Float>>() }
+    val pillX = remember { Animatable(0f) }
+    val pillWidth = remember { Animatable(0f) }
+    val scroll = rememberScrollState()
+    val target = bounds[selection]
+    LaunchedEffect(selection, target) {
+        val (x, width) = target ?: return@LaunchedEffect
+        if (pillWidth.value == 0f) {
+            // First layout: the pill starts where it belongs instead of flying in.
+            pillX.snapTo(x)
+            pillWidth.snapTo(width)
+        } else {
+            // A little overshoot, like a drop of liquid settling.
+            val spring = spring<Float>(dampingRatio = 0.72f, stiffness = 420f)
+            launch { pillX.animateTo(x, spring) }
+            launch { pillWidth.animateTo(width, spring) }
+            // On a phone the capsule scrolls; the chosen tab stays in view.
+            launch { scroll.animateScrollTo((x + width / 2 - scroll.viewportSize / 2f).roundToInt().coerceAtLeast(0)) }
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val regular = maxWidth >= 700.dp
         Row(
@@ -184,41 +223,57 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
                     QText("SCHUL-PIP", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
                 }
             }
-            // On a phone the tabs scroll sideways.
-            Row(
+            Box(
                 Modifier
-                    .then(if (regular) Modifier else Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()))
-                    .background(colors.surface, CircleShape)
-                    .border(1.dp, colors.line2, CircleShape)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    .then(if (regular) Modifier else Modifier.weight(1f, fill = false).horizontalScroll(scroll))
+                    .padding(vertical = 6.dp)
+                    .glassCapsule(),
             ) {
-                AppTab.entries.forEach { tab ->
-                    val selected = tab == selection
-                    Row(
+                if (pillWidth.value > 0f) {
+                    Box(
                         Modifier
+                            .padding(4.dp)
+                            .offset { IntOffset(pillX.value.roundToInt(), 0) }
+                            .width(with(density) { pillWidth.value.toDp() })
                             .height(36.dp)
-                            .background(if (selected) colors.ink else Color.Transparent, CircleShape)
-                            .clickable(remember { MutableInteractionSource() }, null, role = Role.Tab) { onSelect(tab) }
-                            .padding(horizontal = if (regular) 17.dp else 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        QText(
-                            tab.title,
-                            work(if (regular) 14f else 12.5f, FontWeight.Medium, tracking = -0.14f),
-                            if (selected) colors.bg else colors.ink,
-                            maxLines = 1,
-                        )
-                        if (tab == AppTab.REVIEW && reviewBadge > 0) {
-                            Box(
-                                Modifier
-                                    .widthIn(min = 19.dp)
-                                    .background(colors.accent, CircleShape)
-                                    .padding(horizontal = 5.dp, vertical = 3.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                QText("$reviewBadge", pixel(9f), colors.onAccent)
+                            .shadow(6.dp, CircleShape)
+                            .background(colors.ink, CircleShape)
+                            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)), CircleShape),
+                    )
+                }
+                Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    AppTab.entries.forEach { tab ->
+                        val selected = tab == selection
+                        val interaction = remember { MutableInteractionSource() }
+                        val pressed by interaction.collectIsPressedAsState()
+                        val scale by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.6f), label = "press")
+                        val textColor by animateColorAsState(if (selected) colors.bg else colors.ink, tween(220), label = "tabText")
+                        Row(
+                            Modifier
+                                .onPlaced { bounds[tab] = it.positionInParent().x to it.size.width.toFloat() }
+                                .height(36.dp)
+                                .scale(scale)
+                                .clickable(interaction, null, role = Role.Tab) { onSelect(tab) }
+                                .padding(horizontal = if (regular) 17.dp else 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            QText(
+                                tab.title,
+                                work(if (regular) 14f else 12.5f, FontWeight.Medium, tracking = -0.14f),
+                                textColor,
+                                maxLines = 1,
+                            )
+                            if (tab == AppTab.REVIEW && reviewBadge > 0) {
+                                Box(
+                                    Modifier
+                                        .widthIn(min = 19.dp)
+                                        .background(colors.accent, CircleShape)
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    QText("$reviewBadge", pixel(9f), colors.onAccent)
+                                }
                             }
                         }
                     }
@@ -227,4 +282,14 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
             if (regular) Spacer(Modifier.weight(1f))
         }
     }
+}
+
+/** Frosted glass: a translucent surface with a light rim on top and a soft shadow, the look of iOS' Liquid Glass. */
+@Composable
+private fun Modifier.glassCapsule(): Modifier {
+    val colors = Quill.colors
+    return this
+        .shadow(14.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.12f))
+        .background(Brush.verticalGradient(listOf(colors.surface.copy(alpha = 0.96f), colors.surface.copy(alpha = 0.82f))), CircleShape)
+        .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.75f), colors.line2)), CircleShape)
 }

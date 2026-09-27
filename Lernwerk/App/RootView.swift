@@ -92,11 +92,12 @@ struct RootView: View {
     }
 }
 
-/// Wordmark on the left, the tabs as a capsule in the middle.
+/// Wordmark on the left, the tabs as a glass capsule in the middle; the dark pill slides to the chosen tab.
 private struct TopTabBar: View {
     @Binding var selection: AppTab
     let reviewBadge: Int
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Namespace private var pill
 
     var body: some View {
         HStack(spacing: 0) {
@@ -119,9 +120,16 @@ private struct TopTabBar: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(1)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    tabCapsule
-                        .fixedSize(horizontal: true, vertical: false)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        tabCapsule
+                            .fixedSize(horizontal: true, vertical: false)
+                            .padding(.vertical, 6)
+                    }
+                    // Keeps the chosen tab in view while the pill slides to it.
+                    .onChange(of: selection) { _, tab in
+                        withAnimation(TopTabBar.slide) { proxy.scrollTo(tab, anchor: .center) }
+                    }
                 }
             }
             if sizeClass == .regular {
@@ -139,14 +147,16 @@ private struct TopTabBar: View {
             }
         }
         .padding(4)
-        .background(Quill.surface, in: Capsule())
-        .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+        .modifier(GlassCapsule())
     }
+
+    /// A little overshoot, like a drop of liquid settling.
+    static let slide = Animation.spring(response: 0.42, dampingFraction: 0.74)
 
     private func tabButton(_ tab: AppTab) -> some View {
         let isSelected = tab == selection
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selection = tab }
+            withAnimation(TopTabBar.slide) { selection = tab }
         } label: {
             HStack(spacing: 7) {
                 Text(tab.title)
@@ -166,10 +176,69 @@ private struct TopTabBar: View {
             .foregroundStyle(isSelected ? Quill.bg : Quill.ink)
             .padding(.horizontal, sizeClass == .regular ? 17 : 10)
             .frame(height: 36)
-            .background(isSelected ? Quill.ink : Color.clear, in: Capsule())
+            .background {
+                if isSelected {
+                    SelectedPill()
+                        .matchedGeometryEffect(id: "pill", in: pill)
+                }
+            }
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TabPressStyle())
+        .id(tab)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// The chosen tab: ink with a soft light edge on top, so it reads as a raised drop on the glass.
+private struct SelectedPill: View {
+    var body: some View {
+        Capsule()
+            .fill(Quill.ink)
+            .overlay(
+                Capsule().strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.32), .white.opacity(0)], startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1
+                )
+            )
+            .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+    }
+}
+
+/// Tabs give way a little under the finger.
+private struct TabPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// Liquid Glass on iOS 26; before that frosted material with a light rim, which looks close.
+private struct GlassCapsule: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            frosted(content)
+        }
+        #else
+        frosted(content)
+        #endif
+    }
+
+    private func frosted(_ content: Content) -> some View {
+        content
+            .background(Quill.surface.opacity(0.5), in: Capsule())
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.75), Quill.line2.opacity(0.7)], startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1
+                )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
     }
 }
