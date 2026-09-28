@@ -274,6 +274,27 @@ class ScreenshotTest {
         java.io.File("build/pptx/parity.pptx").writeBytes(de.maxifrz.lernwerk.present.PptxWriter.write(parity) { null })
     }
 
+    /** Every design: the title slide and three content slides of the demo deck, one row per design. */
+    @Test
+    fun designs() {
+        val deck = demoDeck()
+        val painter = SlidePainter(app)
+        val slides = listOf(deck.slides.first()) + listOf(SlideLayout.BULLETS, SlideLayout.CARDS, SlideLayout.BIG_NUMBER).map { SlideLayouts.preset(it) }
+        val width = 360
+        val height = 202
+        val sheet = android.graphics.Bitmap.createBitmap(slides.size * (width + 10), SlideTheme.all.size * (height + 10), android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(sheet)
+        canvas.drawColor(android.graphics.Color.rgb(200, 200, 200))
+        SlideTheme.all.forEachIndexed { row, theme ->
+            slides.forEachIndexed { column, slide ->
+                val bitmap = painter.bitmap(slide, theme, width, emptyMap(), index = if (column == 0) 0 else column + 1)
+                canvas.drawBitmap(bitmap, column * (width + 10f), row * (height + 10f), null)
+            }
+        }
+        java.io.File("build/screenshots").mkdirs()
+        java.io.FileOutputStream("build/screenshots/designs.png").use { sheet.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     private fun libraryFixture() {
         val repository = app.repository
         // PdfDocument does not work under Robolectric; the tiles show their placeholder cover.

@@ -13,14 +13,18 @@ enum SlideDrawing {
         )
     }
 
-    static func draw(_ slide: Slide, theme: SlideTheme, in context: CGContext, scale: CGFloat, images: [String: UIImage], skipping skipID: String? = nil) {
+    /// `index` is the slide's place in the deck; the title slide (0) gets the design's bolder decorations.
+    static func draw(
+        _ slide: Slide, theme: SlideTheme, in context: CGContext, scale: CGFloat, images: [String: UIImage], skipping skipID: String? = nil,
+        index: Int = 1
+    ) {
         UIGraphicsPushContext(context)
         defer { UIGraphicsPopContext() }
         context.saveGState()
         context.scaleBy(x: scale, y: scale)
         context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
         context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
-        for element in slide.elements where element.id != skipID {
+        for element in SlideDesign.decor(theme, index: index) + slide.elements where element.id != skipID {
             context.saveGState()
             if element.rotation != 0 {
                 context.translateBy(x: element.centerX, y: element.centerY)
@@ -90,15 +94,17 @@ enum SlideDrawing {
         image.draw(in: rect)
     }
 
-    static func font(_ element: SlideElement) -> UIFont {
-        let name = element.italic ? "WorkSans-Italic" : (element.bold ? "WorkSans-SemiBold" : "WorkSans-Regular")
-        return UIFont(name: name, size: element.fontSize) ?? .systemFont(ofSize: element.fontSize, weight: element.bold ? .semibold : .regular)
+    /// The design's heading or body font for the element, at the size that takes as much room as Work Sans would.
+    static func font(_ element: SlideElement, theme: SlideTheme) -> UIFont {
+        let size = SlideDesign.fontSize(element, theme: theme)
+        return UIFont(name: SlideDesign.fontName(element, theme: theme), size: size)
+            ?? .systemFont(ofSize: size, weight: element.bold ? .semibold : .regular)
     }
 
     /// The element's text with bullets matching the PowerPoint export: text starts 1.1 × font size from the left.
     static func attributedText(_ element: SlideElement, theme: SlideTheme) -> NSAttributedString {
         let result = NSMutableAttributedString()
-        let font = font(element)
+        let font = font(element, theme: theme)
         let color = uiColor(theme.color(element.textColor) ?? theme.text)
         let indent = element.fontSize * 1.1
         let alignment: NSTextAlignment = element.align == .left ? .left : (element.align == .center ? .center : .right)
@@ -113,7 +119,8 @@ enum SlideDrawing {
                 style.defaultTabInterval = indent
             }
             var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: style]
-            if element.bold, element.italic { attributes[.strokeWidth] = -2 }
+            // No bold italic cut: a thin outline thickens the italic. Heading-only fonts are bold already.
+            if element.bold, element.italic, SlideDesign.font(element, theme: theme).hasStyles { attributes[.strokeWidth] = -2 }
             if bullet {
                 var bulletAttributes = attributes
                 bulletAttributes[.foregroundColor] = uiColor(theme.accent)
@@ -146,9 +153,9 @@ enum SlideDrawing {
     static func pdf(_ presentation: Presentation, images: [String: UIImage]) -> Data {
         let bounds = CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height)
         return UIGraphicsPDFRenderer(bounds: bounds).pdfData { renderer in
-            for slide in presentation.slides {
+            for (index, slide) in presentation.slides.enumerated() {
                 renderer.beginPage()
-                draw(slide, theme: presentation.theme, in: renderer.cgContext, scale: 1, images: images)
+                draw(slide, theme: presentation.theme, in: renderer.cgContext, scale: 1, images: images, index: index)
             }
         }
     }
@@ -160,11 +167,13 @@ struct SlideCanvas: View {
     let theme: SlideTheme
     let images: [String: UIImage]
     var skipping: String?
+    /// The slide's place in the deck, for the title slide's decorations.
+    var index = 1
 
     var body: some View {
         Canvas { context, size in
             context.withCGContext { cg in
-                SlideDrawing.draw(slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping)
+                SlideDrawing.draw(slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping, index: index)
             }
         }
         .aspectRatio(16 / 9, contentMode: .fit)

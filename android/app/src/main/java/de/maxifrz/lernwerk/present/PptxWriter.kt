@@ -17,7 +17,6 @@ object PptxWriter {
             """xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main""""
     private const val REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     private const val XML_HEAD = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"""
-    const val FONT = "Work Sans"
 
     /** [media] returns the bytes of an image file referenced by an element, or null if it is missing. */
     fun write(presentation: Presentation, media: (String) -> ByteArray?): ByteArray {
@@ -61,7 +60,7 @@ object PptxWriter {
                     ),
                 ),
             )
-            slide(slide, theme, imageRelations)
+            slide(slide, theme, imageRelations, index)
         }
         slideXml.forEachIndexed { index, xml -> add("ppt/slides/slide${index + 1}.xml", xml) }
 
@@ -206,9 +205,9 @@ object PptxWriter {
         "<p:spTree>$EMPTY_TREE</p:spTree></p:cSld>$CLR_MAP" +
         """<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>""" +
         "<p:txStyles>" +
-        """<p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"><a:latin typeface="$FONT"/></a:defRPr></a:lvl1pPr></p:titleStyle>""" +
-        """<p:bodyStyle><a:lvl1pPr><a:defRPr sz="2400"><a:latin typeface="$FONT"/></a:defRPr></a:lvl1pPr></p:bodyStyle>""" +
-        """<p:otherStyle><a:lvl1pPr><a:defRPr sz="1800"><a:latin typeface="$FONT"/></a:defRPr></a:lvl1pPr></p:otherStyle>""" +
+        """<p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"><a:latin typeface="${theme.heading.pptxName}"/></a:defRPr></a:lvl1pPr></p:titleStyle>""" +
+        """<p:bodyStyle><a:lvl1pPr><a:defRPr sz="2400"><a:latin typeface="${theme.body.pptxName}"/></a:defRPr></a:lvl1pPr></p:bodyStyle>""" +
+        """<p:otherStyle><a:lvl1pPr><a:defRPr sz="1800"><a:latin typeface="${theme.body.pptxName}"/></a:defRPr></a:lvl1pPr></p:otherStyle>""" +
         "</p:txStyles></p:sldMaster>"
 
     private fun slideLayout() = XML_HEAD +
@@ -236,11 +235,12 @@ object PptxWriter {
         append("</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>")
     }
 
-    private fun slide(slide: Slide, theme: SlideTheme, images: Map<String, String>) = buildString {
+    /** The design's decorations come first, as ordinary shapes behind the slide's own elements. */
+    private fun slide(slide: Slide, theme: SlideTheme, images: Map<String, String>, slideIndex: Int) = buildString {
         append(XML_HEAD)
         val background = theme.color(slide.background) ?: theme.background
         append("<p:sld $NS><p:cSld><p:bg><p:bgPr>${solid(background)}<a:effectLst/></p:bgPr></p:bg><p:spTree>$EMPTY_TREE")
-        slide.elements.forEachIndexed { index, element ->
+        (SlideDesign.decor(theme, slideIndex) + slide.elements).forEachIndexed { index, element ->
             val id = index + 2
             when (element.kind) {
                 ElementKind.TEXT -> append(textBox(element, id, theme))
@@ -278,26 +278,33 @@ object PptxWriter {
             TextAlign.CENTER -> "ctr"
             TextAlign.RIGHT -> "r"
         }
-        val size = (element.fontSize * 100).roundToLong()
+        val font = SlideDesign.font(element, theme)
+        val drawSize = SlideDesign.fontSize(element, theme)
+        val size = (drawSize * 100).roundToLong()
         val indent = emu(element.fontSize * 1.1f)
+        // Fonts other than Work Sans get a fixed line height, so PowerPoint breaks lines as tall as the apps do.
+        val spacing = if (font == SlideFont.WORK_SANS) "" else """<a:lnSpc><a:spcPts val="${(drawSize * 120).roundToLong()}"/></a:lnSpc>"""
+        // Heading-only fonts: Playfair and Lora are their bold cut, Archivo Black has a single weight.
+        val bold = if (font.hasStyles) element.bold else font != SlideFont.ARCHIVO_BLACK
+        val italic = font.hasStyles && element.italic
         append("""<p:sp><p:nvSpPr><p:cNvPr id="$id" name="Text $id"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>""")
         append("<p:spPr>${xfrm(element.x, element.y, element.width, element.height, element.rotation)}")
         append("""<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>""")
         append("""<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="$anchor"><a:noAutofit/></a:bodyPr><a:lstStyle/>""")
         val runProps = buildString {
             append("""<a:rPr lang="de-DE" sz="$size"""")
-            if (element.bold) append(""" b="1"""")
-            if (element.italic) append(""" i="1"""")
-            append(""" dirty="0">${solid(color)}<a:latin typeface="$FONT"/></a:rPr>""")
+            if (bold) append(""" b="1"""")
+            if (italic) append(""" i="1"""")
+            append(""" dirty="0">${solid(color)}<a:latin typeface="${font.pptxName}"/></a:rPr>""")
         }
         element.text.lines().forEach { line ->
             val bullet = element.bullets && line.isNotBlank()
             append("<a:p>")
             if (bullet) {
-                append("""<a:pPr marL="$indent" indent="-$indent" algn="$align"><a:buClr><a:srgbClr val="${hexColor(theme.accent)}"/></a:buClr>""")
+                append("""<a:pPr marL="$indent" indent="-$indent" algn="$align">$spacing<a:buClr><a:srgbClr val="${hexColor(theme.accent)}"/></a:buClr>""")
                 append("""<a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>""")
             } else {
-                append("""<a:pPr algn="$align"><a:buNone/></a:pPr>""")
+                append("""<a:pPr algn="$align">$spacing<a:buNone/></a:pPr>""")
             }
             if (line.isEmpty()) {
                 append("""<a:endParaRPr lang="de-DE" sz="$size"/>""")
@@ -349,11 +356,11 @@ object PptxWriter {
             """<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="${escape(name)}"><a:themeElements>""" +
             """<a:clrScheme name="${escape(name)}">""" +
             srgb("dk1", theme.text) + srgb("lt1", theme.background) + srgb("dk2", theme.muted) + srgb("lt2", theme.surface) +
-            srgb("accent1", theme.accent) + srgb("accent2", 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55) +
+            srgb("accent1", theme.accent) + srgb("accent2", theme.accent2 ?: 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55) +
             srgb("accent5", 0x6F8FB0) + srgb("accent6", 0x9A968B) + srgb("hlink", 0x4F7A63) + srgb("folHlink", 0x6E6B62) +
             "</a:clrScheme>" +
-            """<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="$FONT"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>""" +
-            """<a:minorFont><a:latin typeface="$FONT"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>""" +
+            """<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="${theme.heading.pptxName}"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>""" +
+            """<a:minorFont><a:latin typeface="${theme.body.pptxName}"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>""" +
             """<a:fmtScheme name="Schul-PIP">""" +
             "<a:fillStyleLst>$fillStyle$fillStyle$fillStyle</a:fillStyleLst>" +
             "<a:lnStyleLst>$lineStyle$lineStyle$lineStyle</a:lnStyleLst>" +

@@ -154,7 +154,7 @@ enum SlideLayouts {
             elements = [
                 decoration(700, 290, 240),
                 decoration(40, 36, 90),
-                text(draft.title, 100, 140, 760, 170, fitSize(draft.title, 760, 170, 54, 34, bold: true), bold: true, align: .center, anchor: .bottom),
+                text(draft.title, 100, 140, 760, 170, fitSize(draft.title, 760, 170, 54, 34, bold: true), bold: true, align: .center, anchor: .bottom, font: "heading"),
                 SlideElement(kind: .shape, x: 450, y: 326, width: 60, height: 6, shape: .rect, fill: "accent"),
             ]
             if !draft.subtitle.isBlank {
@@ -164,7 +164,7 @@ enum SlideLayouts {
             elements = [
                 decoration(620, 190, 320),
                 SlideElement(kind: .shape, x: 0, y: 0, width: 24, height: SlideSize.height, shape: .rect, fill: "accent"),
-                text(draft.title, 96, 150, 720, 150, fitSize(draft.title, 720, 150, 48, 30, bold: true), bold: true, anchor: .bottom),
+                text(draft.title, 96, 150, 720, 150, fitSize(draft.title, 720, 150, 48, 30, bold: true), bold: true, anchor: .bottom, font: "heading"),
             ]
             if !draft.subtitle.isBlank {
                 elements.append(text(draft.subtitle, 96, 312, 720, 80, fitSize(draft.subtitle, 720, 80, 24, 16), color: "muted"))
@@ -172,7 +172,7 @@ enum SlideLayouts {
         case .statement:
             elements = [
                 SlideElement(kind: .shape, x: margin, y: 150, width: 8, height: 200, shape: .rect, fill: "accent"),
-                text(draft.title, 104, 110, 760, 280, fitSize(draft.title, 760, 280, 46, 28, bold: true), bold: true, anchor: .middle),
+                text(draft.title, 104, 110, 760, 280, fitSize(draft.title, 760, 280, 46, 28, bold: true), bold: true, anchor: .middle, font: "heading"),
             ]
             if !draft.subtitle.isBlank {
                 elements.append(text(draft.subtitle, 104, 400, 760, 80, fitSize(draft.subtitle, 760, 80, 22, 15), color: "muted"))
@@ -206,7 +206,7 @@ enum SlideLayouts {
             elements = heading(draft.title) + timeline(Array(draft.items.prefix(6)))
         case .bigNumber:
             elements = heading(draft.title) + [
-                text(draft.value, margin, 170, 440, 240, fitSize(draft.value, 440, 240, 120, 48, bold: true), bold: true, anchor: .middle, color: "accent"),
+                text(draft.value, margin, 170, 440, 240, fitSize(draft.value, 440, 240, 120, 48, bold: true), bold: true, anchor: .middle, color: "accent", font: "heading"),
                 SlideElement(kind: .shape, x: 528, y: 200, width: 4, height: 180, shape: .rect, fill: "surface"),
             ]
             let explanation = draft.subtitle.isBlank ? draft.bullets.joined(separator: "\n") : draft.subtitle
@@ -220,7 +220,7 @@ enum SlideLayouts {
         case .quote:
             let quote = draft.quote.isBlank ? draft.title : draft.quote
             elements = [
-                text("„", 80, 40, 120, 150, 130, bold: true, color: "accent"),
+                text("„", 80, 40, 120, 150, 130, bold: true, color: "accent", font: "heading"),
                 text(quote, 150, 140, 680, 240, fitSize(quote, 680, 240, 36, 22, italic: true), italic: true, anchor: .middle),
             ]
             if !draft.attribution.isBlank {
@@ -238,7 +238,7 @@ enum SlideLayouts {
 
     private static func heading(_ title: String) -> [SlideElement] {
         [
-            text(title, margin, 30, contentWidth, 90, fitSize(title, contentWidth, 90, 36, 24, bold: true), bold: true, anchor: .bottom),
+            text(title, margin, 30, contentWidth, 90, fitSize(title, contentWidth, 90, 36, 24, bold: true), bold: true, anchor: .bottom, font: "heading"),
             SlideElement(kind: .shape, x: margin, y: 128, width: 56, height: 5, shape: .rect, fill: "accent"),
         ]
     }
@@ -404,11 +404,11 @@ enum SlideLayouts {
     static func text(
         _ value: String, _ x: Double, _ y: Double, _ width: Double, _ height: Double, _ size: Double,
         bold: Bool = false, italic: Bool = false, align: SlideTextAlign = .left, anchor: TextAnchor = .top,
-        bullets: Bool = false, color: String = "text"
+        bullets: Bool = false, color: String = "text", font: String = ""
     ) -> SlideElement {
         SlideElement(
             kind: .text, x: x, y: y, width: width, height: height, text: value, fontSize: size, bold: bold, italic: italic,
-            align: align, anchor: anchor, bullets: bullets, textColor: color
+            align: align, anchor: anchor, bullets: bullets, textColor: color, font: font
         )
     }
 

@@ -102,12 +102,22 @@ enum PresentationPrompt {
         """
     }
 
+    /// Asked for in the outline when the student leaves the design to the AI.
+    static var designInstructions: String {
+        """
+        Also choose the slide design that suits the subject and mood of this talk best and give its id in design.
+        The designs:
+        \(SlideDesign.catalog)
+        """
+    }
+
     static let outlineSchema = JSONSchema.object("""
     {
       "type": "object",
       "properties": {
         "title": { "type": "string" },
         "thesis": { "type": "string" },
+        "design": { "type": "string", "enum": [\(SlideTheme.all.map { "\"\($0.id)\"" }.joined(separator: ", "))] },
         "slides": { "type": "array", "items": { "type": "object", "properties": {
           "role": { "type": "string" },
           "message": { "type": "string" },
@@ -393,6 +403,8 @@ enum PresentationPrompt {
         var thesis: String
         var slides: [OutlineSlide]
         var research: [String] = []
+        /// The design the AI chose, if it was asked to.
+        var design = ""
     }
 
     static func parseOutline(_ text: String) -> Outline? {
@@ -411,7 +423,8 @@ enum PresentationPrompt {
             title: root["title"] as? String ?? "",
             thesis: root["thesis"] as? String ?? "",
             slides: parsed,
-            research: Array(strings(root["research"]).prefix(Research.maxQueries))
+            research: Array(strings(root["research"]).prefix(Research.maxQueries)),
+            design: root["design"] as? String ?? ""
         )
     }
 
@@ -566,7 +579,9 @@ struct PresentationAssistant {
         }
         // The research on the topic sits between the material and the instructions.
         let researchBlock: [LLMContent] = sources.isEmpty ? [] : [.text(Research.prompt(sources))]
+        let chooseDesign = themeID == SlideDesign.auto
         let content = Array(prepared.dropLast()) + researchBlock + Array(prepared.suffix(1))
+            + (chooseDesign ? [LLMContent.text(PresentationPrompt.designInstructions)] : [])
 
         onStage(.outline)
         let outlineRequest = LLMRequest(
@@ -618,7 +633,8 @@ struct PresentationAssistant {
             ))
         }
         let title = !deck.title.isBlank ? deck.title : (!outline.title.isBlank ? outline.title : (topic.isBlank ? "Präsentation" : topic))
-        var presentation = Presentation(title: title, themeId: themeID, slides: slides, materialIds: materialIDs, minutes: minutes)
+        let theme = chooseDesign ? SlideDesign.resolve(outline.design, fallback: [topic, outline.title, outline.thesis].joined(separator: " ")) : themeID
+        var presentation = Presentation(title: title, themeId: theme, slides: slides, materialIds: materialIDs, minutes: minutes)
         if review {
             onStage(.review)
             // The critic improves the draft before the student sees it; a failed review keeps the draft.

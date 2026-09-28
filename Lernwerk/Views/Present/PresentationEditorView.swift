@@ -28,6 +28,7 @@ struct PresentationEditorView: View {
     @State private var renameText = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var isPickingPage = false
+    @State private var choosingDesign = false
 
     init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
@@ -127,6 +128,24 @@ struct PresentationEditorView: View {
         }
         .fullScreenCover(isPresented: $isPresenting) {
             PresentView(presentation: model.presentation, images: images, startIndex: model.slideIndex)
+        }
+        .sheet(isPresented: $choosingDesign) {
+            VStack(alignment: .leading, spacing: 14) {
+                PixelCaption(text: "Design")
+                // The deck's own title slide in every design; tapping one restyles the whole deck.
+                ThemePicker(
+                    selection: Binding(get: { model.presentation.themeId }, set: { model.setTheme($0) }),
+                    slide: model.presentation.slides.first,
+                    images: images
+                )
+                Text("Schriften und Verzierungen gehören zum Design; deine Inhalte bleiben, wie sie sind.")
+                    .font(.work(13))
+                    .foregroundStyle(Quill.muted)
+                Spacer(minLength: 0)
+            }
+            .padding(24)
+            .presentationDetents([.height(260), .medium])
+            .presentationBackground(Quill.bg)
         }
         .sheet(isPresented: $isPickingPage) {
             MaterialPagePicker { image in
@@ -231,7 +250,7 @@ struct PresentationEditorView: View {
                                 .font(.work(11))
                                 .foregroundStyle(isSelected ? Quill.ink : Quill.faint)
                                 .frame(width: 16, alignment: .leading)
-                            SlideCanvas(slide: slide, theme: model.presentation.theme, images: images)
+                            SlideCanvas(slide: slide, theme: model.presentation.theme, images: images, index: index)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected ? Quill.accent : Quill.line2, lineWidth: isSelected ? 2 : 1))
                                 .onTapGesture { model.selectSlide(index) }
@@ -284,11 +303,8 @@ struct PresentationEditorView: View {
                 Button("Seite aus Material") { isPickingPage = true }
                     .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
-                Menu {
-                    ForEach(SlideTheme.all) { theme in
-                        Button(theme.name + (theme.id == model.presentation.themeId ? "  ✓" : "")) { model.setTheme(theme.id) }
-                    }
-                } label: { menuLabel("Design") }
+                Button("Design") { choosingDesign = true }
+                    .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                 Button("Rückgängig") { model.undo() }
                     .buttonStyle(QuillOutlineButtonStyle())
@@ -484,7 +500,7 @@ private struct EditorCanvasView: View {
             let scale: Double = width / SlideSize.width
             let theme = model.presentation.theme
             ZStack(alignment: .topLeading) {
-                SlideCanvas(slide: model.slide, theme: theme, images: images, skipping: model.editingID)
+                SlideCanvas(slide: model.slide, theme: theme, images: images, skipping: model.editingID, index: model.slideIndex)
                 Canvas { context, _ in
                     drawOverlay(in: &context, scale: scale)
                 }
@@ -649,7 +665,7 @@ private struct TextEditOverlay: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        let font = SlideDrawing.font(element).withSize(element.fontSize * scale)
+        let font = SlideDrawing.font(element, theme: theme).withSize(SlideDesign.fontSize(element, theme: theme) * scale)
         TextField("", text: $text, axis: .vertical)
             .font(Font(font as CTFont))
             .foregroundStyle(Color(SlideDrawing.uiColor(theme.color(element.textColor) ?? theme.text)))

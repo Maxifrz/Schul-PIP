@@ -24,7 +24,7 @@ struct PresentView: View {
                 let width = min(geometry.size.width, geometry.size.height * 16 / 9)
                 ZStack {
                     if presentation.slides.indices.contains(index) {
-                        SlideCanvas(slide: presentation.slides[index], theme: presentation.theme, images: images)
+                        SlideCanvas(slide: presentation.slides[index], theme: presentation.theme, images: images, index: index)
                             .id(index)
                             .transition(.opacity)
                     }
@@ -127,7 +127,7 @@ struct PresentView: View {
             VStack(alignment: .leading, spacing: 6) {
                 PixelCaption(text: "Als Nächstes", color: Color(SlideDrawing.uiColor(0x807C73)), size: 9)
                 if presentation.slides.indices.contains(index + 1) {
-                    SlideCanvas(slide: presentation.slides[index + 1], theme: presentation.theme, images: images)
+                    SlideCanvas(slide: presentation.slides[index + 1], theme: presentation.theme, images: images, index: index + 1)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
                     Text("Ende der Präsentation")

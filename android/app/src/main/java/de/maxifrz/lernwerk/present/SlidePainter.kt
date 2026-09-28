@@ -26,10 +26,13 @@ import kotlin.math.max
  * Draws slides with android.graphics. The editor, thumbnails, presenting and the PDF export all use it, so what the
  * student edits is exactly what gets exported. Coordinates are slide points multiplied by [scale].
  */
-class SlidePainter(context: Context) {
-    private val regular = ResourcesCompat.getFont(context, R.font.worksans_regular) ?: Typeface.DEFAULT
-    private val semibold = ResourcesCompat.getFont(context, R.font.worksans_semibold) ?: Typeface.DEFAULT_BOLD
-    private val italic = ResourcesCompat.getFont(context, R.font.worksans_italic) ?: Typeface.defaultFromStyle(Typeface.ITALIC)
+class SlidePainter(private val context: Context) {
+    private val typefaces = HashMap<String, Typeface>()
+
+    /** A design font's cut, loaded once. */
+    private fun typeface(name: String): Typeface = typefaces.getOrPut(name) {
+        FONT_RESOURCES[name]?.let { ResourcesCompat.getFont(context, it) } ?: Typeface.DEFAULT
+    }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -43,11 +46,13 @@ class SlidePainter(context: Context) {
         scale: Float,
         images: Map<String, Bitmap>,
         skipElementId: String? = null,
+        /** The slide's place in the deck; the title slide (0) gets the design's bolder decorations. */
+        index: Int = 1,
     ) {
         // A rectangle, not drawColor: the canvas of a Compose view is not clipped to the slide.
         fillPaint.color = argb(theme.color(slide.background) ?: theme.background)
         canvas.drawRect(0f, 0f, SlideSize.WIDTH * scale, SlideSize.HEIGHT * scale, fillPaint)
-        for (element in slide.elements) {
+        for (element in SlideDesign.decor(theme, index) + slide.elements) {
             if (element.id == skipElementId) continue
             drawElement(canvas, element, theme, scale, images)
         }
@@ -123,13 +128,10 @@ class SlidePainter(context: Context) {
 
     /** Lays out a text element at slide scale; also used by the editor to measure. */
     fun layout(element: SlideElement, theme: SlideTheme): StaticLayout {
-        textPaint.typeface = when {
-            element.italic -> italic
-            element.bold -> semibold
-            else -> regular
-        }
-        textPaint.isFakeBoldText = element.bold && element.italic
-        textPaint.textSize = element.fontSize
+        // The design's heading or body font, at the size that takes as much room as Work Sans would.
+        textPaint.typeface = typeface(SlideDesign.fontFile(element, theme))
+        textPaint.isFakeBoldText = element.bold && element.italic && SlideDesign.font(element, theme).hasStyles
+        textPaint.textSize = SlideDesign.fontSize(element, theme)
         textPaint.color = argb(theme.color(element.textColor) ?: theme.text)
         val text = SpannableStringBuilder()
         val lines = element.text.split("\n")
@@ -174,21 +176,37 @@ class SlidePainter(context: Context) {
         val document = PdfDocument()
         presentation.slides.forEachIndexed { index, slide ->
             val page = document.startPage(PdfDocument.PageInfo.Builder(SlideSize.WIDTH.toInt(), SlideSize.HEIGHT.toInt(), index + 1).create())
-            draw(page.canvas, slide, presentation.theme, 1f, images)
+            draw(page.canvas, slide, presentation.theme, 1f, images, index = index)
             document.finishPage(page)
         }
         return ByteArrayOutputStream().also { document.writeTo(it); document.close() }.toByteArray()
     }
 
     /** A slide as a bitmap, for thumbnails outside Compose. */
-    fun bitmap(slide: Slide, theme: SlideTheme, width: Int, images: Map<String, Bitmap>): Bitmap {
+    fun bitmap(slide: Slide, theme: SlideTheme, width: Int, images: Map<String, Bitmap>, index: Int = 1): Bitmap {
         val height = (width * SlideSize.HEIGHT / SlideSize.WIDTH).toInt()
         return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
-            draw(Canvas(it), slide, theme, width / SlideSize.WIDTH, images)
+            draw(Canvas(it), slide, theme, width / SlideSize.WIDTH, images, index = index)
         }
     }
 
     companion object {
+        /** The design fonts' cuts by the names [SlideFont] uses. */
+        val FONT_RESOURCES = mapOf(
+            "worksans_regular" to R.font.worksans_regular,
+            "worksans_semibold" to R.font.worksans_semibold,
+            "worksans_italic" to R.font.worksans_italic,
+            "dmsans_regular" to R.font.dmsans_regular,
+            "dmsans_bold" to R.font.dmsans_bold,
+            "dmsans_italic" to R.font.dmsans_italic,
+            "montserrat_regular" to R.font.montserrat_regular,
+            "montserrat_bold" to R.font.montserrat_bold,
+            "montserrat_italic" to R.font.montserrat_italic,
+            "playfairdisplay_bold" to R.font.playfairdisplay_bold,
+            "lora_bold" to R.font.lora_bold,
+            "archivoblack_regular" to R.font.archivoblack_regular,
+        )
+
         fun argb(rgb: Long): Int = Color.rgb(((rgb shr 16) and 0xFF).toInt(), ((rgb shr 8) and 0xFF).toInt(), (rgb and 0xFF).toInt())
     }
 }
