@@ -1,5 +1,6 @@
 import PDFKit
 import SwiftUI
+import UniformTypeIdentifiers
 import UIKit
 
 /// The state of the document toolbar and the commands behind its buttons; the controller does the work on the
@@ -159,11 +160,36 @@ final class NoteEditorModel: ObservableObject {
     }
 
     /// Inserts a PDF file's pages after `page` and opens the document there.
-    func insertPDF(from source: URL, after page: Int? = nil) {
+    @discardableResult
+    func insertPDF(from source: URL, after page: Int? = nil) -> Bool {
         let index = page ?? currentPage
         controller?.saveNow()
-        guard MaterialStore.insertPDF(from: source, in: material, after: index) else { return }
+        guard MaterialStore.insertPDF(from: source, in: material, after: index) else { return false }
         reopen(at: index + 1)
+        return true
+    }
+
+    /// A file shared from another app, after the current page: a PDF's pages, a Word document's rendered pages or a
+    /// picture as one page.
+    func insertFile(from source: URL) -> Bool {
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        let type = UTType(filenameExtension: source.pathExtension)
+        if type?.conforms(to: MaterialStore.docxType) == true || source.pathExtension.lowercased() == "docx" {
+            guard let data = try? Data(contentsOf: source), let document = try? DocxReader.open(data) else { return false }
+            let rendered = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+            defer { try? FileManager.default.removeItem(at: rendered) }
+            guard (try? DocxRenderer.pdfData(document).write(to: rendered)) != nil else { return false }
+            return insertPDF(from: rendered)
+        }
+        if let type, type.conforms(to: .image), !type.conforms(to: .pdf) {
+            guard let data = try? Data(contentsOf: source), let image = UIImage(data: data) else { return false }
+            insertImagePage(image)
+            return true
+        }
+        return insertPDF(from: source)
     }
 
     /// Inserts a picture as a new page after `page`, fit to the document's page size.

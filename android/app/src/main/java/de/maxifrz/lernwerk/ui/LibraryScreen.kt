@@ -736,7 +736,7 @@ private fun TrashView(app: AppState, onClose: () -> Unit) {
 }
 
 @Composable
-private fun DialogCard(caption: String, content: @Composable () -> Unit) {
+internal fun DialogCard(caption: String, content: @Composable () -> Unit) {
     val colors = Quill.colors
     Column(Modifier.widthIn(max = 480.dp).background(colors.bg, RoundedCornerShape(24.dp)).padding(24.dp)) {
         PixelCaption(caption, Modifier.padding(bottom = 12.dp))

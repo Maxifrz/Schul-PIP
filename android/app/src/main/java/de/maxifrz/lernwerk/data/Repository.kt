@@ -108,15 +108,7 @@ class Repository(context: Context) {
             return@withContext savePdf(pdf, title, folderId)
         }
         if (isImage) {
-            val bitmap = runCatching {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                    // Plenty for reading and OCR, and keeps a 50-megapixel photo from filling the memory.
-                    val longest = maxOf(info.size.width, info.size.height)
-                    if (longest > 3000) decoder.setTargetSampleSize((longest + 2999) / 3000)
-                }
-            }.getOrElse { throw IOException("Das Bild lässt sich nicht öffnen.") }
-            return@withContext savePdf(imagePdf(bitmap), title, folderId)
+            return@withContext savePdf(imagePdf(decodeImage(uri)), title, folderId)
         }
         val material = StudyMaterial(title = title, folderId = folderId)
         val input = resolver.openInputStream(uri) ?: throw IOException("Die Datei lässt sich nicht öffnen.")
@@ -220,6 +212,15 @@ class Repository(context: Context) {
         return FolderImportResult(imported, skipped, failed)
     }
 
+    private fun decodeImage(uri: Uri): Bitmap = runCatching {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            // Plenty for reading and OCR, and keeps a 50-megapixel photo from filling the memory.
+            val longest = maxOf(info.size.width, info.size.height)
+            if (longest > 3000) decoder.setTargetSampleSize((longest + 2999) / 3000)
+        }
+    }.getOrElse { throw IOException("Das Bild lässt sich nicht öffnen.") }
+
     /** One page as wide as A4, as tall as the image needs; the image keeps its full resolution inside. */
     private fun imagePdf(bitmap: Bitmap): ByteArray {
         val width = 595
@@ -240,6 +241,29 @@ class Repository(context: Context) {
     }
 
     // Inserting pages into an existing document
+
+    /**
+     * A file shared from another app into an open document, after 0-based [afterIndex]: a PDF's pages, a Word
+     * document's rendered pages, or a picture as one page.
+     */
+    suspend fun insertFile(material: StudyMaterial, uri: Uri, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        val type = resolver.getType(uri) ?: ""
+        val extension = displayName(uri)?.substringAfterLast('.', "")?.lowercase()
+        runCatching {
+            when {
+                type == DOCX_MIME || extension == "docx" -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, DocxRenderer.pdfData(DocxReader.open(bytes)), afterIndex)
+                }
+                type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp") ->
+                    insertImagePage(material, decodeImage(uri), afterIndex)
+                else -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, bytes, afterIndex)
+                }
+            }
+        }.getOrDefault(false)
+    }
 
     /** Inserts every page of [source] after 0-based [afterIndex], moving the ink of later pages along. */
     suspend fun insertPdfPages(material: StudyMaterial, source: ByteArray, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {

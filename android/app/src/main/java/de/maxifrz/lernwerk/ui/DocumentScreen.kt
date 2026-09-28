@@ -46,6 +46,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -189,6 +190,21 @@ fun DocumentScreen(app: AppState, route: Route.Document) {
             // The ink drawn last must be in before the later pages' ink moves along.
             repository.saveInk(material.id, ink.pages.toMap())
             if (bytes != null && repository.insertPdfPages(material, bytes, material.lastOpenedPage)) reloadKey++
+        }
+    }
+    // Files shared from another app while this document is open, after the user chose to put them in here.
+    val insertRequest by app.insertRequests.collectAsState()
+    LaunchedEffect(insertRequest) {
+        val uris = insertRequest ?: return@LaunchedEffect
+        app.insertRequests.value = null
+        repository.saveInk(material.id, ink.pages.toMap())
+        val after = material.lastOpenedPage
+        // Each goes in right after the current page, so the last one first keeps them in order.
+        val inserted = uris.reversed().count { repository.insertFile(material, it, after) }
+        if (inserted > 0) {
+            reloadKey++
+        } else {
+            android.widget.Toast.makeText(context, "Die Datei ließ sich nicht einfügen.", android.widget.Toast.LENGTH_LONG).show()
         }
     }
     val insertPhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->

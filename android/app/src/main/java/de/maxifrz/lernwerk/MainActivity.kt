@@ -4,12 +4,10 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.IntentCompat
-import androidx.lifecycle.lifecycleScope
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import de.maxifrz.lernwerk.data.AppSettings
 import de.maxifrz.lernwerk.data.PresentationStore
@@ -17,7 +15,6 @@ import de.maxifrz.lernwerk.data.Repository
 import de.maxifrz.lernwerk.ui.QuillTheme
 import de.maxifrz.lernwerk.ui.RootScreen
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 class LernwerkApp : Application() {
     lateinit var repository: Repository
@@ -27,8 +24,8 @@ class LernwerkApp : Application() {
     lateinit var presentations: PresentationStore
         private set
 
-    /** Material that was just shared to the app and should open right away. */
-    val openRequests = MutableStateFlow<String?>(null)
+    /** Files just shared to the app, until the app screen has placed them. */
+    val shareRequests = MutableStateFlow<List<Uri>?>(null)
 
     override fun onCreate() {
         super.onCreate()
@@ -48,7 +45,7 @@ class MainActivity : ComponentActivity() {
         val app = application as LernwerkApp
         setContent {
             QuillTheme {
-                RootScreen(app.repository, app.settings, app.presentations, app.openRequests)
+                RootScreen(app.repository, app.settings, app.presentations, app.shareRequests)
             }
         }
         if (savedInstanceState == null) importShared(intent)
@@ -59,7 +56,10 @@ class MainActivity : ComponentActivity() {
         importShared(intent)
     }
 
-    /** PDFs and images opened with or shared to Lernwerk land in the library; a single one opens. */
+    /**
+     * PDFs, pictures and Word files opened with or shared to Lernwerk. The app screen decides what happens: with a
+     * document open it asks whether they go into it or into the library.
+     */
     private fun importShared(intent: Intent?) {
         val uris: List<Uri> = when (intent?.action) {
             Intent.ACTION_VIEW -> listOfNotNull(intent.data)
@@ -68,18 +68,6 @@ class MainActivity : ComponentActivity() {
                 IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
             else -> emptyList()
         }
-        if (uris.isEmpty()) return
-        val app = application as LernwerkApp
-        lifecycleScope.launch {
-            val imported = uris.mapNotNull { uri ->
-                runCatching { app.repository.importFile(uri) }
-                    .onFailure { Toast.makeText(this@MainActivity, it.message ?: "Import fehlgeschlagen.", Toast.LENGTH_LONG).show() }
-                    .getOrNull()
-            }
-            when {
-                imported.size == 1 -> app.openRequests.value = imported.single().id
-                imported.size > 1 -> Toast.makeText(this@MainActivity, "${imported.size} Dateien in der Bibliothek", Toast.LENGTH_SHORT).show()
-            }
-        }
+        if (uris.isNotEmpty()) (application as LernwerkApp).shareRequests.value = uris
     }
 }

@@ -18,6 +18,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -96,6 +98,9 @@ class AppState(val repository: Repository, val settings: AppSettings, val presen
     /** For work that has to outlive the screen that started it, like turning a finished help session into a card. */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /** Shared files the open document should take in as pages. */
+    val insertRequests = MutableStateFlow<List<Uri>?>(null)
+
     fun push(route: Route) {
         stack += route
     }
@@ -116,7 +121,7 @@ fun RootScreen(
     repository: Repository,
     settings: AppSettings,
     presentations: PresentationStore,
-    openRequests: MutableStateFlow<String?>,
+    shareRequests: MutableStateFlow<List<Uri>?>,
 ) {
     val app = remember { AppState(repository, settings, presentations) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -124,13 +129,47 @@ fun RootScreen(
     var tab by rememberSaveable { mutableStateOf(AppTab.LIBRARY) }
     val colors = Quill.colors
 
-    val openRequest by openRequests.collectAsState()
-    LaunchedEffect(openRequest) {
-        val id = openRequest ?: return@LaunchedEffect
-        openRequests.value = null
-        tab = AppTab.LIBRARY
-        app.stack.clear()
-        app.push(Route.Document(id, null, "Bibliothek"))
+    // Files shared from another app: with a document open, ask whether they go into it or become new documents.
+    var shareChoice by remember { mutableStateOf<Pair<List<Uri>, Route.Document>?>(null) }
+    fun importIntoLibrary(uris: List<Uri>) {
+        app.scope.launch {
+            val imported = uris.mapNotNull { uri ->
+                runCatching { repository.importFile(uri) }
+                    .onFailure { Toast.makeText(context, it.message ?: "Import fehlgeschlagen.", Toast.LENGTH_LONG).show() }
+                    .getOrNull()
+            }
+            when {
+                imported.size == 1 -> {
+                    tab = AppTab.LIBRARY
+                    app.stack.clear()
+                    app.push(Route.Document(imported.single().id, null, "Bibliothek"))
+                }
+                imported.size > 1 -> Toast.makeText(context, "${imported.size} Dateien in der Bibliothek", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val shared by shareRequests.collectAsState()
+    LaunchedEffect(shared) {
+        val uris = shared ?: return@LaunchedEffect
+        shareRequests.value = null
+        val open = app.stack.lastOrNull() as? Route.Document
+        if (open != null && repository.material(open.materialId) != null) shareChoice = uris to open else importIntoLibrary(uris)
+    }
+    shareChoice?.let { (uris, open) ->
+        val title = repository.material(open.materialId)?.title ?: "Dokument"
+        ShareChoiceDialog(
+            count = uris.size,
+            documentTitle = title,
+            onInsert = {
+                shareChoice = null
+                app.insertRequests.value = uris
+            },
+            onNew = {
+                shareChoice = null
+                importIntoLibrary(uris)
+            },
+            onDismiss = { shareChoice = null },
+        )
     }
 
     BackHandler(enabled = app.stack.isNotEmpty()) { app.pop() }
@@ -183,6 +222,28 @@ fun RootScreen(
             }
         }
     }
+    }
+}
+
+/** Where shared files go while a document is open: into it after the current page, or into the library. */
+@Composable
+private fun ShareChoiceDialog(count: Int, documentTitle: String, onInsert: () -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+    val colors = Quill.colors
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        DialogCard(if (count == 1) "Datei öffnen" else "$count Dateien öffnen") {
+            QText(
+                "In „$documentTitle“ nach der aktuellen Seite einfügen oder als neues Dokument in die Bibliothek?",
+                work(15f, lineHeight = 21f),
+                colors.ink2,
+            )
+            Column(Modifier.fillMaxWidth().padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton("In „$documentTitle“ einfügen", onInsert, Modifier.fillMaxWidth())
+                OutlineButton(if (count == 1) "Als neues Dokument" else "Als neue Dokumente", onNew, Modifier.fillMaxWidth())
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    LinkButton("Abbrechen", onDismiss, colors.muted, work(15f))
+                }
+            }
+        }
     }
 }
 

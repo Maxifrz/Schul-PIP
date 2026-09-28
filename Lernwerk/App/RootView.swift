@@ -32,6 +32,7 @@ struct RootView: View {
     @Query private var plans: [StudyPlan]
     @State private var tab: AppTab = .library
     @State private var path = NavigationPath()
+    @State private var sharedFile: URL?
 
     private var dueCount: Int {
         let now = Date()
@@ -72,23 +73,54 @@ struct RootView: View {
         }
         .tint(Quill.accent)
         .onOpenURL(perform: importShared)
+        .confirmationDialog("Datei öffnen", isPresented: sharePresented, titleVisibility: .visible, presenting: sharedFile) { url in
+            Button("In „\(OpenDocument.shared.title)“ einfügen") { insertIntoOpenDocument(url) }
+            Button("Als neues Dokument") { importAsNew(url) }
+            Button("Abbrechen", role: .cancel) { removeFromInbox(url) }
+        } message: { _ in
+            Text("Die Seiten nach der aktuellen Seite einfügen oder als eigenes Dokument in die Bibliothek legen?")
+        }
         .onChange(of: scenePhase) { _, phase in
             // Reminders are scheduled two weeks ahead; opening the app moves the window along.
             if phase == .active { PlanNotifications.updateAll(plans) }
         }
     }
 
-    /// A PDF or image shared to Lernwerk from Files, Photos or another app lands in the library and opens.
+    /// A PDF, picture or Word file shared to Lernwerk from Files, Photos or another app. With a document open, the
+    /// student chooses whether it goes into that document or into the library; otherwise it lands in the library
+    /// and opens.
     private func importShared(_ url: URL) {
-        guard url.isFileURL, let material = try? MaterialStore.importFile(from: url) else { return }
-        // Shared files arrive as a copy in Documents/Inbox; the library keeps its own.
-        if url.path.contains("/Inbox/") {
-            try? FileManager.default.removeItem(at: url)
+        guard url.isFileURL else { return }
+        if OpenDocument.shared.materialID != nil, !path.isEmpty {
+            sharedFile = url
+        } else {
+            importAsNew(url)
         }
+    }
+
+    private func importAsNew(_ url: URL) {
+        defer { removeFromInbox(url) }
+        guard let material = try? MaterialStore.importFile(from: url) else { return }
         modelContext.insert(material)
         tab = .library
         path = NavigationPath()
         path.append(Route.document(material, startPage: nil, backTitle: "Bibliothek"))
+    }
+
+    private func insertIntoOpenDocument(_ url: URL) {
+        defer { removeFromInbox(url) }
+        _ = OpenDocument.shared.insert(url)
+    }
+
+    /// Shared files arrive as a copy in Documents/Inbox; the library keeps its own.
+    private func removeFromInbox(_ url: URL) {
+        if url.path.contains("/Inbox/") {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private var sharePresented: Binding<Bool> {
+        Binding(get: { sharedFile != nil }, set: { if !$0 { sharedFile = nil } })
     }
 }
 

@@ -160,7 +160,14 @@ struct DocumentScreen: View {
             editor.onMathLine = { request in Task { await calculateLine(request) } }
             editor.load(startPage: startPage ?? material.lastOpenedPage)
         }
-        .onDisappear { editor.close() }
+        .onAppear {
+            // Again whenever it comes back to the front, e.g. after a document opened on top of it closes.
+            OpenDocument.shared.register(material) { [editor] url in editor.insertFile(from: url) }
+        }
+        .onDisappear {
+            editor.close()
+            OpenDocument.shared.unregister(material)
+        }
     }
 
     // MARK: - Document row
