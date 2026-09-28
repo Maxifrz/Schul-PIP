@@ -1,0 +1,142 @@
+/* The calculator app in Quill, the app's design system: warm neutrals, one sage accent, Work Sans. */
+
+@font-face { font-family: 'Work Sans'; font-weight: 400; src: url(mathe-worksans-regular.ttf) format('truetype'); }
+@font-face { font-family: 'Work Sans'; font-weight: 500; src: url(mathe-worksans-medium.ttf) format('truetype'); }
+@font-face { font-family: 'Work Sans'; font-weight: 600; src: url(mathe-worksans-semibold.ttf) format('truetype'); }
+@font-face { font-family: 'Silkscreen'; src: url(mathe-silkscreen.ttf) format('truetype'); }
+
+:root {
+  --bg: #FAF9F6; --surface: #FFFFFF; --ink: #16150F; --ink2: #24231C; --muted: #6E6B62; --faint: #9A968B; --hint: #B0ABA0;
+  --line: rgba(22, 21, 15, 0.10); --line-soft: rgba(22, 21, 15, 0.08); --line2: rgba(22, 21, 15, 0.16); --line3: rgba(22, 21, 15, 0.20);
+  --hover: rgba(22, 21, 15, 0.05); --hover-soft: rgba(22, 21, 15, 0.03); --scrim: rgba(22, 21, 15, 0.32);
+  --accent: #7FA98C; --accent-soft: rgba(127, 169, 140, 0.16); --warn: #C9974F; --error: #B5533C; --link: #4F7A63; --canvas: #EEEDE9;
+  --on-accent: #16150F;
+  --radius: 14px;
+  --font: 'Work Sans', -apple-system, system-ui, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #171714; --surface: #212019; --ink: #F1EFE7; --ink2: #DFDCD3; --muted: #9B978D; --faint: #807C73; --hint: #6C6961;
+  --line: rgba(241, 239, 231, 0.12); --line-soft: rgba(241, 239, 231, 0.09); --line2: rgba(241, 239, 231, 0.20); --line3: rgba(241, 239, 231, 0.26);
+  --hover: rgba(241, 239, 231, 0.07); --hover-soft: rgba(241, 239, 231, 0.05); --scrim: rgba(0, 0, 0, 0.55);
+  --accent: #8FBE9C; --accent-soft: rgba(143, 190, 156, 0.18); --warn: #D6A762; --error: #E08A72; --link: #8FBE9C; --canvas: #25241F;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171714; --surface: #212019; --ink: #F1EFE7; --ink2: #DFDCD3; --muted: #9B978D; --faint: #807C73; --hint: #6C6961;
+    --line: rgba(241, 239, 231, 0.12); --line-soft: rgba(241, 239, 231, 0.09); --line2: rgba(241, 239, 231, 0.20); --line3: rgba(241, 239, 231, 0.26);
+    --hover: rgba(241, 239, 231, 0.07); --hover-soft: rgba(241, 239, 231, 0.05); --scrim: rgba(0, 0, 0, 0.55);
+    --accent: #8FBE9C; --accent-soft: rgba(143, 190, 156, 0.18); --warn: #D6A762; --error: #E08A72; --link: #8FBE9C; --canvas: #25241F;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; }
+body { overflow: hidden; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input, textarea { font: inherit; color: inherit; }
+
+#app { display: flex; flex-direction: column; height: 100%; }
+
+/* Header */
+.bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px 8px; flex: none; }
+.bar .spacer { flex: 1; }
+.pixel { font-family: 'Silkscreen', monospace; font-size: 10px; letter-spacing: 0.14em; color: var(--accent); text-transform: uppercase; }
+.caption { font-family: 'Silkscreen', monospace; font-size: 9px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
+.segments { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line2); border-radius: 999px; background: var(--surface); overflow-x: auto; scrollbar-width: none; }
+.segments::-webkit-scrollbar { display: none; }
+.segments button { height: 30px; padding: 0 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+.segments button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.pill { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line2); font-size: 13.5px; font-weight: 500; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.pill:active { background: var(--hover); }
+.pill.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.icon-button { width: 34px; height: 34px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line2); font-size: 16px; }
+.status { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.status.ready .dot { background: var(--accent); }
+.status.failed .dot { background: var(--error); }
+
+/* Main area with an optional side panel */
+.main { flex: 1; display: flex; min-height: 0; }
+.view { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.panel { width: 360px; flex: none; border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; min-height: 0; }
+@media (max-width: 760px) {
+  .panel { position: fixed; inset: 0; width: auto; z-index: 30; border: 0; }
+}
+
+/* CAS rows */
+.rows { flex: 1; overflow-y: auto; padding: 4px 16px 24px; -webkit-overflow-scrolling: touch; }
+.row { display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); align-items: start; }
+.row .number { font-size: 12px; color: var(--faint); padding-top: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.row.active .number { color: var(--accent); font-weight: 600; }
+.row .input { min-width: 0; }
+.row math-field { display: block; width: 100%; font-size: 21px; padding: 6px 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--ink);
+  --caret-color: var(--accent); --selection-background-color: var(--accent-soft); --contains-highlight-background-color: var(--hover-soft);
+  --primary-color: var(--accent); --placeholder-color: var(--hint); --smart-fence-color: var(--muted); outline: none; }
+.row.active math-field { border-color: var(--line2); background: var(--surface); }
+.row math-field::part(virtual-keyboard-toggle), .row math-field::part(menu-toggle) { display: none; }
+.row textarea.text-input { display: block; width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 16px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line2); background: var(--surface); resize: none; outline: none; -webkit-user-select: text; user-select: text; }
+.row .output { grid-column: 2; padding: 2px 10px 0; font-size: 20px; overflow-x: auto; -webkit-user-select: text; user-select: text; }
+.row .output .arrow { color: var(--faint); font-size: 14px; margin-right: 8px; }
+.row .output .approx { color: var(--muted); font-size: 17px; margin-top: 4px; }
+.row .output .error { color: var(--error); font-size: 14.5px; }
+.row .output .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.row .actions { display: flex; gap: 4px; padding-top: 6px; opacity: 0.55; }
+.row.active .actions, .row:hover .actions { opacity: 1; }
+.row .actions button { width: 30px; height: 30px; border-radius: 8px; color: var(--muted); font-size: 15px; }
+.row .actions button:active { background: var(--hover); }
+.analysis { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; font-size: 17px; margin-top: 4px; }
+.analysis .label { font-size: 12.5px; color: var(--muted); font-weight: 500; padding-top: 3px; }
+.analysis .title { grid-column: 1 / -1; font-weight: 600; font-size: 15px; }
+
+/* Suggestions above the keyboard */
+.suggestions { display: flex; gap: 6px; padding: 6px 16px; overflow-x: auto; border-top: 1px solid var(--line-soft); background: var(--bg); flex: none; scrollbar-width: none; min-height: 44px; }
+.suggestions:empty { display: none; }
+.suggestions button { height: 32px; padding: 0 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line2); font-size: 13.5px; white-space: nowrap; }
+.suggestions button b { font-weight: 600; }
+.suggestions button span { color: var(--muted); margin-left: 6px; }
+
+/* Command search */
+.panel header { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; }
+.panel header h2 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; }
+.search { margin: 0 14px 8px; height: 38px; border-radius: 999px; border: 1px solid var(--line2); background: var(--surface); padding: 0 14px; outline: none; font-size: 14.5px; -webkit-user-select: text; user-select: text; }
+.chips { display: flex; gap: 6px; padding: 0 14px 8px; overflow-x: auto; scrollbar-width: none; flex: none; }
+.chips button { height: 28px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line2); font-size: 12.5px; white-space: nowrap; }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.commands { flex: 1; overflow-y: auto; padding: 0 14px 20px; }
+.command { padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
+.command .name { font-weight: 600; font-size: 14.5px; }
+.command .syntax { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: var(--link); margin-top: 3px; }
+.command .text { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.command .example { font-size: 12.5px; color: var(--faint); margin-top: 3px; }
+.command .buttons { display: flex; gap: 6px; margin-top: 7px; }
+.command .buttons button { height: 28px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line2); font-size: 12.5px; }
+
+/* Menus and sheets */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.sheet { background: var(--bg); border-radius: 18px; padding: 18px; width: min(460px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: 0 18px 50px rgba(0,0,0,0.2); }
+.sheet h2 { margin: 0 0 12px; font-size: 17px; }
+.sheet .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 14.5px; }
+.sheet .list button { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); text-align: left; font-size: 14.5px; }
+.sheet .list button span { color: var(--faint); font-size: 12.5px; }
+.sheet .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.sheet input[type="text"] { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line2); background: var(--surface); padding: 0 12px; outline: none; -webkit-user-select: text; user-select: text; }
+.toggle { display: inline-flex; border: 1px solid var(--line2); border-radius: 999px; padding: 2px; }
+.toggle button { height: 28px; padding: 0 12px; border-radius: 999px; font-size: 13px; }
+.toggle button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: 13.5px; z-index: 60; }
+
+/* The formula keyboard */
+body { --keyboard-zindex: 20; }
+.ML__keyboard {
+  --keyboard-background: var(--canvas); --keyboard-border: var(--line); --keycap-background: var(--surface); --keycap-background-hover: var(--hover);
+  --keycap-background-active: var(--accent-soft); --keycap-background-pressed: var(--accent-soft); --keycap-border: var(--line2); --keycap-border-bottom: var(--line3);
+  --keycap-text: var(--ink); --keycap-text-active: var(--ink); --keycap-secondary-background: var(--hover); --keycap-secondary-text: var(--ink2);
+  --keycap-shift-text: var(--accent); --keycap-primary-background: var(--ink); --keycap-primary-text: var(--bg); --keycap-primary-background-hover: var(--ink2);
+  --keyboard-toolbar-text: var(--muted); --keyboard-toolbar-text-active: var(--ink); --keyboard-toolbar-background: transparent;
+  --keyboard-toolbar-background-hover: var(--hover); --keyboard-toolbar-background-selected: var(--accent-soft);
+  --keycap-font-family: var(--font); --keycap-small-font-size: 13px; --keycap-extra-small-font-size: 11px;
+}

@@ -95,7 +95,7 @@ test('Solving gives a solution set', () => {
   const roots = CAS.evaluate('löse(x^2=2)');
   assert.strictEqual(roots.pretty, 'L = {-√2; √2}');
   assert.strictEqual(roots.prettyApprox, 'L ≈ {-1,414213562; 1,414213562}');
-  assert.strictEqual(CAS.evaluate('löse(x^2=-1)').pretty, 'L = {}');
+  assert.strictEqual(CAS.evaluate('löse(x^2=-1)').pretty, 'L = { }');
   assert.strictEqual(CAS.evaluate('nullstellen(x^3-x)').pretty, 'L = {-1; 0; 1}');
   assert.strictEqual(CAS.evaluate('löse([x+y=3, x-y=1], [x, y])').pretty, 'L = {[2; 1]}');
 });
@@ -210,12 +210,46 @@ test('Plot: trigonometric zeros', () => {
   assert.strictEqual(p.extrema.length, 3);
 });
 
+test('Checklist fixes: percent, constants, school statistics', () => {
+  assert.strictEqual(CAS.evaluate('20% * 150').pretty, '30');
+  assert.strictEqual(CAS.evaluate('prozentsatz(30, 150)').pretty, '20');
+  assert.strictEqual(CAS.evaluate('lichtgeschwindigkeit').pretty, '299792458 m·s⁻¹');
+  assert.strictEqual(CAS.evaluate('fibonacci(20)').pretty, '6765');
+  assert.strictEqual(CAS.evaluate('modus([1,2,2,3,3,4])').pretty, '[2; 3]');
+  assert.strictEqual(CAS.evaluate('quartile([1,2,3,4,5,6,7,8])').pretty, '[5/2; 9/2; 13/2]');
+  const dice = CAS.evaluate('würfeln(30)').exact.replace(/^list\[|[\[\]]/g, '').split(',').map(Number);
+  assert.strictEqual(dice.length, 30);
+  assert.ok(dice.every(n => Number.isInteger(n) && n >= 1 && n <= 6));
+});
+
+test('Checklist fixes: calculus and output', () => {
+  assert.strictEqual(CAS.evaluate('implizit(x^2+y^2=1, x, y)').pretty, '-x/y');
+  assert.strictEqual(CAS.evaluate('taylor(exp(x), x=0, 3)').pretty, '1+x+1/2x²+1/6x³');
+  assert.strictEqual(CAS.evaluate('eigenvals([[2,0],[0,3]])').pretty, '3; 2');
+  assert.strictEqual(CAS.evaluate('linear_regression([1,2,3,4],[2,4,5,8])').prettyApprox, '1,9; 0');
+  assert.strictEqual(CAS.evaluate('näherung(pi, 20)').pretty, '3,1415926535897932385');
+  assert.strictEqual(CAS.evaluate('inter(line(point(0,0),point(1,1)), line(point(0,1),point(1,0)))').pretty, '(1/2; 1/2)');
+  const program = CAS.evaluate('fak(n):={if(n<=1) return 1; return n*fak(n-1);}');
+  assert.ok(program.ok, program.error);
+  assert.strictEqual(CAS.evaluate('fak(5)').pretty, '120');
+});
+
+test('Inequalities as intervals, and no leftover assumptions', () => {
+  assert.strictEqual(CAS.evaluate('löse(sin(x)>0, x)').pretty, 'L = ]0; π[');
+  // Giac used to keep x in [0, 2π) after a trigonometric inequality.
+  assert.strictEqual(CAS.evaluate('löse(2x-3>5, x)').pretty, 'L = ]4; ∞[');
+  assert.strictEqual(CAS.evaluate('löse(x^2-4<0, x)').pretty, 'L = ]-2; 2[');
+  assert.strictEqual(CAS.evaluate('löse(x^2-4>=0, x)').pretty, 'L = ]-∞; -2] ∪ [2; ∞[');
+  assert.strictEqual(CAS.evaluate('löse((x-1)/(x+2)>=0, x)').pretty, 'L = ]-∞; -2[ ∪ [1; ∞[');
+  assert.strictEqual(CAS.evaluate('löse(x^2<2, x)').pretty, 'L = ]-√2; √2[');
+});
+
 test('Plot: errors', () => {
   assert.strictEqual(CAS.plot([''], -1, 1).ok, false);
   assert.strictEqual(CAS.plot(['x'], 1, -1).ok, false);
 });
 
-const withoutGiac = tests.filter(t => !/Arithmetic|Solving|Calculus|Algebra|Variables|Matrices|Statistics|Degrees|Errors|JSON|Plot/.test(t.name));
+const withoutGiac = tests.filter(t => !/Arithmetic|Solving|Calculus|Algebra|Variables|Matrices|Statistics|Degrees|Errors|JSON|Plot|Checklist|Inequalities/.test(t.name));
 let failed = 0;
 function runAll(list) {
   for (const t of list) {

@@ -35,6 +35,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,12 +63,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import de.maxifrz.lernwerk.calc.CalculatorEntry
 import de.maxifrz.lernwerk.calc.CalculatorHistory
 import de.maxifrz.lernwerk.calc.CalculatorInput
 import de.maxifrz.lernwerk.calc.CasAnswer
 import de.maxifrz.lernwerk.calc.CasEngine
 import de.maxifrz.lernwerk.calc.CasPlot
+import de.maxifrz.lernwerk.calc.MatheHost
 import de.maxifrz.lernwerk.data.StudyMaterial
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -209,9 +212,19 @@ fun CalculatorScreen(app: AppState) {
                 }
                 Segmented(listOf("Rechnen", "Graph"), if (graphMode) 1 else 0) { graphMode = it == 1 }
             }
-            if (graphMode) GraphPane(app, state, regular) else CalculatorPane(state, regular)
+            // The new calculator app; the native graph stays until the app has its own graphics view.
+            if (graphMode) GraphPane(app, state, regular) else MatheWeb(Modifier.fillMaxSize())
         }
     }
+}
+
+@Composable
+private fun MatheWeb(modifier: Modifier) {
+    val context = LocalContext.current
+    val host = remember { MatheHost.get(context) }
+    val dark = Quill.colors.isDark
+    DisposableEffect(host) { onDispose { host.release() } }
+    AndroidView(factory = { host.webView(it) }, modifier = modifier, update = { host.setTheme(dark) })
 }
 
 @Composable

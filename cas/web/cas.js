@@ -23,12 +23,26 @@ var CAS = (function () {
     'mittelwert': 'mean', 'median': 'schulmedian', 'standardabweichung': 'stddev', 'varianz': 'variance',
     'summe': 'sum', 'produkt': 'product', 'unendlich': 'inf', 'lg': 'log10', 'log': 'log10',
     'nullstellen': 'nullstellen', 'tangente': 'tangente',
+    // Giac's implicitdiff aborts the WebAssembly build; this one works on any equation F(x, y) = G(x, y).
+    'implizit': 'schulimplizit', 'impliziteableitung': 'schulimplizit', 'implicitdiff': 'schulimplizit',
+    'zufallszahl': 'randint', 'würfeln': 'schulwuerfeln', 'wuerfeln': 'schulwuerfeln', 'würfel': 'schulwuerfeln',
+    'fibonacci': 'schulfibonacci', 'modus': 'schulmodus', 'mode': 'schulmodus',
+    'quartile': 'schulquartile', 'quartiles': 'schulquartile', 'quantil': 'schulquantil', 'quantile': 'schulquantil',
+    'lichtgeschwindigkeit': '_c_', 'gravitationskonstante': '_G_', 'erdbeschleunigung': '_g_',
+    'avogadrokonstante': '_NA_', 'boltzmannkonstante': '_k_', 'plancksches_wirkungsquantum': '_h_',
+    'elementarladung': '_qe_', 'elektronenmasse': '_me_', 'protonenmasse': '_mp_', 'gaskonstante': '_R_',
+    'elektrische_feldkonstante': '_epsilon0_', 'magnetische_feldkonstante': '_mu0_',
   };
+
+  // The unknowns whose assumptions a solve may leave behind: Giac remembers x in [0, 2π) after a trigonometric
+  // inequality and then answers every later inequality inside that range.
+  var ASSUMABLE = ['x', 'y', 'z', 't'];
 
   // Letters that name unknowns: "x = 3" is an equation, not an assignment.
   var UNKNOWNS = { x: true, y: true, z: true, t: true };
 
   var ERRORS = [
+    [/Exception catching is disabled|exception thrown/i, 'Das kann der Rechenkern so nicht berechnen.'],
     [/Not invertible/i, 'Die Matrix ist nicht invertierbar.'],
     [/Bad Argument Value|Bad Argument Type|Invalid dimension/i, 'Ungültige Eingabe für diesen Befehl.'],
     [/Division by 0|Division by zero/i, 'Division durch 0.'],
@@ -40,6 +54,27 @@ var CAS = (function () {
     // Giac's median takes the lower middle value; school takes the mean of both.
     run('schulmedian(l):={local s,n; s:=sort(l); n:=size(s); if (irem(n,2)==1) return s[(n-1)/2]; return (s[n/2-1]+s[n/2])/2;}');
     run('angle_radian:=1');
+    // School versions of what Giac does differently or not at all.
+    // Parameters must not be called x and y: Giac then differentiates by the local copies and answers undef.
+    run('schulimplizit(g,a,b):={local h; h:=equal2diff(g); return normal(-diff(h,a)/diff(h,b));}');
+    run('schulwuerfeln(n):=seq(randint(1,6),k,1,n)');
+    run('schulfibonacci(n):={local a,b,c,k; a:=0; b:=1; for(k:=0;k<n;k++){c:=a+b; a:=b; b:=c;} return a;}');
+    // German school quantile: position n·p; a whole number takes the mean of that value and the next.
+    run('schulquantil(l,p):={local s,n,k; s:=sort(l); n:=size(s); k:=n*p; if (floor(k)==k) return (s[k-1]+s[k])/2; return s[ceil(k)-1];}');
+    run('schulquartile(l):=[schulquantil(l,1/4),schulmedian(l),schulquantil(l,3/4)]');
+    run('schulmodus(l):={local s,n,best,count,res,k; s:=sort(l); n:=size(s); best:=0; res:=[]; count:=1; ' +
+      'for(k:=1;k<=n;k++){ if (k<n) { if (s[k]==s[k-1]) { count:=count+1; continue; } } ' +
+      'if (count>best) { best:=count; res:=[s[k-1]]; } else { if (count==best) { res:=append(res,s[k-1]); } } count:=1; } return res;}');
+    run('prozentwert(p,G):=p/100*G');
+    run('prozentsatz(W,G):=W/G*100');
+    run('grundwert(W,p):=W*100/p');
+  }
+
+  /** Drops the assumptions a solve left on x, y, z and t, unless the student gave them a value. */
+  function forgetAssumptions() {
+    ASSUMABLE.forEach(function (name) {
+      if (unquote(run('string(' + name + ')').value) === name) run('purge(' + name + ')');
+    });
   }
 
   function captured(line) {
@@ -131,6 +166,8 @@ var CAS = (function () {
       .replace(/≠/g, '!=')
       .replace(/π/g, 'pi')
       .replace(/∞/g, 'inf')
+      // 20 % is 20/100, as on every school calculator.
+      .replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)')
       .replace(/√\s*\(/g, 'sqrt(')
       .replace(/√\s*([0-9.]+|[A-Za-z_][A-Za-z0-9_]*)/g, 'sqrt($1)');
   }
@@ -154,6 +191,12 @@ var CAS = (function () {
       var a = '(' + (args[1] || '0') + ')';
       return 'normal(subst(' + f + ',x=' + a + ')+subst(diff(' + f + ',x),x=' + a + ')*(x-' + a + '))';
     });
+    // Without the remainder term that Giac writes as order_size.
+    text = rewriteCalls(text, 'taylor', function (args) {
+      return 'convert(taylor(' + args.join(',') + '),polynom)';
+    });
+    // Physical constants as a value with SI units instead of an unevaluated symbol.
+    text = text.replace(/(^|[^A-Za-z0-9_])(_[A-Za-z0-9]+_)(?![A-Za-z0-9_(])/g, '$1mksa($2)');
     text = rewriteCalls(text, 'factor', function (args) {
       // A whole number is split into primes, like at school.
       return (/^-?\d+$/.test(args[0]) ? 'ifactor(' : 'factor(') + args.join(',') + ')';
@@ -201,7 +244,7 @@ var CAS = (function () {
     if (Math.abs(value) >= 1e15 || (value !== 0 && Math.abs(value) < 1e-6)) {
       var parts = value.toExponential(8).split('e');
       var mantissa = String(Number(parts[0]));
-      return mantissa.replace('.', ',') + '·10^' + Number(parts[1]);
+      return mantissa.replace('.', ',') + '·10' + superscript(String(Number(parts[1])));
     }
     var fixed = String(Number(value.toPrecision(10)));
     return fixed.replace('.', ',');
@@ -212,9 +255,20 @@ var CAS = (function () {
     return digits.split('').map(function (c) { return map[c] || c; }).join('');
   }
 
+  /** SI units as Giac writes them, `_(kg*m^2.0*s^-2.0)`, the way a physics book does: kg·m²·s⁻². */
+  function prettyUnit(unit) {
+    return unit.split('*').map(function (part) {
+      var power = /^([A-Za-zΩµ0-9]+)\^\(?(-?\d+)(?:\.0+)?\)?$/.exec(part);
+      if (!power) return part;
+      return power[1] + (power[2] === '1' ? '' : superscript(power[2]));
+    }).join('·');
+  }
+
   /** Giac's answer in school notation: √, π, e, ∞, powers raised, ";" between list items, decimal comma. */
   function pretty(text) {
     var s = String(text);
+    s = s.replace(/_\(([^()]*)\)/g, function (all, unit) { return ' ' + prettyUnit(unit); })
+      .replace(/_([A-Za-zΩµ]+)(?![A-Za-z0-9_])/g, ' $1');
     s = s.replace(/\blist\[/g, '[').replace(/\bmatrix\[/g, '[');
     // Giac separates with commas; German needs the comma for decimals, so items are separated by "; ".
     s = s.replace(/,/g, '; ');
@@ -256,12 +310,97 @@ var CAS = (function () {
 
   function approximate(exact) {
     var input = exact.replace(/\blist\[/g, '[').replace(/\bmatrix\[/g, '[');
-    var result = run('string(evalf(' + input + '))');
+    // Several values in a row (eigenvalues, a regression's coefficients) would read as evalf(value, digits).
+    var sequence = input[0] !== '[' && splitArgs(input).length > 1;
+    var result = run('string(evalf(' + (sequence ? '[' + input + ']' : input) + '))');
     if (errorOf(result)) return null;
     var approx = unquote(result.value);
+    if (sequence && approx[0] === '[' && approx[approx.length - 1] === ']') approx = approx.slice(1, -1);
     if (!isNumeric(approx)) return null;
     if (approx.replace(/\.0\b/g, '') === exact.replace(/\blist\[/g, '[')) return null;
     return approx;
+  }
+
+  /**
+   * The parts of a solve of an inequality: list[((x>-2) and (x<2))] → one range from -2 to 2, both open;
+   * list[x<-2,x>=1] → everything below -2, and from 1 on. Values stay Giac text. Null when it is no inequality.
+   */
+  function intervalParts(exact) {
+    var body = String(exact).replace(/^list\[/, '[');
+    if (body[0] !== '[' || !/[<>]/.test(body)) return null;
+    var parts = splitArgs(body.slice(1, -1));
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i].replace(/\s+/g, '');
+      while (/^\(.*\)$/.test(part) && balanced(part.slice(1, -1))) part = part.slice(1, -1);
+      var sides = part.split(')and(');
+      if (sides.length === 2) {
+        var low = bound(sides[0].replace(/^\(/, ''));
+        var high = bound(sides[1].replace(/\)$/, ''));
+        if (!low || !high || low.side !== 'low' || high.side !== 'high') return null;
+        out.push({ kind: 'range', low: low.value, high: high.value, lowClosed: low.closed, highClosed: high.closed });
+        continue;
+      }
+      var single = bound(part);
+      if (!single) return null;
+      if (single.side === 'equal') out.push({ kind: 'point', value: single.value });
+      else if (single.side === 'low') out.push({ kind: 'above', value: single.value, closed: single.closed });
+      else out.push({ kind: 'below', value: single.value, closed: single.closed });
+    }
+    return out;
+  }
+
+  /** A solve of an inequality as intervals, like at school: ]-2; 2[ or ]-∞; -2[ ∪ [1; ∞[. */
+  function intervals(exact) {
+    var parts = intervalParts(exact);
+    if (!parts) return null;
+    return parts.map(function (p) {
+      if (p.kind === 'range') return (p.lowClosed ? '[' : ']') + boundText(p.low) + '; ' + boundText(p.high) + (p.highClosed ? ']' : '[');
+      if (p.kind === 'point') return '{' + boundText(p.value) + '}';
+      if (p.kind === 'above') return (p.closed ? '[' : ']') + boundText(p.value) + '; ∞[';
+      return ']-∞; ' + boundText(p.value) + (p.closed ? ']' : '[');
+    }).join(' ∪ ');
+  }
+
+  /** A bound in school notation, without the parentheses Giac puts around single values: -(√2) → -√2. */
+  function boundText(value) {
+    return pretty(value).replace(/\((-?√?[0-9A-Za-zπ,]+)\)/g, '$1');
+  }
+
+  function balanced(text) {
+    var depth = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (text[i] === '(') depth++;
+      else if (text[i] === ')' && --depth < 0) return false;
+    }
+    return depth === 0;
+  }
+
+  /** "x>4" → the lower bound 4, open; "x<=2" → the upper bound 2, closed. */
+  function bound(relation) {
+    var r = relation;
+    // Splitting at ")and(" leaves a stray parenthesis at one end.
+    while (r[0] === '(' && !balanced(r)) r = r.slice(1);
+    while (r[r.length - 1] === ')' && !balanced(r)) r = r.slice(0, -1);
+    var match = /^([A-Za-z])(>=|<=|>|<|=)(.+)$/.exec(r);
+    if (!match) return null;
+    var value = match[3];
+    while (/^\(.*\)$/.test(value) && balanced(value.slice(1, -1))) value = value.slice(1, -1);
+    if (match[2] === '=') return { side: 'equal', value: value, closed: true };
+    return { side: match[2][0] === '>' ? 'low' : 'high', value: value, closed: match[2].length === 2 };
+  }
+
+  /** Giac's geometry answers (points, intersections) as coordinates in parentheses. */
+  function geometry(giac) {
+    var result = run('string(coordinates(' + giac + '))');
+    if (errorOf(result)) return null;
+    var text = unquote(result.value).replace(/^group\[/, '[');
+    if (!/^\[/.test(text)) return null;
+    var inner = text.slice(1, -1);
+    var points = /^\[/.test(inner) ? splitArgs(inner) : [text];
+    return points.map(function (point) {
+      return '(' + splitArgs(point.slice(1, -1)).map(pretty).join('; ') + ')';
+    }).join(', ');
   }
 
   function evaluate(input) {
@@ -274,6 +413,14 @@ var CAS = (function () {
       var defined = run(translated.giac);
       var error = errorOf(defined);
       if (error) return { ok: false, error: error, giac: translated.giac };
+      // A program with if, for and return has no formula to show; evaluating it with a symbol fails.
+      if (/[{};]/.test(translated.body)) {
+        answer.exact = translated.giac;
+        answer.pretty = translated.assigns + '(' + translated.params.replace(/,/g, '; ') + ') ist als Programm definiert.';
+        answer.approx = null;
+        answer.prettyApprox = null;
+        return answer;
+      }
       var body = unquote(run('string(' + translated.assigns + '(' + translated.params + '))').value);
       answer.exact = translated.assigns + '(' + translated.params + ')=' + body;
       answer.pretty = translated.assigns + '(' + translated.params.replace(/,/g, '; ') + ') = ' + pretty(body);
@@ -284,20 +431,36 @@ var CAS = (function () {
 
     var command = translated.kind === 'variable' ? translated.giac : 'string(' + translated.giac + ')';
     var result = run(command);
+    if (/solve\(/.test(translated.giac)) forgetAssumptions();
     var failed = errorOf(result);
     if (failed) return { ok: false, error: failed, giac: translated.giac };
     var exact = translated.kind === 'variable'
       ? unquote(run('string(' + translated.assigns + ')').value)
       : unquote(result.value);
-    var approx = approximate(exact);
+    if (/\bpnt\(|\bgroup\[/.test(exact)) {
+      var points = geometry(translated.giac);
+      answer.exact = exact;
+      answer.approx = null;
+      answer.pretty = points || exact;
+      answer.prettyApprox = null;
+      return answer;
+    }
+    // evalf(value, digits) keeps every digit asked for.
+    var digits = translated.command === 'evalf' && /^\s*evalf\s*\(.*,\s*\d+\s*\)\s*$/.test(translated.giac);
+    var approx = digits ? null : approximate(exact);
     var solutions = translated.command === 'solve' && (/^list\[/.test(exact) || exact === '[]');
+    var inequality = solutions ? intervals(exact) : null;
     answer.exact = exact;
     answer.approx = approx;
-    var shown = pretty(exact);
-    if (solutions) shown = 'L = {' + shown.slice(1, -1) + '}';
+    var shown = digits ? exact.replace('.', ',') : pretty(exact);
+    if (inequality !== null) shown = 'L = ' + inequality;
+    else if (solutions) shown = exact === '[]' ? 'L = { }' : 'L = {' + shown.slice(1, -1) + '}';
     if (translated.kind === 'variable') shown = translated.assigns + ' = ' + shown;
     answer.pretty = shown;
-    answer.prettyApprox = approx === null ? null : (solutions ? 'L ≈ {' + pretty(approx).slice(1, -1) + '}' : pretty(approx));
+    var approxIntervals = inequality !== null && approx !== null ? intervals('[' + approx.slice(1, -1) + ']') : null;
+    answer.prettyApprox = approx === null ? null
+      : inequality !== null ? (approxIntervals && approxIntervals !== inequality ? 'L ≈ ' + approxIntervals : null)
+      : (solutions ? 'L ≈ {' + pretty(approx).slice(1, -1) + '}' : pretty(approx));
     answer.matrix = matrixRows(exact);
     return answer;
   }
@@ -531,6 +694,14 @@ var CAS = (function () {
     forget: forget,
     plot: plot,
     plotJSON: plotJSON,
+    intervalParts: intervalParts,
+    /** Giac text in, Giac's answer (as text) and a German error out: for the calculator app's own commands. */
+    raw: function (command) {
+      var result = run('string(' + command + ')');
+      var error = errorOf(result);
+      return { value: error ? null : unquote(result.value), error: error };
+    },
+    forgetAssumptions: forgetAssumptions,
     get ready() { return caseval !== null; },
   };
 })();

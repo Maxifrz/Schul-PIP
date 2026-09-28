@@ -1,0 +1,16 @@
+{
+  "name": "schul-pip-mathe",
+  "private": true,
+  "description": "The calculator app of Schul-PIP: CAS, graphics, geometry, 3D, tables and statistics on top of Giac. Built into cas/web/mathe.js.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "mathlive": "0.110.0",
+    "three": "0.186.1"
+  },
+  "type": "module"
+}

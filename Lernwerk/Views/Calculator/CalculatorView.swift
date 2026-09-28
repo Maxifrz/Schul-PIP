@@ -19,7 +19,8 @@ struct CalculatorView: View {
         VStack(spacing: 0) {
             header
             switch mode {
-            case .calculate: CalculatorPane(model: model)
+            // The new calculator app; the native graph stays until the app has its own graphics view.
+            case .calculate: MatheWebView().ignoresSafeArea(.keyboard)
             case .graph: GraphPane(model: model)
             }
         }
