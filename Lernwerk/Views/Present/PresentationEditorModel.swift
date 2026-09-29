@@ -94,7 +94,7 @@ final class PresentationEditorModel: ObservableObject {
     private func mapSlide(_ transform: (Slide) -> Slide) -> Presentation {
         var next = presentation
         let index = min(max(slideIndex, 0), next.slides.count - 1)
-        next.slides[index] = transform(next.slides[index])
+        next.slides[index] = transform(next.slides[index]).editedFrom(next.slides[index])
         return next
     }
 

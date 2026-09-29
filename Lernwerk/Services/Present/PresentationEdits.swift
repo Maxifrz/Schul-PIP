@@ -266,11 +266,13 @@ enum PresentationEdits {
                             slides[index].elements[i].text = text.trimmingCharacters(in: .whitespacesAndNewlines)
                         }
                     }
+                    slides[index].origin = nil
                     ok = true
                 }
             case .replaceSlide:
                 if let index, let draft = change.draft {
                     slides[index] = rebuild(slides[index], draft)
+                    slides[index].origin = nil
                     ok = true
                 }
             case .insertSlide:

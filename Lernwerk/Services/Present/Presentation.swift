@@ -169,10 +169,13 @@ struct Slide: Codable, Equatable, Identifiable {
     var background = ""
     /// How the slide comes in while presenting; nil keeps the short cross-fade.
     var transition: SlideTransition?
+    /// The component, parameters and content the slide was built from; nil once a student edits an element or for
+    /// slides that were not built by a component. Only slides with an origin can be redesigned.
+    var origin: SlideOrigin?
 
     init(
         id: String = UUID().uuidString, elements: [SlideElement] = [], notes: String = "", sources: [SourceRef] = [],
-        extractedText: String = "", background: String = "", transition: SlideTransition? = nil
+        extractedText: String = "", background: String = "", transition: SlideTransition? = nil, origin: SlideOrigin? = nil
     ) {
         self.id = id
         self.elements = elements
@@ -181,6 +184,7 @@ struct Slide: Codable, Equatable, Identifiable {
         self.extractedText = extractedText
         self.background = background
         self.transition = transition
+        self.origin = origin
     }
 
     init(from decoder: Decoder) throws {
@@ -192,6 +196,16 @@ struct Slide: Codable, Equatable, Identifiable {
         extractedText = try c.decodeIfPresent(String.self, forKey: .extractedText) ?? ""
         background = try c.decodeIfPresent(String.self, forKey: .background) ?? ""
         transition = (try? c.decodeIfPresent(SlideTransition.self, forKey: .transition)) ?? nil
+        origin = (try? c.decodeIfPresent(SlideOrigin.self, forKey: .origin)) ?? nil
+    }
+
+    /// This slide after a change made to `old`: an edit of the elements the slide's component did not make drops the
+    /// origin, because the slide no longer is what the component built. A change that sets a new origin keeps it.
+    func editedFrom(_ old: Slide) -> Slide {
+        guard origin != nil, origin == old.origin, elements != old.elements else { return self }
+        var result = self
+        result.origin = nil
+        return result
     }
 
     func backgroundColor(_ theme: SlideTheme) -> UInt32 {
