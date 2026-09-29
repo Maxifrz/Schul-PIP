@@ -29,6 +29,7 @@ struct PresentationEditorView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var isPickingPage = false
     @State private var choosingDesign = false
+    @State private var choosingVariant = false
 
     init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
@@ -131,22 +132,13 @@ struct PresentationEditorView: View {
             PresentView(presentation: model.presentation, images: images, startIndex: model.slideIndex)
         }
         .sheet(isPresented: $choosingDesign) {
-            VStack(alignment: .leading, spacing: 14) {
-                PixelCaption(text: "Design")
-                // The deck's own title slide in every design; tapping one restyles the whole deck.
-                ThemePicker(
-                    selection: Binding(get: { model.presentation.themeId }, set: { model.setTheme($0) }),
-                    slide: model.presentation.slides.first,
-                    images: images
-                )
-                Text("Schriften und Verzierungen gehören zum Design; deine Inhalte bleiben, wie sie sind.")
-                    .font(.work(13))
-                    .foregroundStyle(Quill.muted)
-                Spacer(minLength: 0)
+            DesignSheet(model: model, images: images, client: settings.makeClient(for: .tutor))
+        }
+        .sheet(isPresented: $choosingVariant) {
+            VariantSheet(slide: model.slide, theme: model.presentation.theme, images: images, index: model.slideIndex) { variant in
+                choosingVariant = false
+                model.replaceSlide(SlideVariants.applying(variant, to: model.slide))
             }
-            .padding(24)
-            .presentationDetents([.height(260), .medium])
-            .presentationBackground(Quill.bg)
         }
         .sheet(isPresented: $isPickingPage) {
             MaterialPagePicker { image in
@@ -280,8 +272,12 @@ struct PresentationEditorView: View {
             }
             .scrollIndicators(.hidden)
             Menu {
-                ForEach(SlideLayout.allCases, id: \.self) { layout in
-                    Button(layout.label) { model.addSlide(layout) }
+                ForEach(ComponentRegistry.categories, id: \.self) { category in
+                    Menu(category.label) {
+                        ForEach(ComponentRegistry.components(in: category), id: \.id) { component in
+                            Button(component.label) { model.addSlide(component) }
+                        }
+                    }
                 }
             } label: { menuLabel("+ Folie").frame(maxWidth: .infinity) }
             .padding(14)
@@ -318,6 +314,18 @@ struct PresentationEditorView: View {
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                 Button("Design") { choosingDesign = true }
                     .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
+                Button("Layout") {
+                    model.finishEditing()
+                    choosingVariant = true
+                }
+                .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
+                .disabled(model.slide.origin == nil)
+                Menu {
+                    ForEach(MotionPreset.allCases, id: \.self) { preset in
+                        Button("\(preset.label): \(preset.detail)") { model.setMotion(preset) }
+                    }
+                } label: { menuLabel("Bewegung") }
+                transitionMenu
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                 Button("Rückgängig") { model.undo() }
                     .buttonStyle(QuillOutlineButtonStyle())
@@ -390,6 +398,7 @@ struct PresentationEditorView: View {
                     chip("Nach hinten") { model.reorderSelected(forward: false) }
                     chip("Drehung 0°") { model.updateElement(element.id) { var e = $0; e.rotation = 0; return e } }
                     chip("Duplizieren") { model.duplicateSelected() }
+                    animationMenu(element)
                     chip("Löschen", color: Quill.warn) { model.deleteSelected() }
                 }
                 .padding(.horizontal, 16)
@@ -399,6 +408,71 @@ struct PresentationEditorView: View {
             .background(Quill.bg)
             .overlay(alignment: .top) { QuillDivider(color: Quill.lineSoft) }
         }
+    }
+
+    // Motion
+
+    private var transitionMenu: some View {
+        Menu {
+            Button("Standard (kurzes Überblenden)") { model.setTransition(nil) }
+            ForEach(TransitionKind.allCases, id: \.self) { kind in
+                Button(kind.label) { changeTransition { $0.kind = kind } }
+            }
+            Menu("Richtung") {
+                ForEach(MotionDirection.allCases, id: \.self) { direction in
+                    Button(direction.label) { changeTransition { $0.direction = direction } }
+                }
+            }
+            Menu("Dauer") {
+                ForEach([0.3, 0.5, 0.8, 1.2], id: \.self) { seconds in
+                    Button(String(format: "%.1f s", seconds)) { changeTransition { $0.duration = seconds } }
+                }
+            }
+        } label: { menuLabel(model.slide.transition.map { "Übergang: \($0.kind.label)" } ?? "Übergang") }
+    }
+
+    private func changeTransition(_ change: (inout SlideTransition) -> Void) {
+        var transition = model.slide.transition ?? SlideTransition(kind: .push, direction: .right, duration: 0.5)
+        change(&transition)
+        model.setTransition(transition)
+    }
+
+    private func animationMenu(_ element: SlideElement) -> some View {
+        Menu {
+            Button("Keine") { model.updateElement(element.id) { var e = $0; e.animation = nil; return e } }
+            ForEach(AnimationKind.allCases, id: \.self) { kind in
+                Button(kind.label) { changeAnimation(element) { $0.kind = kind } }
+            }
+            if let animation = element.animation {
+                Button(animation.trigger == .click ? "Startet mit vorherigem" : "Startet bei Tipp") {
+                    changeAnimation(element) { $0.trigger = $0.trigger == .click ? .withPrevious : .click }
+                }
+                if animation.kind.usesDirection {
+                    Menu("Richtung") {
+                        ForEach(MotionDirection.allCases, id: \.self) { direction in
+                            Button(direction.label) { changeAnimation(element) { $0.direction = direction } }
+                        }
+                    }
+                }
+                Menu("Verzögerung") {
+                    ForEach([0.0, 0.25, 0.5, 1.0, 2.0], id: \.self) { seconds in
+                        Button(seconds == 0 ? "Keine" : String(format: "%.2f s", seconds)) { changeAnimation(element) { $0.delay = seconds } }
+                    }
+                }
+                Menu("Dauer") {
+                    ForEach([0.3, 0.5, 0.8, 1.2], id: \.self) { seconds in
+                        Button(String(format: "%.1f s", seconds)) { changeAnimation(element) { $0.duration = seconds } }
+                    }
+                }
+            }
+        } label: { menuLabel(element.animation.map { "Animation: \($0.kind.label)" } ?? "Animation") }
+    }
+
+    private func changeAnimation(_ element: SlideElement, _ change: (inout ElementAnimation) -> Void) {
+        var animation = element.animation ?? ElementAnimation()
+        change(&animation)
+        let result = animation
+        model.updateElement(element.id) { var e = $0; e.animation = result; return e }
     }
 
     private func chip(_ label: String, selected: Bool = false, color: Color = Quill.ink, action: @escaping () -> Void) -> some View {

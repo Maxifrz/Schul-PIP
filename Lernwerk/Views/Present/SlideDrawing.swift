@@ -13,18 +13,23 @@ enum SlideDrawing {
         )
     }
 
-    /// `index` is the slide's place in the deck; the title slide (0) gets the design's bolder decorations.
+    /// `index` is the slide's place in the deck; the title slide (0) gets the design's bolder decorations. With
+    /// `layerOnly` only the slide's elements are drawn, without background and decorations, so they can be stacked on
+    /// a transparent layer while presenting.
     static func draw(
         _ slide: Slide, theme: SlideTheme, in context: CGContext, scale: CGFloat, images: [String: UIImage], skipping skipID: String? = nil,
-        index: Int = 1
+        index: Int = 1, layerOnly: Bool = false
     ) {
         UIGraphicsPushContext(context)
         defer { UIGraphicsPopContext() }
         context.saveGState()
         context.scaleBy(x: scale, y: scale)
-        context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
-        context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
-        for element in SlideDesign.decor(theme, index: index) + slide.elements where element.id != skipID {
+        if !layerOnly {
+            context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
+        }
+        let decorations: [SlideElement] = layerOnly ? [] : SlideDesign.decor(theme, index: index)
+        for element in decorations + slide.elements where element.id != skipID {
             context.saveGState()
             if element.rotation != 0 {
                 context.translateBy(x: element.centerX, y: element.centerY)
@@ -231,11 +236,16 @@ struct SlideCanvas: View {
     var skipping: String?
     /// The slide's place in the deck, for the title slide's decorations.
     var index = 1
+    /// Draw the elements only, on a transparent layer.
+    var layerOnly = false
 
     var body: some View {
         Canvas { context, size in
             context.withCGContext { cg in
-                SlideDrawing.draw(slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping, index: index)
+                SlideDrawing.draw(
+                    slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping, index: index,
+                    layerOnly: layerOnly
+                )
             }
         }
         .aspectRatio(16 / 9, contentMode: .fit)

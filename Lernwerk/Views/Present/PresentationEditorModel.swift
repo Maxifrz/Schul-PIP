@@ -125,6 +125,15 @@ final class PresentationEditorModel: ObservableObject {
         selectSlide(slideIndex + 1)
     }
 
+    /// A new slide of a component with its placeholder content, after the current one.
+    func addSlide(_ component: SlideComponent) {
+        finishEditing()
+        var next = presentation
+        next.slides.insert(ComponentRegistry.preset(component, theme: presentation.theme), at: slideIndex + 1)
+        commit(next)
+        selectSlide(slideIndex + 1)
+    }
+
     func duplicateSlide(_ index: Int) {
         var copy = presentation.slides[index]
         copy.id = UUID().uuidString
@@ -171,6 +180,29 @@ final class PresentationEditorModel: ObservableObject {
         var next = presentation
         next.themeId = id
         commit(next)
+    }
+
+    /// One motion style for the whole deck; replaces every transition and animation.
+    func setMotion(_ preset: MotionPreset) {
+        finishEditing()
+        commit(MotionPlanner.apply(preset, to: presentation))
+    }
+
+    /// A design suggestion: its theme, and with `withMotion` its motion style too, as one undo step.
+    func applyDesign(_ suggestion: DesignSuggestion, withMotion: Bool) {
+        finishEditing()
+        var next = withMotion ? MotionPlanner.apply(suggestion.motion, to: presentation) : presentation
+        next.themeId = suggestion.themeID
+        commit(next)
+    }
+
+    /// How the current slide comes in; nil for the short cross-fade.
+    func setTransition(_ transition: SlideTransition?) {
+        updateSlide { slide in
+            var copy = slide
+            copy.transition = transition
+            return copy
+        }
     }
 
     func setMinutes(_ minutes: Int) {

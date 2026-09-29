@@ -199,10 +199,19 @@ struct Slide: Codable, Equatable, Identifiable {
         origin = (try? c.decodeIfPresent(SlideOrigin.self, forKey: .origin)) ?? nil
     }
 
+    /// The elements as the component drew them: an animation is a setting on top of the design, not part of it.
+    private static func design(_ elements: [SlideElement]) -> [SlideElement] {
+        elements.map { element in
+            var copy = element
+            copy.animation = nil
+            return copy
+        }
+    }
+
     /// This slide after a change made to `old`: an edit of the elements the slide's component did not make drops the
     /// origin, because the slide no longer is what the component built. A change that sets a new origin keeps it.
     func editedFrom(_ old: Slide) -> Slide {
-        guard origin != nil, origin == old.origin, elements != old.elements else { return self }
+        guard origin != nil, origin == old.origin, Self.design(elements) != Self.design(old.elements) else { return self }
         var result = self
         result.origin = nil
         return result

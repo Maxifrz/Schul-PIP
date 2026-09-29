@@ -69,6 +69,10 @@ final class SlideOriginTests: XCTestCase {
         var moved = old
         moved.elements[0].x += 10
         XCTAssertNil(moved.editedFrom(old).origin)
+        var animated = old
+        animated.elements[0].animation = ElementAnimation(kind: .fly)
+        animated.transition = SlideTransition(kind: .push)
+        XCTAssertNotNil(animated.editedFrom(old).origin, "motion is not part of the design")
         var notes = old
         notes.notes = "neu"
         XCTAssertNotNil(notes.editedFrom(old).origin, "notes are not part of the design")

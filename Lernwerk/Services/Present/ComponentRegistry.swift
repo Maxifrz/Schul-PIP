@@ -119,7 +119,7 @@ enum ComponentRegistry {
         legacyComponent(.cards, .structure, [.grid, .list], "Zwei bis vier Karten", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 4)) { d, _, _ in LayoutKit.buildCards(d) },
         legacyComponent(.process, .structure, [.steps], "Zwei bis fünf Schritte mit Pfeilen", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 5)) { d, _, _ in LayoutKit.buildProcess(d) },
         legacyComponent(.timeline, .structure, [.timeline], "Zeitstrahl mit zwei bis sechs Ereignissen", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 6)) { d, _, _ in LayoutKit.buildTimeline(d) },
-        legacyComponent(.bigNumber, .data, [.numbers], "Eine große Zahl mit Erklärung", reads: [.value, .subtitle, .bullets], accepts: SlotContract(requires: [.value])) { d, _, _ in LayoutKit.buildBigNumber(d) },
+        legacyComponent(.bigNumber, .data, [.numbers], "Eine große Zahl mit Erklärung", reads: [.value, .subtitle], accepts: SlotContract(requires: [.value])) { d, _, _ in LayoutKit.buildBigNumber(d) },
         legacyComponent(.chart, .data, [.chart, .numbers], "Balken- oder Liniendiagramm", reads: [.chart, .subtitle], accepts: SlotContract(field: .chartPoints, min: 2, max: 12)) { d, _, _ in LayoutKit.buildChart(d) },
         legacyComponent(.table, .data, [.table], "Tabelle mit Kopfzeile", reads: [.table], accepts: SlotContract(field: .tableRows, min: 2, max: 8)) { d, _, _ in LayoutKit.buildTable(d) },
         legacyComponent(.quote, .text, [.quote], "Zitat mit Quelle", reads: [.quote]) { d, _, _ in LayoutKit.buildQuote(d) },

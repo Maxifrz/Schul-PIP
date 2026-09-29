@@ -335,6 +335,11 @@ enum SlideLayouts {
 
     /// A slide as the editor's "new slide" menu offers it, with placeholder text to overwrite.
     static func preset(_ layout: SlideLayout) -> Slide {
+        Slide(elements: build(presetDraft(layout), placeholder: true))
+    }
+
+    /// The placeholder content of the "new slide" presets.
+    static func presetDraft(_ layout: SlideLayout) -> SlideDraft {
         let draft: SlideDraft
         switch layout {
         case .title: draft = SlideDraft(layout: layout, title: "Titel der Präsentation", subtitle: "Name · Fach · Datum")
@@ -365,7 +370,7 @@ enum SlideLayouts {
         case .quote: draft = SlideDraft(layout: layout, quote: "Ein Zitat, das den Kern trifft.", attribution: "Quelle")
         case .blank: draft = SlideDraft(layout: layout)
         }
-        return Slide(elements: build(draft, placeholder: true))
+        return draft
     }
 }
 
