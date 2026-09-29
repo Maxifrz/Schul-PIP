@@ -414,21 +414,23 @@ enum SlideLayouts {
 
     /// The largest font size from `max` down to `min` at which the text fits the box, estimated from average glyph
     /// widths of Work Sans. Deterministic, so both apps and the export agree without measuring real fonts.
+    /// `widthFactor` is how much wider than Work Sans the theme's font sets text (`SlideFont.widthFactor`); 1 keeps
+    /// the estimate as it always was.
     static func fitSize(
         _ value: String, _ width: Double, _ height: Double, _ max: Double, _ min: Double,
-        bold: Bool = false, bullets: Bool = false, italic: Bool = false
+        bold: Bool = false, bullets: Bool = false, italic: Bool = false, widthFactor: Double = 1
     ) -> Double {
         var size = max
-        while size > min && !fits(value, width, height, size, bold: bold || italic, bullets: bullets) { size -= 1 }
+        while size > min && !fits(value, width, height, size, bold: bold || italic, bullets: bullets, widthFactor: widthFactor) { size -= 1 }
         return size
     }
 
-    static func fits(_ value: String, _ width: Double, _ height: Double, _ size: Double, bold: Bool, bullets: Bool) -> Bool {
-        Double(lineCount(value, width - (bullets ? size * 1.1 : 0), size, bold: bold)) * size * 1.24 <= height
+    static func fits(_ value: String, _ width: Double, _ height: Double, _ size: Double, bold: Bool, bullets: Bool, widthFactor: Double = 1) -> Bool {
+        Double(lineCount(value, width - (bullets ? size * 1.1 : 0), size, bold: bold, widthFactor: widthFactor)) * size * 1.24 <= height
     }
 
-    static func lineCount(_ value: String, _ width: Double, _ size: Double, bold: Bool) -> Int {
-        let charWidth = size * (bold ? 0.58 : 0.54)
+    static func lineCount(_ value: String, _ width: Double, _ size: Double, bold: Bool, widthFactor: Double = 1) -> Int {
+        let charWidth = size * (bold ? 0.58 : 0.54) * widthFactor
         let perLine = Swift.max(1, Int(width / charWidth))
         return value.components(separatedBy: "\n").reduce(0) { total, paragraph in
             var lines = 1

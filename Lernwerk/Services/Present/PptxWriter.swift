@@ -271,7 +271,17 @@ enum PptxWriter {
                 + "<p:spPr>\(xfrm(element.x, element.centerY, element.width, 0, element.rotation))"
                 + #"<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="\#(width)">\#(solid(color))\#(tail)</a:ln></p:spPr></p:cxnSp>"#
         }
-        let geometry = element.shape == .rounded ? "roundRect" : (element.shape == .ellipse ? "ellipse" : "rect")
+        // Rounded shapes follow the design's corners: square ones are plain rectangles, others set PowerPoint's adj.
+        var geometry = element.shape == .rounded ? "roundRect" : (element.shape == .ellipse ? "ellipse" : "rect")
+        var adjust = "<a:avLst/>"
+        if element.shape == .rounded {
+            if theme.cornerScale <= 0 {
+                geometry = "rect"
+            } else if theme.cornerScale != 1 {
+                let value = Int(min(50000, (16667 * theme.cornerScale).rounded()))
+                adjust = "<a:avLst><a:gd name=\"adj\" fmla=\"val \(value)\"/></a:avLst>"
+            }
+        }
         let fill = theme.color(element.fill).map(solid) ?? "<a:noFill/>"
         let line: String
         if let stroke = theme.color(element.stroke), element.strokeWidth > 0 {
@@ -281,7 +291,7 @@ enum PptxWriter {
         }
         return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Form \#(id)"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>"#
             + "<p:spPr>\(xfrm(element.x, element.y, element.width, element.height, element.rotation))"
-            + #"<a:prstGeom prst="\#(geometry)"><a:avLst/></a:prstGeom>\#(fill)\#(line)</p:spPr></p:sp>"#
+            + #"<a:prstGeom prst="\#(geometry)">"# + adjust + #"</a:prstGeom>\#(fill)\#(line)</p:spPr></p:sp>"#
     }
 
     private static func picture(_ element: SlideElement, id: Int, relation: String) -> String {

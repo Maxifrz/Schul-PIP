@@ -74,6 +74,9 @@ struct Critique: Equatable {
 
 /// Prompts and parsing for the presentation chat and the critic, plus applying their changes. Mirrors the Android app.
 enum PresentationEdits {
+    /// Every design the app has, so the schema and the rules never fall behind the catalog.
+    private static var themeIDs: [String] { SlideTheme.all.map(\.id) }
+
     private static let changeProperties = """
     "action": { "type": "string", "enum": ["update_texts", "replace_slide", "insert_slide", "delete_slide", "move_slide", "set_notes", "set_theme", "rename"] },
     "summary": { "type": "string" },
@@ -83,7 +86,7 @@ enum PresentationEdits {
     "texts": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "text": { "type": "string" } }, "required": ["id", "text"] } },
     "slide": { "type": "object", "properties": { \(PresentationPrompt.slideContentProperties) } },
     "notes": { "type": "string" },
-    "theme": { "type": "string", "enum": ["quill", "nacht", "kreide", "papier"] },
+    "theme": { "type": "string", "enum": [\(themeIDs.map { "\"\($0)\"" }.joined(separator: ", "))] },
     "title": { "type": "string" }
     """
 
@@ -95,7 +98,7 @@ enum PresentationEdits {
     - delete_slide: slideId
     - move_slide: slideId and position (new 1-based position)
     - set_notes: slideId and notes (the complete new speaker notes)
-    - set_theme: theme (quill, nacht, kreide or papier)
+    - set_theme: theme (one of: \(themeIDs.joined(separator: ", ")))
     - rename: title
     Every change gets a short German summary of what it does. Keep slides short (at most 5 bullets of at most
     8 words), details go into the speaker notes. Titles state the slide's message. Prefer a visual slide type

@@ -68,7 +68,10 @@ enum SlideDrawing {
         func path(_ rect: CGRect) -> UIBezierPath {
             switch element.shape {
             case .ellipse: return UIBezierPath(ovalIn: rect)
-            case .rounded: return UIBezierPath(roundedRect: rect, cornerRadius: min(element.width, element.height) * 0.16667)
+            case .rounded:
+                // The design's corners: square ones (scale 0) are plain rectangles.
+                let radius = min(element.width, element.height) * theme.cornerFraction
+                return radius > 0 ? UIBezierPath(roundedRect: rect, cornerRadius: radius) : UIBezierPath(rect: rect)
             default: return UIBezierPath(rect: rect)
             }
         }
@@ -120,7 +123,8 @@ enum SlideDrawing {
             }
             var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: style]
             // No bold italic cut: a thin outline thickens the italic. Heading-only fonts are bold already.
-            if element.bold, element.italic, SlideDesign.font(element, theme: theme).hasStyles { attributes[.strokeWidth] = -2 }
+            let face = SlideDesign.font(element, theme: theme)
+            if element.bold, element.italic, face.hasStyles, !face.hasBoldItalic { attributes[.strokeWidth] = -2 }
             if bullet {
                 var bulletAttributes = attributes
                 bulletAttributes[.foregroundColor] = uiColor(theme.accent)

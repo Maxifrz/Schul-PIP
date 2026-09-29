@@ -242,10 +242,19 @@ struct SlideTheme: Equatable, Identifiable {
     var heading: SlideFont = .workSans
     var body: SlideFont = .workSans
     var decor: DecorStyle = .none
+    /// How round the rounded shapes are: 1 is the usual corner, 0 makes them square.
+    var cornerScale: Double = 1
     /// Subjects and moods the design suits, for the AI's suggestion.
     var mood = ""
 
     var secondAccent: UInt32 { accent2 ?? accent }
+
+    /// How wide the heading and the body font set text compared to Work Sans, for fitting text into its box.
+    var headingWidth: Double { heading.widthFactor }
+    var bodyWidth: Double { body.widthFactor }
+
+    /// The corner radius of a rounded shape of this size, as a fraction of its shorter side (PowerPoint's `adj`).
+    var cornerFraction: Double { 0.16667 * cornerScale }
 
     /// Resolves a token or "#RRGGBB" to 0xRRGGBB, or nil for "none".
     func color(_ value: String) -> UInt32? {
@@ -345,6 +354,7 @@ struct SlideTheme: Equatable, Identifiable {
 
 
     static let all = [quill, night, chalk, paper, editorial, verdant, nova, momentum, mosaik, signal, zivil, horizont, puls, violett, glut, frische, wahrzeichen]
+        + DesignCatalog.additional
 
     static func byID(_ id: String) -> SlideTheme {
         all.first { $0.id == id } ?? quill

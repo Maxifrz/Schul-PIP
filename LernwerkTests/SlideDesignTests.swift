@@ -26,7 +26,7 @@ final class SlideDesignTests: XCTestCase {
     func testDesignsAreUniqueAndReadable() {
         let ids = SlideTheme.all.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count)
-        XCTAssertEqual(SlideTheme.all.count, 17)
+        XCTAssertEqual(SlideTheme.all.count, 25)
         for theme in SlideTheme.all {
             XCTAssertGreaterThanOrEqual(contrast(theme.text, theme.background), 7, theme.id)
             XCTAssertGreaterThanOrEqual(contrast(theme.text, theme.surface), 6.5, theme.id)

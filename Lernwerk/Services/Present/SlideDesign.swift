@@ -4,6 +4,8 @@ import Foundation
 /// headings have a single bold cut that stands in for every style.
 enum SlideFont: String, CaseIterable {
     case workSans, dmSans, montserrat, playfair, lora, archivoBlack
+    /// System fonts of iOS and of PowerPoint; not bundled with the app.
+    case georgia, courier
 
     /// The family name PowerPoint looks for.
     var pptxName: String {
@@ -14,10 +16,12 @@ enum SlideFont: String, CaseIterable {
         case .playfair: return "Playfair Display"
         case .lora: return "Lora"
         case .archivoBlack: return "Archivo Black"
+        case .georgia: return "Georgia"
+        case .courier: return "Courier New"
         }
     }
 
-    /// PostScript names, which are also the bundled file names.
+    /// PostScript names, which are also the bundled file names (for the system fonts: the names iOS knows them by).
     var regular: String {
         switch self {
         case .workSans: return "WorkSans-Regular"
@@ -26,6 +30,8 @@ enum SlideFont: String, CaseIterable {
         case .playfair: return "PlayfairDisplay-Bold"
         case .lora: return "Lora-Bold"
         case .archivoBlack: return "ArchivoBlack-Regular"
+        case .georgia: return "Georgia"
+        case .courier: return "CourierNewPSMT"
         }
     }
 
@@ -34,6 +40,8 @@ enum SlideFont: String, CaseIterable {
         case .workSans: return "WorkSans-SemiBold"
         case .dmSans: return "DMSans-Bold"
         case .montserrat: return "Montserrat-Bold"
+        case .georgia: return "Georgia-Bold"
+        case .courier: return "CourierNewPS-BoldMT"
         default: return regular
         }
     }
@@ -43,7 +51,34 @@ enum SlideFont: String, CaseIterable {
         case .workSans: return "WorkSans-Italic"
         case .dmSans: return "DMSans-Italic"
         case .montserrat: return "Montserrat-Italic"
+        case .georgia: return "Georgia-Italic"
+        case .courier: return "CourierNewPS-ItalicMT"
         default: return regular
+        }
+    }
+
+    /// The bold italic cut, for the fonts that have one; the others draw italic with a thin outline on top.
+    var boldItalic: String {
+        switch self {
+        case .georgia: return "Georgia-BoldItalic"
+        case .courier: return "CourierNewPS-BoldItalicMT"
+        default: return italic
+        }
+    }
+
+    var hasBoldItalic: Bool { boldItalic != italic }
+
+    /// Fonts the system provides; they are neither bundled nor registered.
+    var isSystem: Bool { self == .georgia || self == .courier }
+
+    /// How much wider than Work Sans the font sets German text, for the estimates that size text to fit its box.
+    /// The bundled fonts are already scaled to Work Sans' width (see `scale`), so their factor is 1; the system
+    /// fonts are drawn at their real size and sized to fit instead.
+    var widthFactor: Double {
+        switch self {
+        case .georgia: return 1.06
+        case .courier: return 1.12
+        default: return 1
         }
     }
 
@@ -54,7 +89,7 @@ enum SlideFont: String, CaseIterable {
     /// each font's average glyph width on German text and its line height, never above 1.
     var scale: Double {
         switch self {
-        case .workSans, .montserrat, .archivoBlack: return 1
+        case .workSans, .montserrat, .archivoBlack, .georgia, .courier: return 1
         case .dmSans: return 0.95
         case .playfair: return 0.93
         case .lora: return 0.96
@@ -64,7 +99,7 @@ enum SlideFont: String, CaseIterable {
     /// Every bundled file, for registering them.
     static var files: [String] {
         var names: [String] = []
-        for font in allCases {
+        for font in allCases where !font.isSystem {
             for name in [font.regular, font.bold, font.italic] where !names.contains(name) { names.append(name) }
         }
         return names
@@ -128,7 +163,7 @@ enum SlideDesign {
     /// The PostScript name of the cut to draw with.
     static func fontName(_ element: SlideElement, theme: SlideTheme) -> String {
         let font = font(element, theme: theme)
-        if element.italic { return font.italic }
+        if element.italic { return element.bold && font.hasBoldItalic ? font.boldItalic : font.italic }
         return element.bold ? font.bold : font.regular
     }
 
