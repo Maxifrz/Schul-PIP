@@ -36,6 +36,16 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.openxmlformats.wordprocessingml.document]
+          - CFBundleTypeName: GoodNotes-Notizbuch
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.goodnotes.document]
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.goodnotes.document
+            UTTypeDescription: GoodNotes-Notizbuch
+            UTTypeConformsTo: [public.data, public.content]
+            UTTypeTagSpecification:
+              public.filename-extension: [goodnotes]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.maxifrz.lernwerk

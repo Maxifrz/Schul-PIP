@@ -177,6 +177,13 @@ final class NoteEditorModel: ObservableObject {
             if isScoped { source.stopAccessingSecurityScopedResource() }
         }
         let type = UTType(filenameExtension: source.pathExtension)
+        if GoodNotes.isGoodNotes(source) {
+            guard let notebook = try? GoodNotes.read(url: source), let data = try? GoodNotesRenderer.pdfData(notebook) else { return false }
+            let rendered = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+            defer { try? FileManager.default.removeItem(at: rendered) }
+            guard (try? data.write(to: rendered)) != nil else { return false }
+            return insertPDF(from: rendered)
+        }
         if type?.conforms(to: MaterialStore.docxType) == true || source.pathExtension.lowercased() == "docx" {
             guard let data = try? Data(contentsOf: source), let document = try? DocxReader.open(data) else { return false }
             let rendered = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")

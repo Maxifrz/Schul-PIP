@@ -28,6 +28,9 @@
                 <data android:mimeType="application/pdf" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <!-- GoodNotes notebooks (.goodnotes) come without a type of their own -->
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -36,6 +39,9 @@
                 <data android:mimeType="application/pdf" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <!-- GoodNotes notebooks (.goodnotes) come without a type of their own -->
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
             </intent-filter>
         </activity>
         <!-- The daily study plan reminder, renewed after a restart or an update. -->

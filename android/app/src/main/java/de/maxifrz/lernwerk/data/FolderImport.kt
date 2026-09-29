@@ -15,7 +15,7 @@ data class FolderImportResult(val imported: Int = 0, val skipped: List<String> =
  * `FolderImport.swift`.
  */
 object FolderImport {
-    val extensions = setOf("pdf", "docx", "png", "jpg", "jpeg", "heic", "heif", "webp", "gif", "tif", "tiff", "bmp")
+    val extensions = setOf("pdf", "docx", "goodnotes", "png", "jpg", "jpeg", "heic", "heif", "webp", "gif", "tif", "tiff", "bmp")
 
     /** Documents stored as folders; a folder named „Bio 11.2“ still has to count as a folder. */
     val packageExtensions = setOf("goodnotes", "note", "nbn", "pages", "key", "numbers", "app", "bundle", "rtfd")
@@ -103,7 +103,7 @@ object FolderImport {
         if (failed.isNotEmpty()) lines += "Nicht lesbar: " + list(failed)
         if (skipped.isNotEmpty()) lines += "Übersprungen: " + list(skipped)
         if (skipped.any { extension(it) == "goodnotes" }) {
-            lines += "GoodNotes-Dateien (.goodnotes) kann nur GoodNotes selbst lesen. Exportiere sie dort als PDF."
+            lines += "GoodNotes-Ordner lassen sich hier nicht lesen. Teile das Notizbuch in GoodNotes als GoodNotes-Datei (.goodnotes) und importiere diese."
         }
         return lines.joinToString("\n\n")
     }

@@ -17,7 +17,7 @@ struct FolderScan: Equatable {
 /// Importing a whole folder, like a GoodNotes export: every PDF, picture and Word file below it, with the
 /// subfolders recreated as library folders. Kept free of UIKit so it runs in the tests.
 enum FolderImport {
-    static let extensions: Set<String> = ["pdf", "docx", "png", "jpg", "jpeg", "heic", "heif", "webp", "gif", "tif", "tiff", "bmp"]
+    static let extensions: Set<String> = ["pdf", "docx", "goodnotes", "png", "jpg", "jpeg", "heic", "heif", "webp", "gif", "tif", "tiff", "bmp"]
 
     /// Documents stored as folders; a folder named „Bio 11.2“ still has to count as a folder.
     static let packageExtensions: Set<String> = ["goodnotes", "note", "nbn", "pages", "key", "numbers", "app", "bundle", "rtfd"]
@@ -58,7 +58,11 @@ enum FolderImport {
                 if isDirectory.boolValue {
                     // Packages such as `.goodnotes` documents look like folders but are one file to the user.
                     if isHidden(name) { continue }
-                    if packageExtensions.contains((name as NSString).pathExtension.lowercased()) {
+                    let kind = (name as NSString).pathExtension.lowercased()
+                    if kind == "goodnotes" {
+                        // An older GoodNotes notebook stored as a package: read like the ZIP file of newer versions.
+                        result.files.append(FolderImportEntry(location: url.path, folders: folders))
+                    } else if packageExtensions.contains(kind) {
                         result.skipped.append(name)
                     } else {
                         walk(url, folders + [name])
@@ -130,7 +134,7 @@ enum FolderImport {
             lines.append("Übersprungen: " + list(skipped))
         }
         if skipped.contains(where: { ($0 as NSString).pathExtension.lowercased() == "goodnotes" }) {
-            lines.append("GoodNotes-Dateien (.goodnotes) kann nur GoodNotes selbst lesen. Exportiere sie dort als PDF.")
+            lines.append("GoodNotes-Ordner lassen sich hier nicht lesen. Teile das Notizbuch in GoodNotes als GoodNotes-Datei (.goodnotes) und importiere diese.")
         }
         return lines.joined(separator: "\n\n")
     }

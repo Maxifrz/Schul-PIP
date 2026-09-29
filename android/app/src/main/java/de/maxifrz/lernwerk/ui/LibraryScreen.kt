@@ -154,7 +154,7 @@ fun LibraryScreen(app: AppState) {
         val target = folderId
         if (uri != null) runTreeImport { repository.importTree(uri, target) }
     }
-    val import = { importer.launch(arrayOf("application/pdf", "image/*", DOCX_MIME, "application/zip", "application/x-zip-compressed")) }
+    val import = { importer.launch(arrayOf("application/pdf", "image/*", DOCX_MIME, "application/zip", "application/x-zip-compressed", "application/octet-stream")) }
     val importFolder = { folderImporter.launch(null) }
     val loadDemo: () -> Unit = {
         scope.launch {

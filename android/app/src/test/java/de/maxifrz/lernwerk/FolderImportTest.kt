@@ -45,8 +45,9 @@ class FolderImportRulesTest {
     @Test
     fun archiveWithLooseFilesBecomesAFolderNamedAfterIt() {
         val scan = FolderImport.scanArchive(listOf("a.pdf", "Englisch/b.pdf", "c.goodnotes"), archiveName = "Notizen")
-        assertEquals(listOf(listOf("Notizen"), listOf("Notizen", "Englisch")), scan.files.map { it.folders })
-        assertEquals(listOf("c.goodnotes"), scan.skipped)
+        // GoodNotes notebooks are ZIP files of their own and come in as documents
+        assertEquals(listOf(listOf("Notizen"), listOf("Notizen"), listOf("Notizen", "Englisch")), scan.files.map { it.folders })
+        assertEquals(emptyList<String>(), scan.skipped)
     }
 
     @Test
@@ -74,7 +75,7 @@ class FolderImportRulesTest {
         assertNull(FolderImport.summary(3, emptyList(), emptyList()))
         val text = FolderImport.summary(1, listOf("Bio.goodnotes"), emptyList())!!
         assertTrue(text.contains("1 Dokument importiert"))
-        assertTrue(text.contains("als PDF"))
+        assertTrue(text.contains(".goodnotes"))
     }
 }
 

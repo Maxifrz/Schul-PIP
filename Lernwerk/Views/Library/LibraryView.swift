@@ -137,7 +137,7 @@ struct LibraryView: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: importMode == .folder ? [.folder] : [.pdf, .image, MaterialStore.docxType, .zip],
+            allowedContentTypes: importMode == .folder ? [.folder] : [.pdf, .image, MaterialStore.docxType, MaterialStore.goodNotesType, .zip],
             allowsMultipleSelection: true,
             onCompletion: handleImport
         )
@@ -751,7 +751,8 @@ struct LibraryView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case let .success(urls):
-            let folders = urls.filter { importMode == .folder || $0.hasDirectoryPath }
+            // A GoodNotes package looks like a folder but is one notebook.
+            let folders = urls.filter { importMode == .folder || ($0.hasDirectoryPath && !GoodNotes.isGoodNotes($0)) }
             let archives = urls.filter { !folders.contains($0) && $0.pathExtension.lowercased() == "zip" }
             for url in urls where !folders.contains(url) && !archives.contains(url) {
                 do {

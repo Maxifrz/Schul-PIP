@@ -101,6 +101,12 @@ class Repository(context: Context) {
         val extension = name?.substringAfterLast('.', "")?.lowercase()
         val isImage = type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
         val isDocx = type == DOCX_MIME || extension == "docx"
+        if (extension == "goodnotes") {
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
+            val pdf = runCatching { GoodNotesPdf.render(GoodNotes.read(bytes)) }
+                .getOrElse { throw IOException("Die GoodNotes-Datei lässt sich nicht lesen.") }
+            return@withContext savePdf(pdf, title, folderId)
+        }
         if (isDocx) {
             val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
             val pdf = runCatching { DocxRenderer.pdfData(DocxReader.open(bytes)) }
@@ -187,8 +193,10 @@ class Repository(context: Context) {
 
     fun isArchive(uri: Uri): Boolean {
         val type = resolver.getType(uri) ?: ""
-        return type == "application/zip" || type == "application/x-zip-compressed" ||
-            displayName(uri)?.substringAfterLast('.', "")?.lowercase() == "zip"
+        val extension = displayName(uri)?.substringAfterLast('.', "")?.lowercase()
+        // A GoodNotes notebook is a ZIP too, but one document.
+        if (extension == "goodnotes") return false
+        return type == "application/zip" || type == "application/x-zip-compressed" || extension == "zip"
     }
 
     /** Creates the folder tree below [parentId], then imports each file into its folder. */
@@ -251,6 +259,10 @@ class Repository(context: Context) {
         val extension = displayName(uri)?.substringAfterLast('.', "")?.lowercase()
         runCatching {
             when {
+                extension == "goodnotes" -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, GoodNotesPdf.render(GoodNotes.read(bytes)), afterIndex)
+                }
                 type == DOCX_MIME || extension == "docx" -> {
                     val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
                     insertPdfPages(material, DocxRenderer.pdfData(DocxReader.open(bytes)), afterIndex)

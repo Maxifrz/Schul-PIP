@@ -50,12 +50,13 @@ final class FolderImportTests: XCTestCase {
         XCTAssertEqual(scan.files[0].folders, ["GoodNotes Export", "Physik"])
     }
 
-    func testScanSkipsGoodNotesPackages() throws {
-        try touch("Chemie.goodnotes/index.pdf")
+    func testScanTakesGoodNotesPackagesAsOneDocument() throws {
+        try touch("Chemie.goodnotes/index.events.pb")
         try touch("Chemie.pdf")
+        try touch("Bio.pages/index.xml")
         let scan = FolderImport.scan(root)
-        XCTAssertEqual(scan.files.map { URL(fileURLWithPath: $0.location).lastPathComponent }, ["Chemie.pdf"])
-        XCTAssertEqual(scan.skipped, ["Chemie.goodnotes"])
+        XCTAssertEqual(scan.files.map { URL(fileURLWithPath: $0.location).lastPathComponent }, ["Chemie.goodnotes", "Chemie.pdf"])
+        XCTAssertEqual(scan.skipped, ["Bio.pages"])
     }
 
     func testArchiveWithOneFolderImportsThatFolder() {
@@ -72,8 +73,9 @@ final class FolderImportTests: XCTestCase {
 
     func testArchiveWithLooseFilesBecomesAFolderNamedAfterIt() {
         let scan = FolderImport.scanArchive(["a.pdf", "Englisch/b.pdf", "c.goodnotes"], archiveName: "Notizen")
-        XCTAssertEqual(scan.files.map(\.folders), [["Notizen"], ["Notizen", "Englisch"]])
-        XCTAssertEqual(scan.skipped, ["c.goodnotes"])
+        // GoodNotes notebooks are ZIP files of their own and come in as documents
+        XCTAssertEqual(scan.files.map(\.folders), [["Notizen"], ["Notizen"], ["Notizen", "Englisch"]])
+        XCTAssertEqual(scan.skipped, [])
     }
 
     func testFolderPathsListParentsFirstAndOnce() {
@@ -85,6 +87,6 @@ final class FolderImportTests: XCTestCase {
         XCTAssertNil(FolderImport.summary(imported: 3, skipped: [], failed: []))
         let text = FolderImport.summary(imported: 1, skipped: ["Bio.goodnotes"], failed: [])
         XCTAssertTrue(text?.contains("1 Dokument importiert") == true)
-        XCTAssertTrue(text?.contains("als PDF") == true)
+        XCTAssertTrue(text?.contains(".goodnotes") == true)
     }
 }

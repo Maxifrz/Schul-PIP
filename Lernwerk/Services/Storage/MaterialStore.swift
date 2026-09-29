@@ -38,8 +38,12 @@ enum MaterialStore {
     /// only once the system knows the extension, which a file shared from another app does not always guarantee.
     static let docxType = UTType("org.openxmlformats.wordprocessingml.document") ?? UTType(filenameExtension: "docx") ?? .data
 
+    /// GoodNotes notebooks, declared in the app's Info.plist; a ZIP file in GoodNotes 6, a package before.
+    static let goodNotesType = UTType("com.goodnotes.document") ?? UTType(filenameExtension: "goodnotes") ?? .data
+
     /// PDFs are copied as they are; images (photos of worksheets, screenshots) become a one-page PDF; Word
-    /// documents are read into a PDF with the same headings, paragraphs, lists, tables and pictures.
+    /// documents are read into a PDF with the same headings, paragraphs, lists, tables and pictures; GoodNotes
+    /// notebooks become a PDF with their backgrounds and handwriting.
     static func importFile(from source: URL) throws -> StudyMaterial {
         let stored = try store(from: source)
         return StudyMaterial(title: stored.title, fileName: stored.fileName)
@@ -53,6 +57,9 @@ enum MaterialStore {
         return try coordinatedRead(source) { url in
             let type = UTType(filenameExtension: url.pathExtension)
             let title = source.deletingPathExtension().lastPathComponent
+            if GoodNotes.isGoodNotes(url) {
+                return try store(pdfData: GoodNotesRenderer.pdfData(GoodNotes.read(url: url)), title: title)
+            }
             if type?.conforms(to: docxType) == true || url.pathExtension.lowercased() == "docx" {
                 let data = try Data(contentsOf: url)
                 let document = try DocxReader.open(data)
