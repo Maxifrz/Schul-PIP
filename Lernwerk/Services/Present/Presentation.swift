@@ -58,13 +58,15 @@ struct SlideElement: Codable, Equatable, Identifiable {
     var image: String?
     /// "heading" for titles, "body" for other text, empty to decide by size (older decks); see `SlideDesign`.
     var font = ""
+    /// How the element comes in while presenting; nil for none. Previews, thumbnails and exports show it in place.
+    var animation: ElementAnimation?
 
     init(
         id: String = UUID().uuidString, kind: ElementKind, x: Double, y: Double, width: Double, height: Double,
         rotation: Double = 0, text: String = "", fontSize: Double = 24, bold: Bool = false, italic: Bool = false,
         align: SlideTextAlign = .left, anchor: TextAnchor = .top, bullets: Bool = false, textColor: String = "text",
         shape: ShapeType = .rect, fill: String = "accent", stroke: String = "none", strokeWidth: Double = 0, image: String? = nil,
-        font: String = ""
+        font: String = "", animation: ElementAnimation? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -87,11 +89,12 @@ struct SlideElement: Codable, Equatable, Identifiable {
         self.strokeWidth = strokeWidth
         self.image = image
         self.font = font
+        self.animation = animation
     }
 
     enum CodingKeys: String, CodingKey {
         case id, kind, x, y, width, height, rotation, text, fontSize, bold, italic, align, anchor, bullets, textColor
-        case shape, fill, stroke, strokeWidth, image, font
+        case shape, fill, stroke, strokeWidth, image, font, animation
     }
 
     init(from decoder: Decoder) throws {
@@ -117,6 +120,8 @@ struct SlideElement: Codable, Equatable, Identifiable {
         strokeWidth = try c.decodeIfPresent(Double.self, forKey: .strokeWidth) ?? 0
         image = try c.decodeIfPresent(String.self, forKey: .image)
         font = try c.decodeIfPresent(String.self, forKey: .font) ?? ""
+        // Newer than the first decks: a value this version cannot read is dropped, not a reason to lose the deck.
+        animation = (try? c.decodeIfPresent(ElementAnimation.self, forKey: .animation)) ?? nil
     }
 
     var centerX: Double { x + width / 2 }
@@ -162,10 +167,12 @@ struct Slide: Codable, Equatable, Identifiable {
     var extractedText = ""
     /// "#RRGGBB", or empty for the theme's background.
     var background = ""
+    /// How the slide comes in while presenting; nil keeps the short cross-fade.
+    var transition: SlideTransition?
 
     init(
         id: String = UUID().uuidString, elements: [SlideElement] = [], notes: String = "", sources: [SourceRef] = [],
-        extractedText: String = "", background: String = ""
+        extractedText: String = "", background: String = "", transition: SlideTransition? = nil
     ) {
         self.id = id
         self.elements = elements
@@ -173,6 +180,7 @@ struct Slide: Codable, Equatable, Identifiable {
         self.sources = sources
         self.extractedText = extractedText
         self.background = background
+        self.transition = transition
     }
 
     init(from decoder: Decoder) throws {
@@ -183,6 +191,7 @@ struct Slide: Codable, Equatable, Identifiable {
         sources = try c.decodeIfPresent([SourceRef].self, forKey: .sources) ?? []
         extractedText = try c.decodeIfPresent(String.self, forKey: .extractedText) ?? ""
         background = try c.decodeIfPresent(String.self, forKey: .background) ?? ""
+        transition = (try? c.decodeIfPresent(SlideTransition.self, forKey: .transition)) ?? nil
     }
 
     func backgroundColor(_ theme: SlideTheme) -> UInt32 {

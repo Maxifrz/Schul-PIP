@@ -15,8 +15,9 @@ enum PptxWriter {
         var target: String
     }
 
-    /// `media` returns the bytes of an image file referenced by an element, or nil if it is missing.
-    static func write(_ presentation: Presentation, media: (String) -> Data?) -> Data {
+    /// `media` returns the bytes of an image file referenced by an element, or nil if it is missing. With
+    /// `includeMotion: false` transitions and animations are left out and the file is the same as for a deck without any.
+    static func write(_ presentation: Presentation, includeMotion: Bool = true, media: (String) -> Data?) -> Data {
         let theme = presentation.theme
         var files: [(String, Data)] = []
         func add(_ path: String, _ xml: String) { files.append((path, Data(xml.utf8))) }
@@ -50,7 +51,7 @@ enum PptxWriter {
                 Relation(id: "rId1", type: "\(rel)/notesMaster", target: "../notesMasters/notesMaster1.xml"),
                 Relation(id: "rId2", type: "\(rel)/slide", target: "../slides/slide\(number).xml"),
             ]))
-            slideXML.append(slideXMLString(slide, theme: theme, images: imageRelations, index: index))
+            slideXML.append(slideXMLString(slide, theme: theme, images: imageRelations, index: index, includeMotion: includeMotion))
         }
         for (index, xml) in slideXML.enumerated() { add("ppt/slides/slide\(index + 1).xml", xml) }
 
@@ -188,18 +189,24 @@ enum PptxWriter {
     }
 
     /// The design's decorations come first, as ordinary shapes behind the slide's own elements.
-    private static func slideXMLString(_ slide: Slide, theme: SlideTheme, images: [String: String], index slideIndex: Int) -> String {
+    private static func slideXMLString(_ slide: Slide, theme: SlideTheme, images: [String: String], index slideIndex: Int, includeMotion: Bool) -> String {
         var xml = head + "<p:sld \(ns)><p:cSld><p:bg><p:bgPr>\(solid(slide.backgroundColor(theme)))<a:effectLst/></p:bgPr></p:bg><p:spTree>\(emptyTree)"
-        for (index, element) in (SlideDesign.decor(theme, index: slideIndex) + slide.elements).enumerated() {
+        let decor = SlideDesign.decor(theme, index: slideIndex)
+        var shapeIDs: [String: Int] = [:]
+        for (index, element) in (decor + slide.elements).enumerated() {
             let id = index + 2
             switch element.kind {
             case .text: xml += textBox(element, id: id, theme: theme)
             case .shape: xml += shape(element, id: id, theme: theme)
             case .image:
-                if let name = element.image, let relation = images[name] { xml += picture(element, id: id, relation: relation) }
+                guard let name = element.image, let relation = images[name] else { continue }
+                xml += picture(element, id: id, relation: relation)
             }
+            if index >= decor.count { shapeIDs[element.id] = id }
         }
-        return xml + "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
+        xml += "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>"
+        if includeMotion { xml += PptxMotion.transition(slide) + PptxMotion.timing(slide, shapeIDs: shapeIDs) }
+        return xml + "</p:sld>"
     }
 
     /// Lines as Kotlin's lines(): an empty string is one empty line.
