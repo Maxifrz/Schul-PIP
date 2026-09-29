@@ -1,5 +1,6 @@
 // Sheets of the graphics: the look of one object, the coordinate system, the list of objects and exporting.
 
+import { SCRIPT_HELP } from '../script.js';
 import { h, sheet, toggle } from '../ui.js';
 import { PALETTE, styleOf, isVisible } from './scene.js';
 import { DEFAULT_SETTINGS } from './view.js';
@@ -73,7 +74,7 @@ export function styleSheet(object, onChange) {
     h('p.hint', {}, 'In geschweiften Klammern steht ein Wert, der sich mitbewegt: {a}, {2a+1}, bei Punkten {x} und {y}.'),
     h('div.field', {}, 'Spur', toggle([[false, 'aus'], [true, 'an']], style.trace, (v) => apply('trace', v))),
     text('Nur zeigen, wenn', 'condition', 'z. B. a > 0 oder zeige'),
-    h('div.actions', {}, h('button.pill.primary', { onclick: () => close() }, 'Fertig')),
+    h('div.actions', {}, h('button.pill', { onclick: () => { close(); scriptSheet(row, { onChange }); } }, 'Skript …'), h('button.pill.primary', { onclick: () => close() }, 'Fertig')),
   ]);
 }
 
@@ -192,5 +193,32 @@ export function exportSheet({ onShare, onInsert, canInsert }) {
       canInsert ? h('button', { onclick: () => { close(); onInsert(); } }, 'In ein Dokument einfügen', h('span', {}, 'als neue Seite')) : null,
     ),
     h('div.actions', {}, h('button.pill', { onclick: () => close() }, 'Schließen')),
+  ]);
+}
+
+/** The scripts of a row: on tap (or press, for a button) and on change */
+export function scriptSheet(row, { button = false, onChange } = {}) {
+  row.graph = row.graph || {};
+  const scripts = row.graph.scripts || {};
+  const area = (key, label, placeholder) => {
+    const input = h('textarea.script-input', { rows: 4, spellcheck: 'false', autocapitalize: 'off', placeholder });
+    input.value = scripts[key] || '';
+    return [h('div.field.stacked', {}, label, input), input];
+  };
+  const [clickRow, click] = area('click', button ? 'Beim Drücken' : 'Beim Antippen in der Grafik', 'z. B. a = a + 1');
+  const [changeRow, change] = button ? [null, null] : area('change', 'Wenn sich der Wert ändert', 'z. B. wenn a > 5 dann meldung Geschafft');
+  return sheet((close) => [
+    h('h2', {}, 'Skript'),
+    clickRow,
+    changeRow,
+    h('details.script-help', {}, h('summary', {}, 'Befehle'), h('div.list.compact', {}, ...SCRIPT_HELP.map(([code, text]) => h('div', {}, h('code', {}, code), h('span', {}, text))))),
+    h('div.actions', {}, h('button.pill', { onclick: () => close() }, 'Abbrechen'), h('button.pill.primary', { onclick: () => {
+      const next = { click: click.value.trim() };
+      if (change) next.change = change.value.trim();
+      row.graph.scripts = next;
+      if (!next.click && !next.change) delete row.graph.scripts;
+      close();
+      onChange && onChange();
+    } }, 'Speichern')),
   ]);
 }

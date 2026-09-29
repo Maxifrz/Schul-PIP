@@ -22,6 +22,8 @@ test('every example in the command catalog works', () => {
     if (!r.ok) failed.push(`${c.name}: ${c.example} → ${r.error}`);
   }
   assert.deepEqual(failed, []);
+  // Examples that define something (the program example) leave nothing behind for the next tests.
+  for (const d of engine.definitions) engine.forget(d.name);
 });
 
 test('German commands answer in school notation', () => {

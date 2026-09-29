@@ -28,7 +28,7 @@ export class ParseError extends Error {}
 
 // Plain text
 
-const PLAIN_TOKEN = /\s*(?:(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)|(<=|>=|!=|==|:=|->|[-+*/^()[\]{},;=<>!'|%.:]))/y;
+const PLAIN_TOKEN = /\s*(?:("[^"]*")|(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)|(<=|>=|!=|==|:=|->|[-+*/^()[\]{},;=<>!'|%.:]))/y;
 
 function tokenizePlain(text) {
   const tokens = [];
@@ -39,9 +39,10 @@ function tokenizePlain(text) {
     PLAIN_TOKEN.lastIndex = index;
     const match = PLAIN_TOKEN.exec(source);
     if (!match) throw new ParseError('Unbekanntes Zeichen: ' + source.slice(index, index + 1));
-    if (match[1] !== undefined) tokens.push({ k: 'num', v: match[1] });
-    else if (match[2] !== undefined) tokens.push({ k: 'id', v: match[2] });
-    else tokens.push({ k: 'op', v: match[3] });
+    if (match[1] !== undefined) tokens.push({ k: 'str', v: match[1].slice(1, -1) });
+    else if (match[2] !== undefined) tokens.push({ k: 'num', v: match[2] });
+    else if (match[3] !== undefined) tokens.push({ k: 'id', v: match[3] });
+    else tokens.push({ k: 'op', v: match[4] });
     index = PLAIN_TOKEN.lastIndex;
   }
   return tokens;
@@ -80,6 +81,13 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
       pos++;
       left = call(f, [left, relation()]);
     }
+    // x -> x^2, (x, y) -> x + y: a function without a name, as map and apply take it
+    if (is('->')) {
+      const params = left.t === 'sym' ? [left.v] : left.t === 'list' && left.items.every((i) => i.t === 'sym') ? left.items.map((i) => i.v) : null;
+      if (!params) throw new ParseError('Vor -> stehen die Variablen, z. B. x -> x^2.');
+      pos++;
+      return { t: 'lambda', params, body: logical() };
+    }
     return left;
   }
 
@@ -105,7 +113,7 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
     if (token && token.k === 'op' && ['=', '<', '>', '<=', '>=', '!=', '=='].includes(token.v)) {
       pos++;
       const right = additive();
-      left = { t: 'rel', op: token.v === '==' ? '=' : token.v, a: left, b: right };
+      left = { t: 'rel', op: token.v === '==' ? '=' : token.v, a: left, b: right, ...(token.v === '==' ? { test: true } : {}) };
       // E = 2x + y − z = 4 names the equation too
       if (token.v === '=' && left.a.t === 'sym' && (is('=') || is('<') || is('>') || is('<=') || is('>='))) {
         const second = peek().v;
@@ -217,6 +225,10 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
   function primary() {
     const token = peek();
     if (!token) throw new ParseError('Der Ausdruck ist unvollständig.');
+    if (token.k === 'str') {
+      pos++;
+      return { t: 'str', v: token.v };
+    }
     if (token.k === 'num') {
       pos++;
       return num(token.v.startsWith('.') ? '0' + token.v : token.v.replace(/\.$/, ''));
@@ -804,6 +816,10 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
   function primary() {
     const token = peek();
     if (!token) throw new ParseError('Der Ausdruck ist unvollständig.');
+    if (token.k === 'str') {
+      pos++;
+      return { t: 'str', v: token.v };
+    }
     if (token.k === 'num') {
       pos++;
       return num(token.v);
@@ -1039,7 +1055,8 @@ export function toGiac(node, rename = (name) => name) {
     case 'fact':
       return wrap(node.a, 10) + '!';
     case 'rel':
-      return g(node.a) + (node.op === '!=' ? '!=' : node.op) + g(node.b);
+      // a == b compares; so does = inside a function x -> …
+      return g(node.a) + (node.op === '=' && node.test ? '==' : node.op) + g(node.b);
     case 'list':
       if (node.point) return '[' + node.items.map(g).join(',') + ']';
       if (node.seq) return node.items.map(g).join(',');
@@ -1050,6 +1067,10 @@ export function toGiac(node, rename = (name) => name) {
       return g(node.inner);
     case 'unit':
       return g(node.a) + '_' + node.unit;
+    case 'lambda': {
+      const tests = (n) => (n && n.t === 'rel' && n.op === '=' ? { ...n, test: true } : n && n.t === 'call' && (n.f === 'and' || n.f === 'or') ? { ...n, args: n.args.map(tests) } : n);
+      return '(' + node.params.join(',') + ')->' + '(' + g(tests(node.body)) + ')';
+    }
     default:
       throw new ParseError('Unbekannter Knoten ' + node.t);
   }
@@ -1117,6 +1138,8 @@ export function toLatex(node, options = {}) {
       return symLatex(node.v);
     case 'str':
       return '\\text{' + node.v.replace(/[\\{}]/g, '') + '}';
+    case 'lambda':
+      return (node.params.length === 1 ? symLatex(node.params[0]) : paren(node.params.map(symLatex).join(';\\ '))) + '\\mapsto ' + L(node.body);
     case 'call': {
       const args = node.args;
       if (node.prime) return symLatex(node.f) + "'".repeat(node.prime) + (args.length ? paren(args.map(L).join(';\\ ')) : '');
@@ -1429,6 +1452,7 @@ export function symbols(node, bound = [], out = new Set()) {
   if (!node || typeof node !== 'object') return out;
   if (node.t === 'sym' && !bound.includes(node.v) && !['pi', 'e', 'i', 'inf', 'infinity', 'degree'].includes(node.v)) out.add(node.v);
   if (node.t === 'call' && !MATH_FUNCTIONS.has(node.f)) out.add(node.f);
+  if (node.t === 'lambda') return symbols(node.body, [...bound, ...node.params], out);
   for (const key of ['a', 'b', 'inner']) if (node[key]) symbols(node[key], bound, out);
   for (const key of ['args', 'items']) if (node[key]) node[key].forEach((n) => symbols(n, bound, out));
   return out;

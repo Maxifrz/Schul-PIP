@@ -71,6 +71,8 @@ export class Scene {
     this.points = new Map();
     /** name → { t, row, mode } for points on objects, which can be dragged along them */
     this.gliders = new Map();
+    /** row id → { label, row, name } for knopf(…) rows */
+    this.buttons = new Map();
     this.key = null;
     this.version = 0;
     this.scope = {
@@ -122,6 +124,7 @@ export class Scene {
     this.params = params;
     this.points = points;
     this.gliders = gliders;
+    this.buttons = new Map(entries.filter((e) => e.type === 'button').map((e) => [e.row.id, { label: e.label, row: e.row, name: e.name }]));
 
     if (key === this.key) {
       // Same objects; rows may be new objects after a reload, so point at the current ones.
@@ -147,7 +150,7 @@ export class Scene {
     })));
     const objects = [];
     entries.forEach((entry, index) => {
-      if (entry.type === 'slider' || entry.type === 'checkbox') return;
+      if (entry.type === 'slider' || entry.type === 'checkbox' || entry.type === 'button') return;
       let object;
       try {
         object = this.compileEntry(entry, answers[index]);
@@ -389,6 +392,13 @@ export class Scene {
 /** What a row is in the graphics, and what Giac has to work out for it. */
 export function classify(row, engine) {
   const r = row.result;
+  // knopf("Text"): a button, no object
+  const knopf = (node) => node && node.t === 'call' && command(node.f)?.name === 'knopf';
+  if (r && r.ok && (knopf(r.tree) || (r.definition && knopf(r.definition.body)))) {
+    const call = knopf(r.tree) ? r.tree : r.definition.body;
+    const label = call.args[0] && call.args[0].t === 'str' ? call.args[0].v : call.args[0] && call.args[0].t === 'sym' ? call.args[0].v : 'Knopf';
+    return { row, type: 'button', label, name: r.definition ? r.definition.name : null, requests: [] };
+  }
   if (r && r.ok && r.kind === 'analysis' && r.chart && r.tree) {
     // A chart: numbers and lists come from Giac with sliders left free, words (binomial, links …) stay as typed.
     const layout = [];
@@ -444,6 +454,8 @@ export function classify(row, engine) {
   if (r.kind === 'definition' && r.definition) {
     const d = r.definition;
     if (d.kind === 'function') {
+      // Programs run for numbers; they have no formula to draw.
+      if (d.program) return null;
       if (d.params.length === 2) {
         const call = `${d.name}(x,y)`;
         return { row, name: d.name, label: d.name, type: 'surface', requests: [call] };

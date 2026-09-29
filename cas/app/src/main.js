@@ -13,7 +13,8 @@ import { nextName } from './graph/tools.js';
 import { Scene, styleOf, isVisible } from './graph/scene.js';
 import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
 import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
-import { styleSheet, settingsSheet, objectsSheet, exportSheet } from './graph/sheets.js';
+import { styleSheet, settingsSheet, objectsSheet, exportSheet, scriptSheet } from './graph/sheets.js';
+import { runScript } from './script.js';
 import { SpaceView, DEFAULT_SETTINGS_3D } from './graph/view3d.js';
 import { TableView } from './table-view.js';
 
@@ -122,12 +123,145 @@ function refreshScene() {
     sceneTimer = null;
     state.scene.update(state.cas.rows, state.engine);
     fitNewCharts();
+    setTimeout(runChangeScripts, 0);
+    emit('change', { rows: state.cas.rows.length });
     decorateRows();
     renderStrip();
     state.graph.special = state.graph.selected ? state.graph.computeSpecial() : [];
     state.graph.redraw();
     state.space.redraw();
   }, 0);
+}
+
+// Scripts: what tapping an object, pressing a button or a changed value sets off
+
+const scripting = { running: false, signatures: new Map() };
+
+function rowOf(name) {
+  return state.cas.rows.find((r) => r.result && r.result.ok && r.result.assigns === name) || null;
+}
+
+function scriptValue(expr) {
+  const text = String(expr).replace(/\bund\b/gi, ' and ').replace(/\boder\b/gi, ' or ').replace(/\bnicht\b/gi, ' not ').replace(/,/g, '.');
+  const giac = state.engine.giac(state.engine.parse({ text }));
+  const answer = window.CAS.raw(`evalf(${giac})`);
+  if (answer.error) throw new Error(answer.error);
+  if (answer.value === 'true') return 1;
+  if (answer.value === 'false') return 0;
+  const n = Number(answer.value);
+  if (!Number.isFinite(n)) throw new Error(`„${expr}“ ergibt keine Zahl.`);
+  return n;
+}
+
+const scriptApi = {
+  value: scriptValue,
+  test: (expr) => scriptValue(expr) !== 0,
+  set(name, expr) {
+    const value = scriptValue(expr);
+    const row = rowOf(name);
+    if (!row) {
+      state.cas.append({ mode: 'text', text: `${name}=${numberText(value)}` });
+      return;
+    }
+    const param = state.scene.params.get(name);
+    if (param) param.value = value;
+    writeParam(row, name, value);
+    state.cas.recalculate(state.cas.rows.indexOf(row));
+  },
+  point(name, x, y) {
+    const row = rowOf(name);
+    if (!row) {
+      state.cas.append({ mode: 'text', text: `${name}(${numberText(x)}|${numberText(y)})` });
+      return;
+    }
+    writePoint(row, name, x, y);
+    state.cas.recalculate(state.cas.rows.indexOf(row));
+  },
+  visible(name, show) {
+    const object = state.scene.objects.find((o) => o.name === name);
+    if (!object) throw new Error(`Es gibt kein Objekt ${name}.`);
+    object.row.graph = object.row.graph || {};
+    object.row.graph.visible = show;
+    decorateRows();
+    state.graph.redraw();
+    state.space.redraw();
+  },
+  create(text) {
+    const row = state.cas.append({ mode: 'text', text });
+    if (row.result && !row.result.ok) throw new Error(row.result.error);
+  },
+  remove(name) {
+    const row = rowOf(name);
+    if (!row) throw new Error(`Es gibt keine Zeile für ${name}.`);
+    state.cas.removeRow(row);
+  },
+  animate(name, play) {
+    const names = name ? [name] : [...state.scene.params.entries()].filter(([, p]) => p.kind === 'slider').map(([n]) => n);
+    for (const n of names) {
+      if (!state.scene.params.get(n)) throw new Error(`${n} ist kein Schieberegler.`);
+      if (play) state.animator.play(n);
+      else state.animator.pause(n);
+    }
+    updatePlayAll();
+  },
+  reset() {
+    state.animator.reset();
+  },
+  message: (text) => toast(text),
+};
+
+/** Runs one of a row's scripts; changes made by it do not set off change scripts again. */
+function runRowScript(row, kind) {
+  const text = row.graph && row.graph.scripts && row.graph.scripts[kind];
+  if (!text || !state.engine || scripting.running) return;
+  scripting.running = true;
+  try {
+    const failed = runScript(text, scriptApi);
+    if (failed.length) toast(`Skript, Zeile ${failed[0].line}: ${failed[0].error}`);
+  } finally {
+    scripting.running = false;
+    changed();
+  }
+  // What the script changed can set off change scripts in turn.
+  setTimeout(runChangeScripts, 0);
+}
+
+function signatureOf(row) {
+  const r = row.result;
+  return r && r.ok ? (r.latex || '') + '|' + (r.approxLatex || '') : 'error';
+}
+
+/** Change scripts of rows whose value is new since the last look */
+function runChangeScripts() {
+  if (scripting.running || !state.engine) return;
+  const due = [];
+  for (const row of state.cas.rows) {
+    if (!(row.graph && row.graph.scripts && row.graph.scripts.change)) continue;
+    const now = signatureOf(row);
+    const before = scripting.signatures.get(row.id);
+    scripting.signatures.set(row.id, now);
+    if (before !== undefined && before !== now) due.push(row);
+  }
+  // Scripts that keep changing each other stop after a few rounds a second.
+  const now = Date.now();
+  if (!scripting.window || now - scripting.window > 1000) {
+    scripting.window = now;
+    scripting.budget = 30;
+  }
+  for (const row of due) {
+    if (scripting.budget-- <= 0) {
+      toast('Skripte ändern sich gegenseitig immer wieder; sie wurden angehalten.');
+      return;
+    }
+    runRowScript(row, 'change');
+  }
+}
+
+function buttonControl(button) {
+  const el = h('div.knopf', {},
+    h('button.pill.primary', { onclick: () => runRowScript(button.row, 'click') }, button.label),
+    h('button.gear', { 'aria-label': 'Skript des Knopfs', onclick: () => scriptSheet(button.row, { button: true, onChange: changed }) }, '⋯'));
+  return el;
 }
 
 /** A chart typed just now fills the graphics; charts that were there when the project opened keep its view. */
@@ -171,10 +305,12 @@ function decorateRows() {
       row.dotEl.hidden = true;
       row.styleButton.hidden = true;
     }
-    const wanted = param ? param.kind + ':' + param.name : '';
+    const button = scene.buttons.get(row.id);
+    const wanted = button ? 'knopf:' + button.label : param ? param.kind + ':' + param.name : '';
     if (row.extraEl.dataset.control !== wanted) {
       row.extraEl.dataset.control = wanted;
-      if (!param) row.extraEl.replaceChildren();
+      if (button) row.extraEl.replaceChildren(buttonControl(button));
+      else if (!param) row.extraEl.replaceChildren();
       else if (param.kind === 'slider') row.extraEl.replaceChildren(sliderControl(param.name, state.animator, { onSettings: openSliderSheet }));
       else row.extraEl.replaceChildren(checkboxControl(param.name, state.animator));
     }
@@ -576,10 +712,14 @@ const stripEl = h('div.strip');
 /** Sliders and checkboxes under the graphics, for working without the CAS in view. */
 function renderStrip() {
   const names = [...state.scene.params.entries()];
-  const key = names.map(([name, p]) => p.kind + name).join(',');
+  const buttons = [...state.scene.buttons.values()];
+  const key = names.map(([name, p]) => p.kind + name).join(',') + buttons.map((b) => 'knopf' + b.row.id + b.label).join(',');
   if (stripEl.dataset.key !== key) {
     stripEl.dataset.key = key;
-    stripEl.replaceChildren(...names.map(([name, p]) => (p.kind === 'slider' ? sliderControl(name, state.animator, { onSettings: openSliderSheet, compact: true }) : checkboxControl(name, state.animator))));
+    stripEl.replaceChildren(
+      ...names.map(([name, p]) => (p.kind === 'slider' ? sliderControl(name, state.animator, { onSettings: openSliderSheet, compact: true }) : checkboxControl(name, state.animator))),
+      ...buttons.map(buttonControl),
+    );
   }
   updatePlayAll();
 }
@@ -642,6 +782,7 @@ function start() {
     onViewChange: changed,
     onSelect: (row) => {
       if (row && state.layout !== 'graph') state.cas.reveal(row);
+      if (row) runRowScript(row, 'click');
     },
     onCreatePoint: createPoint,
     onConstruct: construct,
@@ -739,7 +880,88 @@ function giacReady() {
   state.cas.recalculate(0);
 }
 
+// The calculator for other code: a JavaScript API (window.Mathe.api) and the same calls by postMessage, so a web
+// page that embeds mathe.html in an iframe can drive it and listen to it.
+const listeners = new Map();
+
+function emit(event, data) {
+  for (const fn of listeners.get(event) || []) {
+    try {
+      fn(data);
+    } catch (e) {
+      // a listener's own error stays with the listener
+    }
+  }
+  if (window.parent && window.parent !== window) window.parent.postMessage({ source: 'mathe', event, data }, '*');
+}
+
+const api = {
+  /** Calculates a line without adding it: { ok, latex, error } */
+  evaluate(text) {
+    if (!state.engine) return { ok: false, error: 'Der Rechenkern lädt noch.' };
+    const r = state.engine.evaluate({ text: String(text) });
+    return { ok: r.ok, latex: r.latex || null, approx: r.approxLatex || null, error: r.error || null };
+  },
+  /** Adds a row as if typed; returns its result */
+  addRow(text) {
+    const row = state.cas.append({ mode: 'text', text: String(text) });
+    changed();
+    return row.result ? { ok: row.result.ok, latex: row.result.latex || null, error: row.result.error || null } : null;
+  },
+  /** The number a name or term has now */
+  getValue(expr) {
+    return scriptValue(expr);
+  },
+  setValue(name, value) {
+    scriptApi.set(name, String(value));
+    changed();
+  },
+  /** Every object: name, type, visible, and for points their coordinates */
+  objects() {
+    return state.scene.objects.map((o) => ({ name: o.name, type: o.type, visible: isVisible(o), at: o.type === 'point' ? o.at() : undefined }));
+  },
+  rows() {
+    return state.cas.rows.filter((r) => !state.cas.isEmpty(r)).map((r) => ({ input: r.mode === 'text' ? r.text : r.latex, ok: r.result ? r.result.ok : null, latex: r.result && r.result.latex, error: r.result && r.result.error }));
+  },
+  cell(ref) {
+    return state.table.sheet.display(String(ref).toUpperCase());
+  },
+  setCell(ref, raw) {
+    state.table.sheet.set(String(ref).toUpperCase(), raw);
+    tableChanged();
+  },
+  runScript(text) {
+    const failed = runScript(text, scriptApi);
+    changed();
+    return failed;
+  },
+  /** The graphics as a PNG data URL */
+  png() {
+    return state.graph.png(2);
+  },
+  /** on('change', fn): fn({ rows }) after every calculation; returns a function that stops listening */
+  on(event, fn) {
+    if (!listeners.has(event)) listeners.set(event, new Set());
+    listeners.get(event).add(fn);
+    return () => listeners.get(event).delete(fn);
+  },
+};
+
+window.addEventListener('message', (e) => {
+  const message = e.data;
+  if (!message || message.target !== 'mathe' || typeof api[message.call] !== 'function' || message.call === 'on') return;
+  let result;
+  let error = null;
+  try {
+    result = api[message.call](...(message.args || []));
+  } catch (err) {
+    error = err.message || String(err);
+  }
+  if (e.source) e.source.postMessage({ source: 'mathe', id: message.id, result, error }, '*');
+});
+
 window.Mathe = {
+  api,
   giacReady,
   reply,
   setTheme(theme) {

@@ -701,6 +701,12 @@ var CAS = (function () {
       var error = errorOf(result);
       return { value: error ? null : unquote(result.value), error: error };
     },
+    /** Giac text run as it is (programs, assignments), with what it printed. */
+    exec: function (command) {
+      var result = run(command);
+      var error = errorOf(result);
+      return { value: error ? null : unquote(result.value), error: error, output: result.output };
+    },
     forgetAssumptions: forgetAssumptions,
     get ready() { return caseval !== null; },
   };

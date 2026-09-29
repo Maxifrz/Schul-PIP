@@ -7,6 +7,7 @@ import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
 import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
 import { STAT_COMMANDS, isWord } from './statcommands.js';
 import { newSeed } from './stats.js';
+import { isProgram, translateProgram, mapCommandCalls } from './program.js';
 
 /** Letters that stay unknowns: "x = 3" is an equation, not a definition. */
 const UNKNOWNS = new Set(['x', 'y', 'z', 't', 'n', 'k', 's']);
@@ -65,7 +66,7 @@ export class Engine {
       // A_1 from the formula editor is the cell A1 when the table has it
       if (n.t === 'sym' && this.sheet && /^[A-Z]_\d+$/.test(n.v) && this.sheet.assigned.has(n.v.replace('_', ''))) return { ...n, v: n.v.replace('_', '') };
       const copy = { ...n };
-      for (const key of ['a', 'b', 'inner']) if (copy[key]) copy[key] = transform(copy[key]);
+      for (const key of ['a', 'b', 'inner', 'body']) if (copy[key]) copy[key] = transform(copy[key]);
       for (const key of ['args', 'items']) if (copy[key]) copy[key] = copy[key].map(transform);
       return copy;
     };
@@ -126,6 +127,7 @@ export class Engine {
    * `kind` is 'value', 'definition', 'solutions', 'analysis' or 'boolean'.
    */
   evaluate(input) {
+    if (input.text !== undefined && isProgram(input.text)) return this.program(input);
     let tree;
     try {
       tree = this.parse(input);
@@ -172,6 +174,8 @@ export class Engine {
     }
     const answer = this.cas.evaluate(giac);
     if (!answer.ok) return { ok: false, error: answer.error, giac };
+    // A program that printed something: the lines come with the result
+    const printed = this.usesProgram(tree) ? this.printed(giac) : null;
 
     if (definition) {
       this.defined.delete(definition.name);
@@ -223,7 +227,60 @@ export class Engine {
     if (tree.t === 'call' && ['vektor', 'kurve'].includes(command(tree.f)?.name)) {
       return { ok: true, kind: 'value', tree, latex: this.formatVector(answer.exact), approxLatex: null, giac };
     }
-    return { ok: true, kind: 'value', tree, latex: this.format(answer.exact), approxLatex: this.approx(answer), giac };
+    return { ok: true, kind: 'value', tree, latex: this.format(answer.exact), approxLatex: this.approx(answer), giac, printed };
+  }
+
+  usesProgram(tree) {
+    let found = false;
+    const walk = (n) => {
+      if (!n || typeof n !== 'object' || found) return;
+      if (n.t === 'call' && this.defined.get(n.f)?.program) found = true;
+      for (const key of ['a', 'b', 'inner', 'body']) if (n[key]) walk(n[key]);
+      for (const key of ['args', 'items']) if (n[key]) n[key].forEach(walk);
+    };
+    walk(tree);
+    return found;
+  }
+
+  /** What `ausgabe` printed while running the call again */
+  printed(giac) {
+    const run = this.cas.exec(giac);
+    const lines = (run.output || []).map((l) => String(l).trim()).filter((l) => l && !/^(Evaluation time|Warning|\/\/ )/i.test(l));
+    return lines.length ? lines.slice(0, 50).map((l) => this.format(l)) : null;
+  }
+
+  /** Giac text with the German commands inside translated, for programs */
+  mapCalls(text) {
+    return mapCommandCalls(text, (name, args) => {
+      const found = command(name);
+      if (!found || this.defined.has(name) || STAT_COMMANDS[found.name] || found.graphic) return null;
+      return giacCall(name, args);
+    });
+  }
+
+  /** A program in German blocks or Giac braces: defined in Giac, remembered like a function */
+  program(input) {
+    let translated;
+    try {
+      translated = translateProgram(input.text, (t) => this.mapCalls(t));
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+    const { name, params, giac } = translated;
+    if (command(name) || MATH_FUNCTIONS.has(name)) return { ok: false, error: `„${name}“ ist schon ein Befehl; bitte einen anderen Namen wählen.` };
+    const answer = this.cas.exec(giac);
+    if (answer.error) return { ok: false, error: answer.error, giac };
+    this.defined.delete(name);
+    this.defined.set(name, { kind: 'function', params, input: inputText(input), giac, program: true });
+    const head = toLatex(parsePlain(`${name}(${params.join(',') || 'x'})`)).replace(/\\left\(x\\right\)$/, params.length ? '$&' : '\\left(\\right)');
+    return {
+      ok: true,
+      kind: 'definition',
+      assigns: name,
+      definition: { name, kind: 'function', params, body: null, program: true },
+      latex: head + '\\text{ ist als Programm definiert}',
+      giac,
+    };
   }
 
   /** What the statistics commands read their arguments with */

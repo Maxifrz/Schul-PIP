@@ -1,6 +1,8 @@
 // The CAS view: numbered rows with a formula editor each, the exact answer and its decimal value below. Enter
 // calculates; a changed definition recalculates every row after it.
 
+import { isProgram, openBlocks, KEYWORDS } from './program.js';
+import { COMMAND_NAMES } from './commands.js';
 import { convertLatexToMarkup } from 'mathlive';
 import { h, toast } from './ui.js';
 import { commandTemplate } from './keyboard.js';
@@ -89,25 +91,66 @@ export class CasView {
   buildInput(row) {
     row.inputEl.replaceChildren();
     if (row.mode === 'text') {
-      const area = h('textarea.text-input', { rows: 1, spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', placeholder: 'Text eingeben, z. B. löse(x^2=4, x)' });
+      const area = h('textarea.text-input', { rows: 1, spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', placeholder: 'Text eingeben, z. B. löse(x^2=4, x) oder programm f(n)' });
+      // Coloured words behind the transparent text: keywords, commands, numbers, comments
+      const shade = h('pre.code-shade', { 'aria-hidden': 'true' });
+      const paint = () => {
+        shade.innerHTML = highlight(area.value) + '\n';
+        area.style.height = 'auto';
+        area.style.height = area.scrollHeight + 'px';
+      };
       area.value = row.text;
       area.addEventListener('focus', () => this.activate(row));
       area.addEventListener('input', () => {
         row.text = area.value;
-        area.style.height = 'auto';
-        area.style.height = area.scrollHeight + 'px';
+        paint();
+      });
+      area.addEventListener('scroll', () => {
+        shade.scrollTop = area.scrollTop;
       });
       area.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
+          // In a program, Enter starts the next line until every block has its „ende“.
+          const before = area.value.slice(0, area.selectionStart);
+          if (isProgram(area.value) && openBlocks(before) > 0) {
+            e.preventDefault();
+            const line = before.split('\n').pop();
+            let indent = /^\s*/.exec(line)[0];
+            if (/^\s*(programm|funktion|wenn\b.*\bdann\s*$|sonst|solange|f(ü|ue)r|wiederhole)/i.test(line) || /:=\s*programm\s*$/i.test(line)) indent += '  ';
+            area.setRangeText('\n' + indent, area.selectionStart, area.selectionEnd, 'end');
+            row.text = area.value;
+            paint();
+            return;
+          }
           e.preventDefault();
           this.submit(row);
+        } else if (e.key === 'Tab' && isProgram(area.value)) {
+          e.preventDefault();
+          area.setRangeText('  ', area.selectionStart, area.selectionEnd, 'end');
+          row.text = area.value;
+          paint();
+        }
+      });
+      // „ende“ typed on an indented line moves back one step
+      area.addEventListener('keyup', (e) => {
+        if (e.key !== 'e' && e.key !== 'E') return;
+        const start = area.value.lastIndexOf('\n', area.selectionStart - 1) + 1;
+        const line = area.value.slice(start, area.selectionStart);
+        const m = /^(\s+)(ende|sonst)$/i.exec(line);
+        if (m && m[1].length >= 2) {
+          area.setRangeText(line.slice(2), start, area.selectionStart, 'end');
+          row.text = area.value;
+          paint();
         }
       });
       row.field = area;
-      row.inputEl.append(area);
+      row.repaint = paint;
+      row.inputEl.append(h('div.code', {}, shade, area));
+      requestAnimationFrame(paint);
       return;
     }
     const field = document.createElement('math-field');
+    row.repaint = null;
     row.inputEl.append(field);
     field.mathVirtualKeyboardPolicy = 'manual';
     field.smartFence = true;
@@ -238,6 +281,7 @@ export class CasView {
     if (content.latex !== undefined) row.latex = content.latex;
     if (content.text !== undefined) row.text = content.text;
     if (row.field) row.field.value = row.mode === 'text' ? row.text : row.latex;
+    if (row.repaint) row.repaint();
   }
 
   calculate(row) {
@@ -286,6 +330,7 @@ export class CasView {
       return;
     }
     row.outputEl.replaceChildren(...[
+      r.printed ? h('div.printed', {}, h('div.label', {}, 'Ausgabe'), ...r.printed.map((line) => h('div', {}, math(line)))) : null,
       h('div', {}, h('span.arrow', {}, '→'), math(r.latex)),
       r.approxLatex ? h('div.approx', {}, math('\\approx ' + r.approxLatex.replace(/^L=/, 'L\\approx'))) : null,
     ].filter(Boolean));
@@ -351,6 +396,7 @@ export class CasView {
     }
     row.text = text;
     row.field.value = text;
+    if (row.repaint) row.repaint();
     this.submit(row);
   }
 
@@ -372,4 +418,27 @@ export class CasView {
     this.recalculate(0);
     this.addRow();
   }
+}
+
+const CODE_WORDS = new Set([...KEYWORDS, 'if', 'else', 'for', 'while', 'return', 'local', 'print', 'break', 'continue', 'and', 'or', 'not']);
+const COMMAND_SET = new Set(COMMAND_NAMES);
+
+/** The text of a row as HTML with its words coloured */
+export function highlight(text) {
+  const escape = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(text).split('\n').map((line) => {
+    const comment = /(#|\/\/).*$/.exec(line);
+    const code = comment ? line.slice(0, comment.index) : line;
+    const body = code.replace(/([A-Za-zÄÖÜäöüß_][\wÄÖÜäöüß]*)|(\d+(?:[.,]\d+)?)|([^A-Za-zÄÖÜäöüß_\d]+)/g, (all, word, number, other) => {
+      if (word) {
+        const lower = word.toLowerCase();
+        if (CODE_WORDS.has(lower)) return `<span class="kw">${escape(word)}</span>`;
+        if (COMMAND_SET.has(lower)) return `<span class="cmd">${escape(word)}</span>`;
+        return escape(word);
+      }
+      if (number) return `<span class="num">${escape(number)}</span>`;
+      return escape(other);
+    });
+    return body + (comment ? `<span class="com">${escape(comment[0])}</span>` : '');
+  }).join('\n');
 }

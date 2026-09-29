@@ -218,6 +218,14 @@ export const COMMANDS = [
 
   { name: 'zellen', aliases: ['bereich'], cat: 'Tabelle', syntax: 'zellen(A1, A10) oder zellen(A1, C5)', text: 'Die Werte eines Tabellenbereichs: eine Spalte oder Zeile als Liste, mehrere als Matrix. Einzelne Zellen heißen im CAS einfach A1, B2 …', example: 'zellen(A1, A3)', noExample: true },
 
+  // Programme
+  { name: 'programm', aliases: ['funktion'], cat: 'Programme', syntax: 'programm name(Parameter) … ende', text: 'Ein eigener Befehl aus mehreren Zeilen (Umschalt+Eingabe oder Eingabe bis zum letzten „ende“): wenn … dann / sonst / ende, solange … ende, für k von 1 bis n … ende, wiederhole n mal … ende, zurück Wert, ausgabe Wert, lokal a, b. Rekursion ist erlaubt. Giacs Schreibweise f(n):={ … } geht auch.', example: 'programm fak(n)\n  wenn n <= 1 dann\n    zurück 1\n  ende\n  zurück n * fak(n - 1)\nende' },
+  { name: 'anwenden', aliases: ['map'], cat: 'Programme', syntax: 'anwenden(Liste, x -> Term)', text: 'Wendet eine Funktion auf jedes Element einer Liste an.', example: 'anwenden([1, 2, 3, 4], x -> x^2)', giac: (a) => `map(${a[0]},${a[1]})` },
+  { name: 'auswählen', aliases: ['auswaehlen', 'filter', 'select'], cat: 'Programme', syntax: 'auswählen(Liste, x -> Bedingung)', text: 'Die Elemente einer Liste, für die die Bedingung gilt.', example: 'auswählen([1, 2, 3, 4, 5, 6], x -> irem(x, 2) == 0)', giac: (a) => `select(${a[1]},${a[0]})` },
+  { name: 'folge', aliases: ['seq', 'liste'], cat: 'Programme', syntax: 'folge(Term, k, a, b) oder folge(Term, k, a, b, Schritt)', text: 'Die Liste der Werte des Terms für k = a, …, b.', example: 'folge(k^2, k, 1, 6)', giac: (a) => `seq(${a.join(',')})` },
+
+  { name: 'knopf', aliases: ['schaltfläche', 'button'], cat: 'Programme', syntax: 'knopf("Beschriftung")', text: 'Ein Knopf unter der Grafik und in der Zeile. Sein Skript (⋯ am Knopf) läuft bei jedem Druck: Regler setzen, Objekte erzeugen, zeigen oder löschen, Animationen starten, Meldungen.', example: 'knopf("Würfeln")', giac: (a) => a[0] || '"Knopf"' },
+
   // Diagramme: they draw in the graphics and list their values in the CAS.
   { name: 'boxplot', aliases: ['kastenschaubild'], cat: 'Diagramme', syntax: 'boxplot(Liste) oder boxplot(Liste, Höhe)', text: 'Boxplot mit Minimum, Quartilen, Median und Maximum (auf Höhe 1 oder der angegebenen).', example: 'boxplot([2, 3, 5, 7, 8, 9, 12, 15])' },
   { name: 'histogramm', cat: 'Diagramme', syntax: 'histogramm(Liste, Klassenbreite) oder histogramm(Liste, Breite, Start)', text: 'Histogramm mit gleich breiten Klassen [a; a + Breite[.', example: 'histogramm([1.2, 1.5, 2.1, 2.2, 2.8, 3.4, 3.5, 4.1], 1)' },
