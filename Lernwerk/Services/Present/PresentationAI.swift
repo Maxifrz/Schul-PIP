@@ -618,7 +618,7 @@ struct PresentationAssistant {
         let deck = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseDeck) { !$0.slides.isEmpty }
         var slides: [Slide] = []
         let drafts = PresentationPrompt.citingSources(deck.slides, sources: sources, materialTitles: materialTitles, date: today)
-        for draft in drafts {
+        for draft in LayoutAdvisor.split(drafts) {
             var image: PlacedImage?
             if draft.layout == .imageText || draft.layout == .imageFull, let page = draft.imagePage {
                 let index = draft.imageMaterial ?? draft.sourceMaterial ?? 0
@@ -635,12 +635,13 @@ struct PresentationAssistant {
         let title = !deck.title.isBlank ? deck.title : (!outline.title.isBlank ? outline.title : (topic.isBlank ? "Präsentation" : topic))
         let theme = chooseDesign ? SlideDesign.resolve(outline.design, fallback: [topic, outline.title, outline.thesis].joined(separator: " ")) : themeID
         var presentation = Presentation(title: title, themeId: theme, slides: slides, materialIds: materialIDs, minutes: minutes)
+        presentation = SlideAutoFit.fit(presentation)
         if review {
             onStage(.review)
             // The critic improves the draft before the student sees it; a failed review keeps the draft.
             let material = Array(prepared.dropLast()) + (sources.isEmpty ? [] : [LLMContent.text(Research.prompt(sources))])
             if let critique = try? await PresentationCritic(client: client).critique(presentation, material: material) {
-                presentation = autoApply(presentation, critique)
+                presentation = SlideAutoFit.fit(autoApply(presentation, critique))
             }
         }
         return presentation

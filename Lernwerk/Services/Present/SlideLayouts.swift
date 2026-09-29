@@ -100,6 +100,9 @@ enum SlideLayouts {
     private static let contentWidth = SlideSize.width - 2 * margin
     private static let contentTop: Double = 150
     private static let contentBottom: Double = 490
+    /// The box of a single-column bullet list and of one column of TWO_COLUMNS, for `LayoutAdvisor`.
+    static let bulletsBox = (width: contentWidth, height: contentBottom - contentTop)
+    static let columnBox = (width: 390.0, height: 290.0)
 
     /// Falls back to a layout the content can fill: picture layouts need a picture, charts need numbers, grids need
     /// at least two entries. Models get this wrong often enough that every path goes through here. Editor presets
@@ -193,11 +196,11 @@ enum SlideLayouts {
             if !draft.leftTitle.isBlank {
                 elements.append(text(draft.leftTitle, margin, contentTop, 390, 40, fitSize(draft.leftTitle, 390, 40, 24, 16, bold: true), bold: true, color: "accent"))
             }
-            elements.append(bulletBox(draft.left, margin, 200, 390, 290, 22))
+            elements.append(bulletBox(draft.left, margin, 200, columnBox.width, columnBox.height, 22))
             if !draft.rightTitle.isBlank {
                 elements.append(text(draft.rightTitle, 506, contentTop, 390, 40, fitSize(draft.rightTitle, 390, 40, 24, 16, bold: true), bold: true, color: "accent"))
             }
-            elements.append(bulletBox(draft.right, 506, 200, 390, 290, 22))
+            elements.append(bulletBox(draft.right, 506, 200, columnBox.width, columnBox.height, 22))
         case .cards:
             elements = heading(draft.title) + cards(Array(draft.items.prefix(4)))
         case .process:
