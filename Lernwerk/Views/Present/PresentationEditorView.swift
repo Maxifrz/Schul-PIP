@@ -66,8 +66,9 @@ struct PresentationEditorView: View {
                     } label: { menuLabel("KI") }
                     .disabled(busy != nil)
                     Menu {
-                        Button("PowerPoint (.pptx)") { export(pptx: true) }
-                        Button("PDF") { export(pptx: false) }
+                        ForEach(ExportFormat.allCases) { format in
+                            Button(format.label) { export(format) }
+                        }
                     } label: { menuLabel("Export") }
                     .disabled(busy != nil)
                     Menu {
@@ -208,16 +209,28 @@ struct PresentationEditorView: View {
         }
     }
 
-    private func export(pptx: Bool) {
+    private func export(_ format: ExportFormat) {
         model.finishEditing()
         let presentation = model.presentation
-        let data = pptx
-            ? PptxWriter.write(presentation) { store.mediaData($0) }
-            : SlideDrawing.pdf(presentation, images: images)
+        let data: Data
+        switch format {
+        case .pptx:
+            data = PptxWriter.write(presentation) { store.mediaData($0) }
+        case .pdf:
+            data = SlideDrawing.pdf(presentation, images: images)
+        case .pdfNotes:
+            data = SlideDrawing.pdfWithNotes(presentation, images: images)
+        case .pngZip:
+            let pages = presentation.slides.enumerated().map { index, slide in
+                SlideDrawing.png(slide, theme: presentation.theme, index: index, images: images)
+            }
+            data = DeckExport.pngArchive(pages)
+        case .markdown:
+            data = Data(DeckExport.markdown(presentation).utf8)
+        }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let name = presentation.title.components(separatedBy: CharacterSet(charactersIn: "/\\:?*\"<>|")).joined().trimmingCharacters(in: .whitespaces)
-        let url = directory.appendingPathComponent("\(name.isEmpty ? "Präsentation" : name).\(pptx ? "pptx" : "pdf")")
+        let url = directory.appendingPathComponent(DeckExport.fileName(presentation.title, format: format))
         do {
             try data.write(to: url, options: .atomic)
             exported = ExportedFile(url: url)

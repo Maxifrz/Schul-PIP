@@ -163,6 +163,64 @@ enum SlideDrawing {
             }
         }
     }
+
+    /// One slide as a PNG, `width` pixels wide.
+    static func png(_ slide: Slide, theme: SlideTheme, index: Int, images: [String: UIImage], width: CGFloat = 1920) -> Data {
+        let scale = width / SlideSize.width
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: SlideSize.height * scale), format: format)
+        return renderer.pngData { context in
+            draw(slide, theme: theme, in: context.cgContext, scale: scale, images: images, index: index)
+        }
+    }
+
+    /// The deck as a PDF for handing out or rehearsing: A4 portrait, per slide the picture on top and its speaker notes
+    /// below. Notes that do not fit the page continue on further pages, so nothing is cut.
+    static func pdfWithNotes(_ presentation: Presentation, images: [String: UIImage]) -> Data {
+        let page = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let margin: CGFloat = 40
+        let contentWidth = page.width - 2 * margin
+        let scale = contentWidth / SlideSize.width
+        let slideHeight = SlideSize.height * scale
+        let notesTop = margin + slideHeight + 30
+        let firstHeight = page.height - margin - notesTop
+        let fullHeight = page.height - 2 * margin
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 11), .foregroundColor: UIColor.black]
+        let labelAttributes: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 11), .foregroundColor: UIColor.darkGray]
+        func height(_ text: String) -> CGFloat {
+            ceil((text as NSString).boundingRect(
+                with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes, context: nil
+            ).height)
+        }
+        let count = presentation.slides.count
+        return UIGraphicsPDFRenderer(bounds: page).pdfData { renderer in
+            for (index, slide) in presentation.slides.enumerated() {
+                renderer.beginPage()
+                let context = renderer.cgContext
+                context.saveGState()
+                context.translateBy(x: margin, y: margin)
+                context.clip(to: CGRect(x: 0, y: 0, width: contentWidth, height: slideHeight))
+                draw(slide, theme: presentation.theme, in: context, scale: scale, images: images, index: index)
+                context.restoreGState()
+                context.setStrokeColor(UIColor.lightGray.cgColor)
+                context.setLineWidth(0.5)
+                context.stroke(CGRect(x: margin, y: margin, width: contentWidth, height: slideHeight))
+                ("Folie \(index + 1) von \(count)" as NSString).draw(at: CGPoint(x: margin, y: margin + slideHeight + 8), withAttributes: labelAttributes)
+                let notes = slide.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                let first = DeckExport.paginate(notes.isEmpty ? "Keine Notizen." : notes) { height($0) <= firstHeight }
+                (first[0] as NSString).draw(in: CGRect(x: margin, y: notesTop, width: contentWidth, height: firstHeight), withAttributes: attributes)
+                let rest = first.dropFirst().joined(separator: " ")
+                guard !rest.isEmpty else { continue }
+                for piece in DeckExport.paginate(rest, fits: { height($0) <= fullHeight }) {
+                    renderer.beginPage()
+                    (piece as NSString).draw(in: CGRect(x: margin, y: margin, width: contentWidth, height: fullHeight), withAttributes: attributes)
+                }
+            }
+        }
+    }
 }
 
 /// One slide drawn by `SlideDrawing`, always 16:9.
