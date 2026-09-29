@@ -156,6 +156,8 @@ input, textarea { font: inherit; color: inherit; }
 
 /* The formula keyboard */
 body { --keyboard-zindex: 20; }
+#keyboard-host { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; }
+#keyboard-host .ML__keyboard { overflow: visible; }
 .ML__keyboard {
   --keyboard-background: var(--canvas); --keyboard-border: var(--line); --keycap-background: var(--surface); --keycap-background-hover: var(--hover);
   --keycap-background-active: var(--accent-soft); --keycap-background-pressed: var(--accent-soft); --keycap-border: var(--line2); --keycap-border-bottom: var(--line3);
