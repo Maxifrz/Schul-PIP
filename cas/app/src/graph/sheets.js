@@ -131,6 +131,7 @@ export function settingsSheet(view, onChange) {
     h('div.field', {}, 'x von … bis', h('div.pair', {}, number('xmin'), number('xmax'))),
     h('div.field', {}, 'y von … bis', h('div.pair', {}, number('ymin'), number('ymax'))),
     h('div.field', {}, 'Achsennamen', h('div.pair', {}, name('xLabel'), name('yLabel'))),
+    savedViews(view, onChange, close),
     h('div.actions', {},
       h('button.pill', { onclick: () => { view.clearTrace(); view.redraw(); } }, 'Spuren löschen'),
       h('button.pill', { onclick: () => { Object.assign(s, { ...DEFAULT_SETTINGS }); view.fitAspect(); view.viewChanged(); onChange(); close(); } }, 'Zurücksetzen'),
@@ -221,4 +222,25 @@ export function scriptSheet(row, { button = false, onChange } = {}) {
       onChange && onChange();
     } }, 'Speichern')),
   ]);
+}
+
+/** Views the student named and can go back to: the visible range and the axis settings */
+const VIEW_KEYS = ['xmin', 'xmax', 'ymin', 'ymax', 'equal', 'logX', 'logY', 'piX'];
+
+function savedViews(view, onChange, close) {
+  const s = view.settings;
+  s.views = s.views || [];
+  const list = h('div.list.compact.views');
+  const render = () => list.replaceChildren(...s.views.map((v, i) => h('div.view-row', {},
+    h('button', { onclick: () => { for (const k of VIEW_KEYS) if (v[k] !== undefined) s[k] = v[k]; view.viewChanged(); onChange(); close(); } }, v.name),
+    h('button.gear', { 'aria-label': 'Ansicht löschen', onclick: () => { s.views.splice(i, 1); onChange(); render(); } }, '×'))));
+  render();
+  const input = h('input', { type: 'text', placeholder: 'Name, z. B. Übersicht' });
+  return h('div.field.stacked', {}, 'Gespeicherte Ansichten', list, h('div.pair', {}, input, h('button.pill', { onclick: () => {
+    const name = input.value.trim() || `Ansicht ${s.views.length + 1}`;
+    s.views.push({ name, ...Object.fromEntries(VIEW_KEYS.map((k) => [k, s[k]])) });
+    input.value = '';
+    onChange();
+    render();
+  } }, 'Merken')));
 }

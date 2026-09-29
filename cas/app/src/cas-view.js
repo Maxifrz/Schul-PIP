@@ -330,8 +330,9 @@ export class CasView {
       return;
     }
     row.outputEl.replaceChildren(...[
+      r.understood ? h('div.understood', {}, 'verstanden als ', h('code', {}, r.understood)) : null,
       r.printed ? h('div.printed', {}, h('div.label', {}, 'Ausgabe'), ...r.printed.map((line) => h('div', {}, math(line)))) : null,
-      h('div', {}, h('span.arrow', {}, '→'), math(r.latex)),
+      h('div', {}, h('span.arrow', {}, '→'), math(r.latex), r.verified === true ? h('span.check', { title: 'Jede Lösung wurde eingesetzt und erfüllt die Gleichung.' }, '✓ Probe') : r.verified === false ? h('span.check.bad', {}, 'Probe stimmt nicht') : null),
       r.approxLatex ? h('div.approx', {}, math('\\approx ' + r.approxLatex.replace(/^L=/, 'L\\approx'))) : null,
     ].filter(Boolean));
   }

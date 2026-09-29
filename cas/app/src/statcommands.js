@@ -16,6 +16,7 @@ const percent = (p) => num(p * 100, 4) + '\\,\\%';
 /** Words that stand for themselves in a call: distributions, sides of a test, regression models */
 export const WORDS = new Set([
   ...Object.keys(S.DISTRIBUTION_ALIASES), ...Object.keys(S.MODEL_ALIASES),
+  'ableiten', 'integrieren', 'gleichung', 'bruch', 'prozent',
   'links', 'linksseitig', 'rechts', 'rechtsseitig', 'beidseitig', 'zweiseitig', 'ohne', 'mit', 'ohnezurücklegen', 'mitzurücklegen',
 ]);
 

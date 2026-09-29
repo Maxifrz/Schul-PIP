@@ -41,9 +41,20 @@ fun CalculatorScreen(app: AppState) {
     val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf<PendingPicture?>(null) }
 
+    // The page's „Aus Datei öffnen“: the system file picker, answered back to the web view
+    var fileAnswer by remember { mutableStateOf<((android.net.Uri?) -> Unit)?>(null) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        fileAnswer?.invoke(uri)
+        fileAnswer = null
+    }
     DisposableEffect(host) {
         host.onInsertImage = { picture, answer -> pending = PendingPicture(picture, answer) }
+        host.onChooseFile = { types, answer ->
+            fileAnswer = answer
+            picker.launch(arrayOf("application/json", "text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream") + types)
+        }
         onDispose {
+            host.onChooseFile = null
             host.onInsertImage = null
             host.release()
         }

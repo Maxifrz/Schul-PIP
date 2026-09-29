@@ -12,6 +12,9 @@ import android.util.Base64
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
+import android.net.Uri
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import de.maxifrz.lernwerk.ui.shareFile
@@ -41,6 +44,9 @@ class MatheHost private constructor(private val context: Context) {
 
     /** Set by the calculator screen: asks for a document and puts the picture in; `answer` tells the page how it went. */
     var onInsertImage: ((picture: Bitmap, answer: (String?) -> Unit) -> Unit)? = null
+
+    /** Set by the calculator screen: lets the student pick a file for the page's file input (projects, CSV). */
+    var onChooseFile: ((mimeTypes: Array<String>, answer: (Uri?) -> Unit) -> Unit)? = null
 
     private val wrapper = MutableContextWrapper(context)
 
@@ -72,6 +78,14 @@ class MatheHost private constructor(private val context: Context) {
         web.settings.allowFileAccess = true
         web.setBackgroundColor(Color.TRANSPARENT)
         web.addJavascriptInterface(Bridge(), "MatheBridge")
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+                val choose = onChooseFile ?: return false
+                val types = params.acceptTypes.filter { it.contains('/') }.toTypedArray().ifEmpty { arrayOf("*/*") }
+                choose(types) { uri -> callback.onReceiveValue(uri?.let { arrayOf(it) }) }
+                return true
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 // Android ends the renderer when memory runs short; the next visit to the tab loads the page again.

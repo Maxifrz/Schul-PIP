@@ -6,9 +6,11 @@ import { command, giacCall, COMMAND_NAMES } from './commands.js';
 import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
 import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
 import { STAT_COMMANDS, isWord, functionArg } from './statcommands.js';
+import './extras.js';
 import { newSeed } from './stats.js';
 import { isProgram, translateProgram, mapCommandCalls } from './program.js';
 import { blockedCategories, examResult } from './exam.js';
+import { naturalToCommand, latexInText } from './natural.js';
 
 /** Letters that stay unknowns: "x = 3" is an equation, not a definition. */
 const UNKNOWNS = new Set(['x', 'y', 'z', 't', 'n', 'k', 's']);
@@ -162,6 +164,16 @@ export class Engine {
 
   evaluateFree(input) {
     if (input.text !== undefined && isProgram(input.text)) return this.program(input);
+    // LaTeX or plain German in a text row
+    if (input.text !== undefined) {
+      const latex = latexInText(input.text);
+      if (latex) return this.evaluateFree({ latex });
+      const natural = naturalToCommand(input.text);
+      if (natural && natural !== input.text) {
+        const result = this.evaluateFree({ text: natural });
+        return result.ok ? { ...result, understood: natural } : result;
+      }
+    }
     let tree;
     try {
       tree = this.parse(input);
@@ -253,8 +265,8 @@ export class Engine {
       return { ok: true, kind: 'value', tree, latex: this.format(answer.exact) + '^{\\circ}', approxLatex: approx ? approx + '^{\\circ}' : null, giac };
     }
 
-    const solving = /^\s*(solve|csolve|linsolve)\(/.test(giac);
-    if (solving) return { ok: true, kind: 'solutions', tree, latex: this.solutions(answer.exact, false), approxLatex: this.solutionsApprox(answer), giac };
+    const solving = /^[\s(]*(solve|csolve|linsolve)\(/.test(giac);
+    if (solving) return { ok: true, kind: 'solutions', tree, latex: this.solutions(answer.exact, false), approxLatex: this.solutionsApprox(answer), giac, verified: this.verify(tree, answer.exact) };
     if (answer.exact === 'true' || answer.exact === 'false') {
       return { ok: true, kind: 'boolean', tree, latex: answer.exact === 'true' ? '\\text{wahr}' : '\\text{falsch}', giac };
     }
@@ -262,6 +274,34 @@ export class Engine {
       return { ok: true, kind: 'value', tree, latex: this.formatVector(answer.exact), approxLatex: null, giac };
     }
     return { ok: true, kind: 'value', tree, latex: this.format(answer.exact), approxLatex: this.approx(answer), giac, printed };
+  }
+
+  /**
+   * The check („Probe“) of an equation's solutions: each put back in. true when all fit, false when one does not,
+   * null when there is nothing to check (systems, inequalities, no solution).
+   */
+  verify(tree, exact) {
+    if (!tree || tree.t !== 'call' || tree.args.length < 1) return null;
+    const eq = tree.args[0];
+    if (!eq || eq.t !== 'rel' || eq.op !== '=') return null;
+    const v = tree.args[1] && tree.args[1].t === 'sym' ? tree.args[1].v : 'x';
+    let list;
+    try {
+      list = parsePlain(String(exact).replace(/\blist\[/g, '['));
+    } catch (e) {
+      return null;
+    }
+    if (list.t !== 'list' || !list.items.length || list.items.some((i) => i.t === 'list' || i.t === 'rel')) return null;
+    const difference = `(${this.giac(eq.a)})-(${this.giac(eq.b)})`;
+    for (const item of list.items) {
+      const value = toGiac(item);
+      const check = this.cas.raw(`simplify(subst(${difference},${v}=(${value})))`);
+      if (check.error) return null;
+      if (check.value === '0') continue;
+      const approx = this.cas.raw(`evalf(abs(subst(${difference},${v}=(${value}))))`);
+      if (approx.error || !(Number(approx.value) < 1e-9)) return false;
+    }
+    return true;
   }
 
   usesProgram(tree) {
@@ -357,6 +397,12 @@ export class Engine {
         return compile(parsePlain(String(answer.value)), variables, { value: () => undefined });
       },
       text: (node) => this.format(this.cas.raw(this.giac(functionArg(node))).value || ''),
+      raw: (text) => {
+        const answer = this.cas.raw(text);
+        return answer.error ? null : String(answer.value);
+      },
+      giacOfTree: (tree) => toGiac(tree),
+      solutions: (exact) => this.solutions(exact, false),
       functionOfGiac: (text, variables = ['x']) => {
         const answer = this.cas.raw(text);
         if (answer.error) throw new Error(answer.error);

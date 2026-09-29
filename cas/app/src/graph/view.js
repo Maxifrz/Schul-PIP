@@ -733,10 +733,18 @@ export class GraphView {
       ctx.beginPath();
       a.points.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
       ctx.closePath();
-      ctx.fillStyle = withAlpha(accent, 0.45);
+      ctx.fillStyle = a.own ? withAlpha(style.color, Math.max(style.fill, 0.3)) : withAlpha(accent, 0.45);
       ctx.fill();
     }
-    for (const r of shapes.rects) {
+    // Filled cells of a region: no borders, so they read as one area
+    const flat = shapes.rects.filter((r) => r.flat);
+    if (flat.length) {
+      ctx.fillStyle = withAlpha(style.color, Math.max(style.fill, 0.3));
+      ctx.beginPath();
+      for (const r of flat) ctx.rect(Math.min(X(r.x0), X(r.x1)), Math.min(Y(r.y0), Y(r.y1)), Math.abs(X(r.x1) - X(r.x0)) + 0.5, Math.abs(Y(r.y1) - Y(r.y0)) + 0.5);
+      ctx.fill();
+    }
+    for (const r of shapes.rects.filter((x) => !x.flat)) {
       const x = Math.min(X(r.x0), X(r.x1));
       const y = Math.min(Y(r.y0), Y(r.y1));
       const w = Math.abs(X(r.x1) - X(r.x0));
@@ -764,7 +772,7 @@ export class GraphView {
       ctx.beginPath();
       line.points.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
       const color = line.accent ? accent : style.color;
-      ctx.strokeStyle = line.faint ? withAlpha(color, 0.45) : color;
+      ctx.strokeStyle = line.faint ? withAlpha(color, 0.45) : line.shade !== undefined ? withAlpha(color, 0.35 + 0.65 * line.shade) : color;
       ctx.lineWidth = (line.bold ? style.width : line.thin ? 1 : 1.6) + (selected ? 1 : 0);
       ctx.setLineDash(line.dash ? [6, 5] : []);
       ctx.stroke();

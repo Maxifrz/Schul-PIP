@@ -20,6 +20,7 @@ import { PROFILES, DEFAULT_OPTIONS, viewAllowed, blockedCategories, formatDurati
 import { examChanged } from './native.js';
 import { SpaceView, DEFAULT_SETTINGS_3D } from './graph/view3d.js';
 import { TableView } from './table-view.js';
+import { IN_PLACE_CHARTS } from './charts.js';
 
 MathfieldElement.fontsDirectory = '.';
 MathfieldElement.soundsDirectory = null;
@@ -337,7 +338,7 @@ function buttonControl(button) {
 /** A chart typed just now fills the graphics; charts that were there when the project opened keep its view. */
 function fitNewCharts() {
   if (!state.engine) return;
-  const charts = state.scene.objects.filter((o) => o.type === 'chart');
+  const charts = state.scene.objects.filter((o) => o.type === 'chart' && !IN_PLACE_CHARTS.has(o.chart));
   if (!state.chartIds) {
     state.chartIds = new Set(charts.map((o) => o.id));
     return;
@@ -622,6 +623,13 @@ async function saveAs() {
   const name = await prompt('Projekt speichern', state.project.name || '', 'Speichern');
   if (!name) return;
   state.project.name = name;
+  // The version saved before stays as one of the last ten versions of this project.
+  const before = await store.get('project:' + name);
+  if (before && before !== snapshot()) {
+    await store.set(`version:${name}:${Date.now()}`, before);
+    const versions = (await store.list(`version:${name}:`)).sort();
+    for (const old of versions.slice(0, Math.max(0, versions.length - 10))) await store.delete(old);
+  }
   await store.set('project:' + name, snapshot());
   updateTitle();
   changed();
@@ -633,16 +641,82 @@ async function openProject() {
   const chosen = await sheet((close) => [
     h('h2', {}, 'Projekt öffnen'),
     keys.length
-      ? h('div.list', {}, ...keys.map((name) => h('button', { onclick: () => close(name) }, name, h('span', {}, 'öffnen'))))
+      ? h('div.list', {}, ...keys.map((name) => h('div.project-row', {},
+        h('button', { onclick: () => close(name) }, name, h('span', {}, 'öffnen')),
+        h('button.pill', { onclick: () => close({ versions: name }) }, 'Versionen'))))
       : h('p', { style: { color: 'var(--muted)' } }, 'Noch keine gespeicherten Projekte.'),
     h('div.actions', {}, h('button.pill', { onclick: () => close(null) }, 'Schließen')),
   ]);
   if (!chosen) return;
+  if (chosen.versions) {
+    openVersion(chosen.versions);
+    return;
+  }
   const json = await store.get('project:' + chosen);
   if (json) {
     load(json);
     changed();
   }
+}
+
+/** The earlier saved versions of a project, newest first */
+async function openVersion(name) {
+  const keys = (await store.list(`version:${name}:`)).sort().reverse();
+  const chosen = await sheet((close) => [
+    h('h2', {}, `Versionen von „${name}“`),
+    keys.length
+      ? h('div.list', {}, ...keys.map((key) => h('button', { onclick: () => close(key) }, new Date(Number(key.split(':').pop())).toLocaleString('de-DE'), h('span', {}, 'öffnen'))))
+      : h('p.hint', {}, 'Noch keine älteren Versionen: jedes Speichern unter demselben Namen legt die vorige Fassung hier ab.'),
+    h('div.actions', {}, h('button.pill', { onclick: () => close(null) }, 'Schließen')),
+  ]);
+  if (!chosen) return;
+  const json = await store.get(chosen);
+  if (json) {
+    load(json);
+    state.project.name = name + ' (ältere Version)';
+    updateTitle();
+    changed();
+  }
+}
+
+/** The whole project as a file, to keep or to open on another device (Projekt → Aus Datei öffnen) */
+function exportProject() {
+  share((state.project.name || 'Rechnung') + '.mathe.json', 'application/json', snapshot());
+}
+
+function exportTableCsv() {
+  const { rows, cols } = state.table.sheet.size;
+  if (!rows) {
+    toast('Die Tabelle ist leer.');
+    return;
+  }
+  share((state.project.name || 'Tabelle') + '.csv', 'text/csv', state.table.sheet.copyText([0, 0, cols - 1, rows - 1]).replace(/\t/g, ';'));
+}
+
+function importProjectFile() {
+  const input = h('input', { type: 'file', accept: '.json,.csv,application/json,text/csv' });
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const content = await file.text();
+    if (/\.csv$/i.test(file.name)) {
+      state.table.sheet.paste('A1', content);
+      tableChanged();
+      setLayout('table');
+      toast('Tabelle eingelesen: ' + file.name);
+      return;
+    }
+    try {
+      JSON.parse(content);
+    } catch (e) {
+      toast('Das ist keine Projektdatei.');
+      return;
+    }
+    load(content);
+    changed();
+    toast('Geöffnet: ' + file.name);
+  });
+  input.click();
 }
 
 function exportText() {
@@ -853,6 +927,9 @@ function menu() {
       h('button', { onclick: () => { close(); openProject(); } }, 'Öffnen …'),
       h('button', { onclick: () => { close(); saveAs(); } }, 'Speichern unter …'),
       h('button', { onclick: () => { close(); exportText(); } }, 'Als Text teilen'),
+      h('button', { onclick: () => { close(); exportProject(); } }, 'Als Projektdatei teilen'),
+      h('button', { onclick: () => { close(); importProjectFile(); } }, 'Aus Datei öffnen (Projekt oder CSV) …'),
+      h('button', { onclick: () => { close(); exportTableCsv(); } }, 'Tabelle als CSV teilen'),
       h('button', { onclick: () => { close(); exportGraph(); } }, 'Grafik exportieren …'),
       h('button', { onclick: () => { close(); settings(); } }, 'Einstellungen'),
       h('button', { onclick: () => { close(); helpSheet(); } }, 'Hilfe und Tastenkürzel'),

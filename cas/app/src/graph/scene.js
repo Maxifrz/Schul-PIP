@@ -5,6 +5,13 @@
 // at full speed without asking Giac again.
 
 import { parsePlain, compile, compileCondition, symbols, toLatex } from '../expr.js';
+
+/** Definite integrals and areas that the graphics shade: which arguments are functions and which bounds */
+const AREA_COMMANDS = {
+  fläche: (args) => (args.length === 3 ? ['fn', 'num', 'num'] : null),
+  flächezwischen: (args) => (args.length === 4 ? ['fn', 'fn', 'num', 'num'] : null),
+  integriere: (args) => (args.length === 4 && args[1].t === 'sym' && args[1].v === 'x' ? ['fn', 'word', 'num', 'num'] : null),
+};
 import { command } from '../commands.js';
 import { isShapeCall } from '../geometry.js';
 import { STAT_COMMANDS, functionArg } from '../statcommands.js';
@@ -283,7 +290,8 @@ export class Scene {
           const tree = parse(answer);
           if (!tree) return null;
           if (functionSlots.has(i)) {
-            const f = compile(tree, functionSlots.get(i), this.scope);
+            const slot = entry.layout.find((x) => x && typeof x === 'object' && x.fn === i);
+            const f = slot.cond ? compileCondition(tree, slot.vars, this.scope) : compile(tree, slot.vars, this.scope);
             return () => f;
           }
           return valueFn(tree);
@@ -406,6 +414,27 @@ export function classify(row, engine) {
     const label = call.args[0] && call.args[0].t === 'str' ? call.args[0].v : call.args[0] && call.args[0].t === 'sym' ? call.args[0].v : 'Knopf';
     return { row, type: 'button', label, name: r.definition ? r.definition.name : null, requests: [] };
   }
+  // fläche(f, a, b), flächezwischen(f, g, a, b), integriere(f, x, a, b): the value in the CAS, the area shaded
+  const areaCall = (node) => node && node.t === 'call' && AREA_COMMANDS[command(node.f)?.name] && !engine.defined.has(node.f) ? node : null;
+  const area = r && r.ok && (areaCall(r.tree) || (r.definition && areaCall(r.definition.body)));
+  if (area) {
+    const roles = AREA_COMMANDS[command(area.f).name](area.args);
+    if (roles) {
+      const layout = [];
+      const requests = [];
+      area.args.forEach((arg, i) => {
+        if (roles[i] === 'word') layout.push('x');
+        else if (roles[i] === 'fn') {
+          layout.push({ fn: requests.length, vars: ['x'] });
+          requests.push(engine.giac(arg));
+        } else {
+          layout.push(requests.length);
+          requests.push(engine.giac(arg));
+        }
+      });
+      return { row, type: 'chart', command: command(area.f).name, chart: 'area', layout, seed: 0, requests, label: '', name: r.definition ? r.definition.name : null };
+    }
+  }
   if (r && r.ok && r.kind === 'analysis' && r.chart && r.tree) {
     // A chart: numbers and lists come from Giac with sliders left free, words (binomial, links …) stay as typed.
     const layout = [];
@@ -415,6 +444,10 @@ export function classify(row, engine) {
     r.tree.args.forEach((arg, i) => {
       const role = roles[i] || {};
       if (role.name && arg.t === 'sym') layout.push(arg.v);
+      else if (role.cond) {
+        layout.push({ fn: requests.length, vars: role.cond, cond: true });
+        requests.push(engine.giac(arg));
+      }
       else if (r.chart.words[i]) layout.push(r.chart.words[i]);
       else if (role.fn) {
         // A function of x (or x and y) that sliders may change: compiled, not evaluated

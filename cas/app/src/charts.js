@@ -2,10 +2,14 @@
 // graphics view paints these shapes; the values come live from the scene, so sliders move charts too.
 
 import * as S from './stats.js';
+import { contour } from './graph/plot.js';
 import { reader, valuesAndCounts, distributionOf, simulationData, newtonSteps, bisectionSteps, rungeKutta } from './statcommands.js';
 
 /** Charts that fill whatever part of the plane is in view */
-export const VIEW_CHARTS = new Set(['field', 'phase', 'solution']);
+export const VIEW_CHARTS = new Set(['field', 'phase', 'solution', 'contour', 'inequalities']);
+
+/** Charts that belong to the view the student is in: they neither move the view nor hide other charts */
+export const IN_PLACE_CHARTS = new Set([...VIEW_CHARTS, 'area']);
 
 /** A function's graph between a and b as polyline pieces, broken where it jumps or is undefined */
 function graphOf(f, a, b, n = 400) {
@@ -376,6 +380,71 @@ export function chartShapes(command, kind, items, seed, view) {
             orbit.push([x, y]);
           }
           out.lines.push({ points: orbit, bold: true, accent: true });
+        }
+      }
+      return out;
+    }
+    case 'area': {
+      const fns = items.filter((i) => typeof i === 'function');
+      const nums = items.filter((i) => typeof i === 'number');
+      const [f, g] = fns;
+      const [a, b] = [Math.min(...nums), Math.max(...nums)];
+      const top = [];
+      const bottom = [];
+      for (let i = 0; i <= 300; i++) {
+        const x = a + ((b - a) * i) / 300;
+        const y1 = f(x);
+        const y2 = g ? g(x) : 0;
+        if (Number.isFinite(y1) && Number.isFinite(y2)) {
+          top.push([x, y1]);
+          bottom.push([x, y2]);
+        }
+      }
+      out.areas.push({ points: [...top, ...bottom.reverse()], own: true });
+      out.lines.push({ points: [[a, g ? g(a) : 0], [a, f(a)]], thin: true }, { points: [[b, g ? g(b) : 0], [b, f(b)]], thin: true });
+      return out;
+    }
+    case 'contour': {
+      const f = items[0];
+      const v = view || { xmin: -10, xmax: 10, ymin: -10, ymax: 10 };
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) {
+        const z = f(v.xmin + ((v.xmax - v.xmin) * i) / 40, v.ymin + ((v.ymax - v.ymin) * j) / 40);
+        if (Number.isFinite(z)) {
+          lo = Math.min(lo, z);
+          hi = Math.max(hi, z);
+        }
+      }
+      if (!Number.isFinite(lo) || hi === lo) return out;
+      const levels = 12;
+      for (let k = 1; k < levels; k++) {
+        const c = lo + ((hi - lo) * k) / levels;
+        const segments = contour((x, y) => f(x, y) - c, v.xmin, v.xmax, v.ymin, v.ymax, 120, 90);
+        for (const seg of segments) out.lines.push({ points: seg, shade: k / levels });
+        const first = segments[Math.floor(segments.length / 2)];
+        if (first && k % 2 === 0) out.texts.push({ x: first[0][0], y: first[0][1], text: fmt(c, 3), align: "center" });
+      }
+      return out;
+    }
+    case 'inequalities': {
+      const tests = items.filter((i) => typeof i === 'function');
+      const v = view || { xmin: -10, xmax: 10, ymin: -10, ymax: 10 };
+      const nx = 260;
+      const ny = Math.max(60, Math.round((nx * (v.ymax - v.ymin)) / (v.xmax - v.xmin)));
+      const dx = (v.xmax - v.xmin) / nx;
+      const dy = (v.ymax - v.ymin) / ny;
+      for (let j = 0; j < ny; j++) {
+        const y = v.ymin + (j + 0.5) * dy;
+        let start = null;
+        for (let i = 0; i <= nx; i++) {
+          const x = v.xmin + (i + 0.5) * dx;
+          const inside = i < nx && tests.every((t) => t(x, y));
+          if (inside && start === null) start = i;
+          if (!inside && start !== null) {
+            out.rects.push({ x0: v.xmin + start * dx, x1: v.xmin + i * dx, y0: y - dy / 2, y1: y + dy / 2, flat: true });
+            start = null;
+          }
         }
       }
       return out;
