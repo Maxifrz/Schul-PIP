@@ -5,7 +5,7 @@ import { PALETTE, styleOf, isVisible } from './scene.js';
 import { DEFAULT_SETTINGS } from './view.js';
 
 const LABELS = {
-  function: 'Funktion', implicit: 'Kurve', region: 'Ungleichung', point: 'Punkt', line: 'Gerade', ray: 'Strahl',
+  chart: 'Diagramm', function: 'Funktion', implicit: 'Kurve', region: 'Ungleichung', point: 'Punkt', line: 'Gerade', ray: 'Strahl',
   segment: 'Strecke', vector: 'Vektor', circle: 'Kreis', polygon: 'Vieleck', curve: 'Kurve',
 };
 
@@ -55,7 +55,7 @@ export function styleSheet(object, onChange) {
     return h('div.field.stacked', {}, h('span', {}, label), input);
   };
   const lines = object.type !== 'point';
-  const fills = ['region', 'polygon', 'circle'].includes(object.type);
+  const fills = ['region', 'polygon', 'circle', 'chart'].includes(object.type);
   return sheet((close) => [
     h('h2', {}, kindLabel(object) + (object.name ? ' ' + object.name : '')),
     h('div.field', {}, 'Sichtbar', toggle([[true, 'ja'], [false, 'nein']], isVisible(object), (v) => {

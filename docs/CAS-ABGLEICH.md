@@ -1,12 +1,12 @@
 # CAS-Rechner: Abgleich mit der Feature-Checkliste
 
-Stand: 29.09.2026, nach Stufe 4 (3D und Raumgeometrie) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
+Stand: 29.09.2026, nach Stufe 5 (Tabelle, Statistik, Wahrscheinlichkeit) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
 
 Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) · `[~]` rechnet, aber nur per (meist englischem) Giac-Befehl ohne Taste/Hilfe, oder nur teilweise · `[!]` geht, aber mit Fehler · `[ ]` fehlt
 
 ## Zusammenfassung
 
-703 Punkte: 333 in der App, 87 nur per Befehl, 118 teilweise, 1 mit Fehler, 164 fehlen.
+703 Punkte: 413 in der App, 69 nur per Befehl, 100 teilweise, 1 mit Fehler, 120 fehlen.
 
 | Kapitel | Punkte | in der App | nur Befehl | teilweise | Fehler | fehlt |
 |---|---:|---:|---:|---:|---:|---:|
@@ -29,12 +29,12 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 17. Matrizen | 15 | 10 | 4 | 1 | 0 | 0 |
 | 18. Komplexe Zahlen | 11 | 2 | 7 | 1 | 0 | 1 |
 | 19. Folgen | 9 | 1 | 1 | 2 | 0 | 5 |
-| 20. Statistik | 21 | 5 | 4 | 4 | 0 | 8 |
-| 21. Regression | 12 | 2 | 4 | 1 | 0 | 5 |
-| 22. Wahrscheinlichkeitsrechnung | 15 | 0 | 8 | 6 | 0 | 1 |
-| 23. Stochastische Simulationen | 9 | 1 | 0 | 1 | 0 | 7 |
-| 24. Statistische Tests | 10 | 0 | 0 | 3 | 0 | 7 |
-| 25. Tabellenkalkulation | 14 | 0 | 0 | 0 | 0 | 14 |
+| 20. Statistik | 21 | 21 | 0 | 0 | 0 | 0 |
+| 21. Regression | 12 | 12 | 0 | 0 | 0 | 0 |
+| 22. Wahrscheinlichkeitsrechnung | 15 | 15 | 0 | 0 | 0 | 0 |
+| 23. Stochastische Simulationen | 9 | 9 | 0 | 0 | 0 | 0 |
+| 24. Statistische Tests | 10 | 10 | 0 | 0 | 0 | 0 |
+| 25. Tabellenkalkulation | 14 | 14 | 0 | 0 | 0 | 0 |
 | 26. Einheiten | 15 | 1 | 12 | 2 | 0 | 0 |
 | 27. Physikalische Mathematik | 13 | 1 | 1 | 10 | 0 | 1 |
 | 28. Interaktive Benutzeroberfläche | 15 | 13 | 0 | 2 | 0 | 0 |
@@ -54,9 +54,9 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 42. Professionelle CAS-Funktionen | 17 | 0 | 12 | 2 | 0 | 3 |
 | 43. Differentialgleichungen | 11 | 0 | 4 | 3 | 0 | 4 |
 | 44. Erweiterte 3D-Mathematik | 13 | 4 | 2 | 1 | 0 | 6 |
-| 45. Architektur der App | 16 | 7 | 0 | 5 | 0 | 4 |
-| 46. Kernanforderung für eine vollständige CAS-App | 16 | 11 | 0 | 3 | 0 | 2 |
-| Minimaler Funktionsumfang | 28 | 17 | 2 | 3 | 0 | 6 |
+| 45. Architektur der App | 16 | 9 | 0 | 3 | 0 | 4 |
+| 46. Kernanforderung für eine vollständige CAS-App | 16 | 12 | 0 | 3 | 0 | 1 |
+| Minimaler Funktionsumfang | 28 | 21 | 0 | 2 | 0 | 5 |
 
 ## Gefundene Fehler
 
@@ -458,102 +458,102 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 
 ## 20. Statistik
 
-- [~] Dateneingabe — teilweise: als Liste [1, 2, 3] in der Eingabezeile
-- [ ] Tabellenkalkulation
-- [ ] Häufigkeitstabellen
-- [~] Absolute Häufigkeit — teilweise: über frequencies(...) · n
-- [~] Relative Häufigkeit — nur Befehl: frequencies(...)
-- [x] Mittelwert — in der App: Taste mittelwert
+- [x] Dateneingabe — in der App: Liste [1, 2, 3], Tabelle (auch eingefügt aus einer Tabellenkalkulation oder CSV), zellen(A1, A10)
+- [x] Tabellenkalkulation — in der App: Ansicht „Tabelle“
+- [x] Häufigkeitstabellen — in der App: häufigkeitstabelle(L), klassen(L, Breite)
+- [x] Absolute Häufigkeit — in der App: häufigkeitstabelle(L), häufigkeiten(L)
+- [x] Relative Häufigkeit — in der App: häufigkeitstabelle(L), relativehäufigkeiten(L)
+- [x] Mittelwert — in der App: Taste mittelwert, statistik(L)
 - [x] Median — in der App: Schul-Median (Mittel der beiden mittleren Werte)
-- [ ] Modus — fehlt: mode(...) gibt es in dieser Giac-Version nicht
-- [~] Minimum — nur Befehl: min(...)
-- [~] Maximum — nur Befehl: max(...)
-- [~] Spannweite — teilweise: max − min von Hand
+- [x] Modus — in der App: modus(L), statistik(L)
+- [x] Minimum — in der App: minimum(L), statistik(L)
+- [x] Maximum — in der App: maximum(L), statistik(L)
+- [x] Spannweite — in der App: spannweite(L), statistik(L)
 - [x] Quartile — in der App: quartile(Liste)
-- [~] Quantile — nur Befehl: quantile(...)
-- [x] Varianz — in der App: varianz(...)
-- [x] Standardabweichung — in der App: Taste; Achtung: Grundgesamtheit, stddevp für Stichprobe
-- [ ] Standardfehler
-- [ ] Boxplot
-- [ ] Histogramm
-- [~] Balkendiagramm — teilweise: KI-Diagramme in Notizen/Präsentationen, nicht im Rechner
-- [ ] Kreisdiagramm
-- [ ] Streudiagramm
+- [x] Quantile — in der App: quantil(L, p) (Schuldefinition)
+- [x] Varianz — in der App: varianz(...), stichprobenvarianz(...)
+- [x] Standardabweichung — in der App: empirisch (÷ n) und Stichprobe (÷ n − 1) getrennt benannt
+- [x] Standardfehler — in der App: standardfehler(L), statistik(L)
+- [x] Boxplot — in der App: boxplot(L) zeichnet in der Grafik
+- [x] Histogramm — in der App: histogramm(L, Klassenbreite)
+- [x] Balkendiagramm — in der App: balkendiagramm(L) oder (Werte, Häufigkeiten)
+- [x] Kreisdiagramm — in der App: kreisdiagramm(Werte, Häufigkeiten), mit Anteilen und Winkeln
+- [x] Streudiagramm — in der App: streudiagramm(X, Y), mit Korrelationskoeffizient
 
 ## 21. Regression
 
 - [x] Lineare Regression — in der App: regressionlinear(X, Y)
-- [~] Quadratische Regression — nur Befehl: polynomial_regression(..., 2)
-- [~] Polynomiale Regression — nur Befehl: polynomial_regression(...)
-- [x] Exponentielle Regression — in der App: regressionexponentiell(X, Y)
-- [~] Logarithmische Regression — nur Befehl: logarithmic_regression(...)
-- [~] Potenzregression — nur Befehl: power_regression(...)
-- [ ] Sinusregression
-- [ ] Modellvergleich
-- [ ] Regressionsgleichung
-- [~] Bestimmtheitsmaß — teilweise: correlation(...)² von Hand
-- [ ] Residuen
-- [ ] Residuenplot
+- [x] Quadratische Regression — in der App: regressionquadratisch(X, Y)
+- [x] Polynomiale Regression — in der App: regressionpolynom(X, Y, Grad), regressionkubisch
+- [x] Exponentielle Regression — in der App: regressionexponentiell(X, Y), als a·bˣ
+- [x] Logarithmische Regression — in der App: regressionlogarithmisch(X, Y)
+- [x] Potenzregression — in der App: regressionpotenz(X, Y)
+- [x] Sinusregression — in der App: regressionsinus(X, Y)
+- [x] Modellvergleich — in der App: regression(X, Y) listet alle Modelle mit R², bestes zuerst
+- [x] Regressionsgleichung — in der App: regression(X, Y, Modell)
+- [x] Bestimmtheitsmaß — in der App: bestimmtheitsmaß(X, Y, Modell), für jedes Modell
+- [x] Residuen — in der App: residuen(X, Y, Modell)
+- [x] Residuenplot — in der App: residuenplot(X, Y, Modell)
 
 ## 22. Wahrscheinlichkeitsrechnung
 
-- [~] Binomialverteilung — nur Befehl: binomial(n, k, p), binomial_cdf(...)
-- [~] Normalverteilung — nur Befehl: normal_cdf, normal_icdf
-- [~] Poissonverteilung — nur Befehl
-- [~] Geometrische Verteilung — nur Befehl
-- [~] Hypergeometrische Verteilung — teilweise: über nck(...) von Hand
-- [~] Gleichverteilung — teilweise: von Hand
-- [~] Exponentialverteilung — nur Befehl
-- [~] Wahrscheinlichkeitsdichte — nur Befehl
-- [~] Verteilungsfunktion — nur Befehl
-- [~] Erwartungswert — teilweise: Formel von Hand
-- [~] Varianz — teilweise: Formel von Hand
-- [~] Standardabweichung — teilweise: Formel von Hand
-- [~] Quantile — nur Befehl
-- [~] Wahrscheinlichkeitsintervalle — teilweise: über cdf-Differenzen
-- [ ] Interaktive Verteilungsparameter
+- [x] Binomialverteilung — in der App: binomialpdf/binomialcdf, invbinom, verteilung(binomial, n, p)
+- [x] Normalverteilung — in der App: normalpdf, normalcdf, invnorm, verteilung(normal, μ, σ)
+- [x] Poissonverteilung — in der App: poissonpdf, poissoncdf, verteilung(poisson, λ)
+- [x] Geometrische Verteilung — in der App: geometrischpdf, geometrischcdf, verteilung(geometrisch, p)
+- [x] Hypergeometrische Verteilung — in der App: hypergeometrisch, hypergeometrischcdf, verteilung(hypergeometrisch, N, M, n)
+- [x] Gleichverteilung — in der App: verteilung(gleich, a, b) und verteilung(stetiggleich, a, b)
+- [x] Exponentialverteilung — in der App: exponentialpdf, exponentialcdf, verteilung(exponential, λ)
+- [x] Wahrscheinlichkeitsdichte — in der App: Dichte als Kurve in verteilung(…), normalpdf, exponentialpdf
+- [x] Verteilungsfunktion — in der App: …cdf-Befehle, Spalte P(X ≤ k) in verteilung(…)
+- [x] Erwartungswert — in der App: erwartungswert(Werte, W), kenngrößen, verteilung(…)
+- [x] Varianz — in der App: kenngrößen(Werte, W), verteilung(…)
+- [x] Standardabweichung — in der App: kenngrößen(Werte, W), verteilung(…)
+- [x] Quantile — in der App: invnorm, invt, invbinom
+- [x] Wahrscheinlichkeitsintervalle — in der App: verteilung(…, a, b) mit markierter Fläche, sigmaumgebung(n, p, c)
+- [x] Interaktive Verteilungsparameter — in der App: Schieberegler als Parameter, z. B. p = 0.3 und verteilung(binomial, 20, p)
 
 ## 23. Stochastische Simulationen
 
-- [~] Würfelsimulation — teilweise: randvector(n, 6) zählt 0–5 statt 1–6
-- [ ] Münzwurfsimulation
+- [x] Würfelsimulation — in der App: würfelsimulation(n, Würfelzahl), würfeln(n) zählt 1–6
+- [x] Münzwurfsimulation — in der App: münzwurfsimulation(n)
 - [x] Zufallszahlen — in der App: zufallszahl(1, 6)
-- [ ] Zufallsexperimente
-- [ ] Monte-Carlo-Simulation
-- [ ] Wiederholte Experimente
-- [ ] Relative Häufigkeiten
-- [ ] Gesetz der großen Zahlen
-- [ ] Simulation von Verteilungen
+- [x] Zufallsexperimente — in der App: zufallsexperiment(Ergebnisse, Wahrscheinlichkeiten, n), ziehen(Urne, n, ohne)
+- [x] Monte-Carlo-Simulation — in der App: montecarlo(f(x), a, b, n), montecarlopi(n) mit Bild
+- [x] Wiederholte Experimente — in der App: simuliere(Verteilung, …, Wiederholungen)
+- [x] Relative Häufigkeiten — in der App: jede Simulation mit Tabelle und Säulen gegen die Wahrscheinlichkeit
+- [x] Gesetz der großen Zahlen — in der App: gesetzdergroßenzahlen(p, n) zeichnet den Verlauf
+- [x] Simulation von Verteilungen — in der App: simuliere(normal, 0, 1, 1000) u. a., mit Dichte darüber
 
 ## 24. Statistische Tests
 
-- [ ] Hypothesentests
-- [~] Binomialtest — teilweise: über binomial_cdf von Hand
-- [ ] Mittelwerttests
-- [ ] Varianztests
-- [ ] Chi-Quadrat-Tests
-- [~] Konfidenzintervalle — teilweise: Formel von Hand, Quantile über normal_icdf/student_icdf
-- [ ] p-Werte
-- [~] Signifikanzniveau — teilweise: nur als Zahl in eigenen Rechnungen
-- [ ] Teststatistik
-- [ ] Ein- und zweiseitige Tests
+- [x] Hypothesentests — in der App: Nullhypothese, Gegenhypothese, Entscheidung in Worten
+- [x] Binomialtest — in der App: binomialtest(n, p₀, α, Seite, k) mit Ablehnungsbereich und Diagramm
+- [x] Mittelwerttests — in der App: gausstest (σ bekannt), ttest, zweistichprobenttest
+- [x] Varianztests — in der App: varianztest (χ²), ftest
+- [x] Chi-Quadrat-Tests — in der App: chi2test als Anpassungs- und Unabhängigkeitstest
+- [x] Konfidenzintervalle — in der App: konfidenzintervall(k, n, γ) und für Mittelwerte
+- [x] p-Werte — in der App: bei jedem Test
+- [x] Signifikanzniveau — in der App: Argument α, tatsächliche Irrtumswahrscheinlichkeit beim Binomialtest
+- [x] Teststatistik — in der App: z, t, χ², F mit kritischem Wert
+- [x] Ein- und zweiseitige Tests — in der App: links, rechts, beidseitig
 
 ## 25. Tabellenkalkulation
 
-- [ ] Tabellen
-- [ ] Zellformeln
-- [ ] Zellbezüge
-- [ ] Absolute Zellbezüge
-- [ ] Relative Zellbezüge
-- [ ] Automatisches Ausfüllen
-- [ ] Datenreihen
-- [ ] Sortieren
-- [ ] Filtern
-- [ ] Statistische Funktionen
-- [ ] Mathematische Funktionen
-- [ ] Diagramme
-- [ ] Verbindung zwischen Tabelle und Grafik
-- [ ] Verbindung zwischen Tabelle und CAS
+- [x] Tabellen — in der App: Ansicht „Tabelle“, 26 Spalten, wächst mit
+- [x] Zellformeln — in der App: =A1*2, deutsche Namen (SUMME, WENN …) und jeder CAS-Befehl
+- [x] Zellbezüge — in der App: A1, Bereiche A1:B5, Zirkelbezüge werden erkannt
+- [x] Absolute Zellbezüge — in der App: $A$1, $A1, A$1
+- [x] Relative Zellbezüge — in der App: wandern beim Ausfüllen, Kopieren und Sortieren mit
+- [x] Automatisches Ausfüllen — in der App: „↓ Füllen“, „→ Füllen“: Zahlenreihen setzen sich fort, Formeln werden angepasst
+- [x] Datenreihen — in der App: „Reihe …“ mit Start, Schritt, Anzahl
+- [x] Sortieren — in der App: nach jeder Spalte, auf- oder absteigend
+- [x] Filtern — in der App: Bedingung je Spalte (>5, <>0, Wort)
+- [x] Statistische Funktionen — in der App: MITTELWERT, MEDIAN, STABW, VARIANZ, KORREL … und alle Statistik-Befehle
+- [x] Mathematische Funktionen — in der App: WURZEL, RUNDEN, POTENZ, SIN … und exakte CAS-Terme
+- [x] Diagramme — in der App: „Diagramm …“ aus dem markierten Bereich
+- [x] Verbindung zwischen Tabelle und Grafik — in der App: Diagramme und Streudiagramme aus Zellen, sie folgen den Zellen
+- [x] Verbindung zwischen Tabelle und CAS — in der App: Zellen heißen im CAS A1, B2 …, zellen(A1, A10); Formeln nutzen CAS-Definitionen
 
 ## 26. Einheiten
 
@@ -854,8 +854,8 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] 2D-Rendering-Engine — in der App: Graph und Folien
 - [x] 3D-Rendering-Engine — in der App: three.js (WebGL)
 - [x] Geometrie-Engine — in der App: exakt über Giac, live beim Ziehen
-- [~] Statistik-Engine — teilweise: Giac
-- [~] Wahrscheinlichkeits-Engine — teilweise: Giac
+- [x] Statistik-Engine — in der App: eigenes Modul für Kennzahlen, Tests und Regression
+- [x] Wahrscheinlichkeits-Engine — in der App: Verteilungen mit Umkehrfunktionen, Simulationen
 - [~] Einheiten-Engine — teilweise: Giac
 - [x] Plotting-Engine
 - [x] Dokument-Engine — in der App: PDF-Dokumente mit Notizen
@@ -875,7 +875,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Algebra und Grafik sind miteinander verbunden — in der App: eine Zeile = ein Objekt, CAS und Grafik nebeneinander
 - [x] Änderungen werden automatisch propagiert
 - [x] 2D und 3D verwenden dieselbe mathematische Objektlogik — in der App: eine Zeile = ein Objekt, in 2D oder 3D
-- [ ] CAS, Geometrie, Statistik und Tabellen greifen auf gemeinsame Objekte zu
+- [x] CAS, Geometrie, Statistik und Tabellen greifen auf gemeinsame Objekte zu — in der App: Zellen sind CAS-Variablen, Regler steuern Diagramme
 - [ ] Jede Funktion ist über GUI und Kommando-/Eingabesystem erreichbar
 - [~] Ergebnisse sind nachvollziehbar — teilweise: Ergebnis ja, Weg nein
 - [x] Fehler werden mathematisch korrekt behandelt — in der App: Absturz-Fehler behoben
@@ -898,10 +898,10 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Ungleichungslöser — in der App: mit Intervallen
 - [x] Matrizen
 - [x] Vektoren — in der App: deutsche Befehle, Ebene und Raum
-- [~] Statistik — teilweise: Grundwerte
-- [~] Regression — nur Befehl: nur Giac-Befehle
-- [~] Wahrscheinlichkeitsrechnung — nur Befehl: nur Giac-Befehle
-- [ ] Tabellenkalkulation
+- [x] Statistik
+- [x] Regression
+- [x] Wahrscheinlichkeitsrechnung
+- [x] Tabellenkalkulation
 - [x] Schieberegler
 - [x] Animation
 - [ ] Skripting

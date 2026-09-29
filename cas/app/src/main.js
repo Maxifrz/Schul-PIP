@@ -15,6 +15,7 @@ import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
 import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
 import { styleSheet, settingsSheet, objectsSheet, exportSheet } from './graph/sheets.js';
 import { SpaceView, DEFAULT_SETTINGS_3D } from './graph/view3d.js';
+import { TableView } from './table-view.js';
 
 MathfieldElement.fontsDirectory = '.';
 MathfieldElement.soundsDirectory = null;
@@ -51,7 +52,7 @@ function changed() {
 }
 
 function snapshot() {
-  return JSON.stringify({ version: 2, name: state.project.name, settings: state.project.settings, graph: state.graph.settings, space: state.space.settings, cas: state.cas.serialize() });
+  return JSON.stringify({ version: 2, name: state.project.name, settings: state.project.settings, graph: state.graph.settings, space: state.space.settings, table: state.table.sheet.serialize(), cas: state.cas.serialize() });
 }
 
 function autosave() {
@@ -75,11 +76,40 @@ function load(json) {
   if (state.animator) for (const name of [...state.animator.playing.keys()]) state.animator.playing.delete(name);
   if (state.engine) for (const def of state.engine.definitions) state.engine.forget(def.name);
   state.scene.key = null;
+  state.chartIds = null;
   state.graph.selected = null;
   state.graph.setSettings(data.graph || DEFAULT_SETTINGS);
   state.space.setSettings(data.space || DEFAULT_SETTINGS_3D);
+  state.table.load(data.table || null);
+  // The cells first: CAS rows may use them.
+  recalcTable();
   state.cas.load(data.cas || []);
   updateTitle();
+}
+
+// The spreadsheet: its values live in Giac as A1, B2 …; formulas may use what the CAS defined.
+
+function recalcTable() {
+  if (!state.engine || !window.CAS) return;
+  const toGiac = (text) => state.engine.giac(state.engine.parse({ text }));
+  state.table.sheet.recalc(window.CAS, toGiac);
+  state.table.refresh();
+}
+
+function tableChanged() {
+  recalcTable();
+  if (state.engine) state.cas.recalculate(0);
+  changed();
+}
+
+/** A row from the table's tools; charts show in the graphics. */
+function appendFromTable(text, chart) {
+  // As text: cell names such as A1 stay as they are.
+  const row = state.cas.append({ mode: 'text', text });
+  if (row.result && !row.result.ok) toast(row.result.error);
+  else if (chart) setLayout(window.innerWidth >= WIDE ? 'both' : 'graph');
+  else toast('Im CAS: ' + text);
+  changed();
 }
 
 // Objects: after every calculation the scene follows the rows
@@ -91,12 +121,34 @@ function refreshScene() {
   sceneTimer = setTimeout(() => {
     sceneTimer = null;
     state.scene.update(state.cas.rows, state.engine);
+    fitNewCharts();
     decorateRows();
     renderStrip();
     state.graph.special = state.graph.selected ? state.graph.computeSpecial() : [];
     state.graph.redraw();
     state.space.redraw();
   }, 0);
+}
+
+/** A chart typed just now fills the graphics; charts that were there when the project opened keep its view. */
+function fitNewCharts() {
+  if (!state.engine) return;
+  const charts = state.scene.objects.filter((o) => o.type === 'chart');
+  if (!state.chartIds) {
+    state.chartIds = new Set(charts.map((o) => o.id));
+    return;
+  }
+  const fresh = charts.filter((o) => !state.chartIds.has(o.id) && isVisible(o));
+  for (const o of charts) state.chartIds.add(o.id);
+  if (!fresh.length) return;
+  const newest = fresh[fresh.length - 1];
+  // Charts have scales of their own: the older ones step back (their dot in the row shows them again).
+  for (const o of charts) {
+    if (o === newest || !isVisible(o)) continue;
+    o.row.graph = o.row.graph || {};
+    o.row.graph.visible = false;
+  }
+  requestAnimationFrame(() => state.graph.fitChart(newest));
 }
 
 /** Dots, sliders and checkboxes in the CAS rows. */
@@ -305,7 +357,7 @@ function setStatus(kind, text) {
 }
 
 function layouts() {
-  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D']] : [['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D']];
+  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']] : [['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']];
 }
 
 function setLayout(layout) {
@@ -386,7 +438,8 @@ function exportText() {
   const lines = state.cas.rows.filter((row) => !state.cas.isEmpty(row)).map((row, i) => {
     const input = row.mode === 'text' ? row.text : row.latex;
     const r = row.result;
-    const output = !r ? '' : r.ok ? (r.kind === 'analysis' ? r.rows.map((x) => `  ${x.label}: ${x.latex}`).join('\n') : r.latex + (r.approxLatex ? '  ≈ ' + r.approxLatex : '')) : 'Fehler: ' + r.error;
+    const table = (t) => (t ? [t.head.join(' | '), ...t.rows.map((cells) => cells.join(' | '))].map((line) => '  ' + line).join('\n') + '\n' : '');
+    const output = !r ? '' : r.ok ? (r.kind === 'analysis' ? table(r.table) + r.rows.map((x) => `  ${x.label}: ${x.latex}`).join('\n') : r.latex + (r.approxLatex ? '  ≈ ' + r.approxLatex : '')) : 'Fehler: ' + r.error;
     return `${i + 1}: ${input}\n   → ${output}`;
   });
   share((state.project.name || 'Rechnung') + '.txt', 'text/plain', lines.join('\n\n'));
@@ -572,7 +625,11 @@ function start() {
   state.cas = new CasView({
     engine: engineProxy,
     onChange: changed,
-    onResults: refreshScene,
+    onResults: () => {
+      // Formulas may use what the CAS defined; values-only sheets need nothing.
+      if (state.table && state.table.sheet.hasFormulas) recalcTable();
+      refreshScene();
+    },
     onStyle: openStyle,
     onSubmitted: (row) => {
       // Typing a new value makes it the one a reset returns to.
@@ -612,6 +669,11 @@ function start() {
     },
   });
   state.space = new SpaceView({ scene: state.scene, onViewChange: changed });
+  state.table = new TableView({
+    onChange: tableChanged,
+    onCas: (text) => appendFromTable(text, false),
+    onChart: (text) => appendFromTable(text, true),
+  });
   state.animator = new Animator({
     scene: state.scene,
     onFrame: () => {
@@ -632,7 +694,8 @@ function start() {
   state.cas.el.classList.add('cas-pane');
   state.graph.el.classList.add('graph-pane');
   state.space.el.classList.add('space-pane');
-  mainEl.append(state.cas.el, state.graph.el, state.space.el);
+  state.table.el.classList.add('table-pane');
+  mainEl.append(state.cas.el, state.graph.el, state.space.el, state.table.el);
   app.append(header, mainEl);
   let remembered = null;
   try {
@@ -669,8 +732,10 @@ function start() {
 function giacReady() {
   if (state.engine) return;
   state.engine = new Engine(window.CAS);
+  state.engine.sheet = state.table.sheet;
   applySettings();
   setStatus('ready', 'Giac · exakt');
+  recalcTable();
   state.cas.recalculate(0);
 }
 

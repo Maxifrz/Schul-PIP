@@ -13,9 +13,11 @@ Alpes), licensed under the GNU GPL version 3 or later. That is why Schul-PIP as 
 - `web/cas.html`: loads both in the app's hidden web view (WKWebView on iOS, WebView on Android).
 - `app/`: the calculator app itself (CAS view, formula editor, command search; `src/geometry.js` and
   `src/space.js`: shapes and values of geometric objects in the plane and in space, exact and symbolic; `src/graph/`: the objects of the rows, the 2D graphics, construction
-  tools, sliders and animation, the 3D view; tables and statistics follow), plain ES modules bundled with esbuild into `web/mathe.js` and `web/mathe.css`
-  (`cd cas/app && npm ci && npm run build`). Its tests: `npm test` (expressions, plotting maths, engine against the real Giac) and
-  `test/ui/smoke.mjs`, `test/ui/graph.mjs`, `test/ui/geometry.mjs`, `test/ui/space.mjs` (the page in Chromium through Playwright). The bundle is committed, so the app builds need no Node.
+  tools, sliders and animation, the 3D view; `src/stats.js`: statistics, distributions, regressions, tests and seeded simulations in plain
+  JavaScript, `src/statcommands.js` the German commands on top of it, `src/charts.js` what the chart commands draw; `src/table.js` and
+  `src/table-view.js`: the spreadsheet, whose cells are Giac variables), plain ES modules bundled with esbuild into `web/mathe.js` and `web/mathe.css`
+  (`cd cas/app && npm ci && npm run build`). Its tests: `npm test` (expressions, plotting maths, engine against the real Giac, statistics against table values, the spreadsheet) and
+  `test/ui/smoke.mjs`, `test/ui/graph.mjs`, `test/ui/geometry.mjs`, `test/ui/space.mjs`, `test/ui/stats.mjs` (the page in Chromium through Playwright). The bundle is committed, so the app builds need no Node.
 - `web/mathe.html`: the calculator page both apps show in the Rechner tab; it talks to the app through a small bridge
   (`webkit.messageHandlers.mathe` on iOS, `MatheBridge` on Android) for storing projects and sharing.
 - Third-party code in the bundle: [MathLive](https://github.com/arnog/mathlive) 0.110 (MIT, formula editor and

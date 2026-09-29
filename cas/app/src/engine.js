@@ -1,10 +1,12 @@
 // Between the calculator's input and Giac: reads LaTeX or text, turns German commands into Giac, keeps track of what
 // the student defined, and returns every answer as school-style LaTeX.
 
-import { parseLatex, parsePlain, toGiac, toLatex, ParseError, MATH_FUNCTIONS, latexNumber } from './expr.js';
+import { parseLatex, parsePlain, toGiac, toLatex, ParseError, MATH_FUNCTIONS, latexNumber, compile } from './expr.js';
 import { command, giacCall, COMMAND_NAMES } from './commands.js';
 import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
 import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
+import { STAT_COMMANDS, isWord } from './statcommands.js';
+import { newSeed } from './stats.js';
 
 /** Letters that stay unknowns: "x = 3" is an equation, not a definition. */
 const UNKNOWNS = new Set(['x', 'y', 'z', 't', 'n', 'k', 's']);
@@ -48,11 +50,20 @@ export class Engine {
     const transform = (n) => {
       if (!n || typeof n !== 'object') return n;
       if (n.t === 'call' && !n.prime && command(n.f) && !this.defined.has(n.f)) {
+        const stat = STAT_COMMANDS[command(n.f).name];
+        if (stat) {
+          // Worked out in JavaScript; only commands with a plain value can stand inside other terms.
+          const result = stat.run(this.statContext(), n.args, newSeed(), command(n.f).name);
+          if (result.giac === undefined) throw new Error(`${command(n.f).name}(…) ergibt eine Tabelle und kann nicht weiterverrechnet werden.`);
+          return { t: 'raw', v: '(' + result.giac + ')' };
+        }
         if (isShapeCall(n) || isMeasureCall(n) || this.geometry.space.isSpaceCall(n)) return { t: 'raw', v: this.geometry.value(n) };
         const args = n.args.map((a) => this.giac(a));
         return { t: 'raw', v: giacCall(n.f, args) };
       }
       if (n.t === 'sym' && GIAC_NAMES[n.v]) return { ...n, v: GIAC_NAMES[n.v] };
+      // A_1 from the formula editor is the cell A1 when the table has it
+      if (n.t === 'sym' && this.sheet && /^[A-Z]_\d+$/.test(n.v) && this.sheet.assigned.has(n.v.replace('_', ''))) return { ...n, v: n.v.replace('_', '') };
       const copy = { ...n };
       for (const key of ['a', 'b', 'inner']) if (copy[key]) copy[key] = transform(copy[key]);
       for (const key of ['args', 'items']) if (copy[key]) copy[key] = copy[key].map(transform);
@@ -134,6 +145,23 @@ export class Engine {
       }
     }
 
+    // Statistics that answer with a table (and charts that draw too)
+    const stat = tree.t === 'call' && !tree.prime && !this.defined.has(tree.f) && STAT_COMMANDS[command(tree.f)?.name];
+    if (stat) {
+      const name = command(tree.f).name;
+      const seed = newSeed();
+      let result;
+      try {
+        result = stat.run(this.statContext(), tree.args, seed, name);
+      } catch (e) {
+        return { ok: false, error: e.message || 'Das konnte nicht berechnet werden.' };
+      }
+      if (result.giac === undefined) {
+        const chart = stat.chart ? { command: name, kind: stat.chart, words: tree.args.map((a) => (isWord(a) ? (a.t === 'str' ? a.v : a.v).toLowerCase() : null)) } : null;
+        return { ok: true, kind: 'analysis', title: result.title, rows: result.rows || [], table: result.table || null, chart, seed, tree };
+      }
+    }
+
     let definition;
     let giac;
     try {
@@ -196,6 +224,48 @@ export class Engine {
       return { ok: true, kind: 'value', tree, latex: this.formatVector(answer.exact), approxLatex: null, giac };
     }
     return { ok: true, kind: 'value', tree, latex: this.format(answer.exact), approxLatex: this.approx(answer), giac };
+  }
+
+  /** What the statistics commands read their arguments with */
+  statContext() {
+    const numbers = (text) => {
+      const answer = this.cas.raw(`evalf(${text})`);
+      if (answer.error) throw new Error(answer.error);
+      const body = String(answer.value).replace(/\b(list|matrix)\[/g, '[').replace(/\s+/g, '');
+      let value;
+      try {
+        value = JSON.parse(body);
+      } catch (e) {
+        throw new Error(`„${text}“ ist keine Zahl und keine Liste von Zahlen.`);
+      }
+      const ok = (v) => (Array.isArray(v) ? v.every(ok) : typeof v === 'number' && Number.isFinite(v));
+      if (!ok(value)) throw new Error(`„${text}“ enthält etwas anderes als Zahlen.`);
+      return value;
+    };
+    return {
+      // Cells of the spreadsheet that hold a value (see table.js)
+      cells: this.sheet ? this.sheet.assigned : null,
+      values: (node) => numbers(this.giac(node)),
+      giac: (node) => this.giac(node),
+      format: (text) => this.format(text),
+      number: (text) => {
+        try {
+          const v = numbers(text);
+          return typeof v === 'number' ? v : NaN;
+        } catch (e) {
+          return NaN;
+        }
+      },
+      exact: (text) => {
+        const answer = this.cas.raw(`simplify(${text})`);
+        return answer.error ? null : this.format(answer.value);
+      },
+      function: (node) => {
+        const answer = this.cas.raw(this.giac(node));
+        if (answer.error) throw new Error(answer.error);
+        return compile(parsePlain(String(answer.value)), ['x'], { value: () => undefined });
+      },
+    };
   }
 
   /** A function argument of an analysis command: f(x) itself, or the name of a defined function. */

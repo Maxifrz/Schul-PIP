@@ -274,7 +274,13 @@ export class CasView {
     }
     const math = (latex) => h('span', {}, ...lines(latex).map((line, i) => h('span', { style: { display: i ? 'block' : 'inline' }, html: convertLatexToMarkup(line) })));
     if (r.kind === 'analysis') {
-      const grid = h('div.analysis', {}, h('div.title', {}, r.title + ' von ', math('f\\left(x\\right)=' + r.function)));
+      const grid = h('div.analysis', {}, h('div.title', {}, ...(r.function ? [r.title + ' von ', math('f\\left(x\\right)=' + r.function)] : [r.title])));
+      if (r.table) {
+        // A table of values: head row, then one row per value
+        const table = h('table.stat-table', {}, h('thead', {}, h('tr', {}, ...r.table.head.map((cell) => h('th', {}, cell)))),
+          h('tbody', {}, ...r.table.rows.map((cells) => h('tr', {}, ...cells.map((cell) => h('td', {}, math(cell)))))));
+        grid.append(h('div.table-wrap', {}, table));
+      }
       for (const item of r.rows) grid.append(h('div.label', {}, item.label), h('div', {}, math(item.latex)));
       row.outputEl.replaceChildren(grid);
       return;

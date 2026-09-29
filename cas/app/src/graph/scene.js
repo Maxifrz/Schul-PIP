@@ -57,6 +57,8 @@ function structureOf(row, entry) {
   const input = row.mode === 'text' ? row.text : row.latex;
   if (entry && (entry.type === 'slider' || entry.type === 'checkbox' || (entry.type === 'point' && entry.free))) return `${row.mode}:${entry.name}=#`;
   if (entry && entry.glider) return `${row.mode}:${entry.name}=#${entry.object}`;
+  // A simulation drawn again is a new object.
+  if (entry && entry.type === 'chart') return `${row.mode}:${input}#${entry.seed}`;
   return `${row.mode}:${input}`;
 }
 
@@ -262,6 +264,23 @@ export class Scene {
       }
       case 'locus':
         return { ...base, pointName: entry.pointName, parameter: entry.parameter };
+      case 'chart': {
+        // Every argument as a function of the sliders: a number, or a (nested) list of numbers
+        const valueFn = (tree) => {
+          if (tree.t === 'list') {
+            const items = tree.items.map(valueFn);
+            return () => items.map((f) => f());
+          }
+          const f = compile(tree, [], this.scope);
+          return () => f();
+        };
+        const fns = answers.map((answer) => {
+          const tree = parse(answer);
+          return tree ? valueFn(tree) : null;
+        });
+        if (fns.some((f) => !f)) return null;
+        return { ...base, command: entry.command, chart: entry.chart, seed: entry.seed, items: () => entry.layout.map((slot) => (typeof slot === 'string' ? slot : fns[slot]())) };
+      }
       case 'point3': {
         const at = this.vectorFn(answers[0]);
         return at ? { ...base, at } : null;
@@ -370,6 +389,19 @@ export class Scene {
 /** What a row is in the graphics, and what Giac has to work out for it. */
 export function classify(row, engine) {
   const r = row.result;
+  if (r && r.ok && r.kind === 'analysis' && r.chart && r.tree) {
+    // A chart: numbers and lists come from Giac with sliders left free, words (binomial, links …) stay as typed.
+    const layout = [];
+    const requests = [];
+    r.tree.args.forEach((arg, i) => {
+      if (r.chart.words[i]) layout.push(r.chart.words[i]);
+      else {
+        layout.push(requests.length);
+        requests.push(engine.giac(arg));
+      }
+    });
+    return { row, type: 'chart', command: r.chart.command, chart: r.chart.kind, layout, seed: r.seed, requests, label: '' };
+  }
   if (!r || !r.ok || r.kind === 'analysis') return null;
   const giac = (node) => engine.giac(node);
 

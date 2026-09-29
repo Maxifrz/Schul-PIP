@@ -5,7 +5,8 @@
 import { h, toast } from '../ui.js';
 import { sliderSettings } from './sliders.js';
 import { TOOLS, tool as toolById } from './tools.js';
-import { styleOf, isVisible } from './scene.js';
+import { styleOf, isVisible, PALETTE } from './scene.js';
+import { chartShapes } from '../charts.js';
 import { sampleFunction, contour, specialPoints, niceStep, piStep, tickLabel, piLabel, coordinate } from './plot.js';
 import { parsePlain, compile, compileCondition } from '../expr.js';
 
@@ -222,7 +223,7 @@ export class GraphView {
     }
     if (this.settings.axes) this.paintAxes(ctx, colors);
     const objects = this.scene.objects.filter((o) => isVisible(o) && this.conditionHolds(o));
-    const order = { region: 0, polygon: 1, circle: 2, implicit: 3, function: 4, curve: 4, line: 5, ray: 5, segment: 5, vector: 6, point: 9 };
+    const order = { chart: 0, region: 0, polygon: 1, circle: 2, implicit: 3, function: 4, curve: 4, line: 5, ray: 5, segment: 5, vector: 6, point: 9 };
     objects.sort((a, b) => (order[a.type] ?? 5) - (order[b.type] ?? 5));
     for (const object of objects) {
       try {
@@ -641,6 +642,9 @@ export class GraphView {
         }
         return;
       }
+      case 'chart':
+        this.paintChart(ctx, object, style, selected, colors);
+        return;
       case 'locus': {
         const path = this.locusPath(object);
         if (!path) return;
@@ -698,6 +702,120 @@ export class GraphView {
   }
 
   /** The path of a point while a slider or a point on an object runs through its range. */
+  /** The shapes of a chart for the current slider values; worked out again only when they change */
+  chartOf(object) {
+    const items = object.items();
+    const key = JSON.stringify(items);
+    if (!object.cache || object.cache.key !== key) {
+      let shapes = null;
+      try {
+        shapes = chartShapes(object.command, object.chart, items, object.seed);
+      } catch (e) {
+        shapes = null;
+      }
+      object.cache = { key, shapes };
+    }
+    return object.cache.shapes;
+  }
+
+  paintChart(ctx, object, style, selected, colors) {
+    const shapes = this.chartOf(object);
+    if (!shapes) return;
+    const accent = style.color === PALETTE[1] ? PALETTE[0] : PALETTE[1];
+    const X = (x) => this.px(x);
+    const Y = (y) => this.py(y);
+    ctx.setLineDash([]);
+    ctx.lineJoin = 'round';
+    for (const a of shapes.areas) {
+      ctx.beginPath();
+      a.points.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      ctx.closePath();
+      ctx.fillStyle = withAlpha(accent, 0.45);
+      ctx.fill();
+    }
+    for (const r of shapes.rects) {
+      const x = Math.min(X(r.x0), X(r.x1));
+      const y = Math.min(Y(r.y0), Y(r.y1));
+      const w = Math.abs(X(r.x1) - X(r.x0));
+      const hh = Math.abs(Y(r.y1) - Y(r.y0));
+      ctx.fillStyle = r.strong ? withAlpha(accent, 0.7) : withAlpha(style.color, Math.max(style.fill, 0.35));
+      ctx.fillRect(x, y, w, hh);
+      ctx.strokeStyle = r.strong ? accent : style.color;
+      ctx.lineWidth = selected ? 2 : 1.2;
+      ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, hh - 1));
+    }
+    shapes.wedges.forEach((wedge) => {
+      const rx = Math.abs(X(wedge.cx + wedge.r) - X(wedge.cx));
+      const ry = Math.abs(Y(wedge.cy + wedge.r) - Y(wedge.cy));
+      ctx.beginPath();
+      ctx.moveTo(X(wedge.cx), Y(wedge.cy));
+      ctx.ellipse(X(wedge.cx), Y(wedge.cy), rx, ry, 0, -wedge.a0, -wedge.a1, false);
+      ctx.closePath();
+      ctx.fillStyle = withAlpha(PALETTE[wedge.index % PALETTE.length], 0.8);
+      ctx.fill();
+      ctx.strokeStyle = colors.bg;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    for (const line of shapes.lines) {
+      ctx.beginPath();
+      line.points.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      ctx.strokeStyle = line.accent ? accent : style.color;
+      ctx.lineWidth = (line.bold ? style.width : line.thin ? 1 : 1.6) + (selected ? 1 : 0);
+      ctx.setLineDash(line.dash ? [6, 5] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const d of shapes.dots) {
+      if (!Number.isFinite(d.x) || !Number.isFinite(d.y)) continue;
+      if (d.small) {
+        ctx.fillStyle = d.accent ? accent : style.color;
+        ctx.fillRect(X(d.x) - 1.5, Y(d.y) - 1.5, 3, 3);
+      } else this.dot(ctx, d.x, d.y, style.pointSize + (selected ? 1.5 : 0), d.accent ? accent : style.color, colors.bg);
+    }
+    for (const t of shapes.texts) {
+      if (t.strong) this.text(ctx, t.text, X(t.x), Y(t.y), colors.ink, colors.bg, t.align || 'left');
+      else {
+        ctx.font = '500 12.5px ' + FONT;
+        ctx.textAlign = t.align || 'left';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = colors.bg;
+        ctx.strokeText(t.text, X(t.x), Y(t.y));
+        ctx.fillStyle = colors.muted;
+        ctx.fillText(t.text, X(t.x), Y(t.y));
+      }
+    }
+  }
+
+  /** Shows a chart whole: the view takes its bounds, with unequal units except for pie charts */
+  fitChart(object) {
+    const shapes = this.chartOf(object);
+    if (!shapes || !shapes.bounds) return;
+    const b = shapes.bounds;
+    const s = this.settings;
+    const pie = object.chart === 'pie' || object.chart === 'montecarlo';
+    Object.assign(s, { xmin: b.xmin, xmax: b.xmax, ymin: b.ymin, ymax: b.ymax, logX: false, logY: false });
+    s.equal = pie;
+    if (pie && this.width && this.height) {
+      // Equal units: widen whichever side is short
+      const perX = (s.xmax - s.xmin) / this.width;
+      const perY = (s.ymax - s.ymin) / this.height;
+      if (perX > perY) {
+        const half = (perX * this.height) / 2;
+        const middle = (s.ymin + s.ymax) / 2;
+        s.ymin = middle - half;
+        s.ymax = middle + half;
+      } else {
+        const half = (perY * this.width) / 2;
+        const middle = (s.xmin + s.xmax) / 2;
+        s.xmin = middle - half;
+        s.xmax = middle + half;
+      }
+    }
+    this.viewChanged();
+  }
+
   locusPath(object) {
     const P = this.scene.objects.find((o) => o.name === object.pointName && o.type === 'point');
     if (!P) return null;
@@ -1152,6 +1270,21 @@ export class GraphView {
       }
       case 'points':
         return Math.min(Infinity, ...o.all().map(([x, y]) => Math.hypot(this.px(x) - px, this.py(y) - py)));
+      case 'chart': {
+        const shapes = this.chartOf(o);
+        if (!shapes) return Infinity;
+        const X = (x) => this.px(x);
+        const Y = (y) => this.py(y);
+        const inRect = shapes.rects.some((r) => px >= Math.min(X(r.x0), X(r.x1)) && px <= Math.max(X(r.x0), X(r.x1)) && py >= Math.min(Y(r.y0), Y(r.y1)) && py <= Math.max(Y(r.y0), Y(r.y1)));
+        const inWedge = shapes.wedges.some((w) => Math.hypot((px - X(w.cx)) / Math.abs(X(w.cx + w.r) - X(w.cx)), (py - Y(w.cy)) / Math.abs(Y(w.cy + w.r) - Y(w.cy))) <= 1);
+        if (inRect || inWedge) return HIT / 2;
+        let best = Infinity;
+        for (const d of shapes.dots) best = Math.min(best, Math.hypot(X(d.x) - px, Y(d.y) - py));
+        for (const line of shapes.lines) for (let i = 1; i < line.points.length; i++) {
+          best = Math.min(best, segmentDistance([px, py], [X(line.points[i - 1][0]), Y(line.points[i - 1][1])], [X(line.points[i][0]), Y(line.points[i][1])], 'segment'));
+        }
+        return best;
+      }
       case 'arc':
       case 'sector':
       case 'angle': {
