@@ -13,14 +13,23 @@ enum SlideDrawing {
         )
     }
 
-    static func draw(_ slide: Slide, theme: SlideTheme, in context: CGContext, scale: CGFloat, images: [String: UIImage], skipping skipID: String? = nil) {
+    /// `index` is the slide's place in the deck; the title slide (0) gets the design's bolder decorations. With
+    /// `layerOnly` only the slide's elements are drawn, without background and decorations, so they can be stacked on
+    /// a transparent layer while presenting.
+    static func draw(
+        _ slide: Slide, theme: SlideTheme, in context: CGContext, scale: CGFloat, images: [String: UIImage], skipping skipID: String? = nil,
+        index: Int = 1, layerOnly: Bool = false
+    ) {
         UIGraphicsPushContext(context)
         defer { UIGraphicsPopContext() }
         context.saveGState()
         context.scaleBy(x: scale, y: scale)
-        context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
-        context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
-        for element in slide.elements where element.id != skipID {
+        if !layerOnly {
+            context.setFillColor(uiColor(slide.backgroundColor(theme)).cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height))
+        }
+        let decorations: [SlideElement] = layerOnly ? [] : SlideDesign.decor(theme, index: index)
+        for element in decorations + slide.elements where element.id != skipID {
             context.saveGState()
             if element.rotation != 0 {
                 context.translateBy(x: element.centerX, y: element.centerY)
@@ -64,7 +73,10 @@ enum SlideDrawing {
         func path(_ rect: CGRect) -> UIBezierPath {
             switch element.shape {
             case .ellipse: return UIBezierPath(ovalIn: rect)
-            case .rounded: return UIBezierPath(roundedRect: rect, cornerRadius: min(element.width, element.height) * 0.16667)
+            case .rounded:
+                // The design's corners: square ones (scale 0) are plain rectangles.
+                let radius = min(element.width, element.height) * theme.cornerFraction
+                return radius > 0 ? UIBezierPath(roundedRect: rect, cornerRadius: radius) : UIBezierPath(rect: rect)
             default: return UIBezierPath(rect: rect)
             }
         }
@@ -90,15 +102,17 @@ enum SlideDrawing {
         image.draw(in: rect)
     }
 
-    static func font(_ element: SlideElement) -> UIFont {
-        let name = element.italic ? "WorkSans-Italic" : (element.bold ? "WorkSans-SemiBold" : "WorkSans-Regular")
-        return UIFont(name: name, size: element.fontSize) ?? .systemFont(ofSize: element.fontSize, weight: element.bold ? .semibold : .regular)
+    /// The design's heading or body font for the element, at the size that takes as much room as Work Sans would.
+    static func font(_ element: SlideElement, theme: SlideTheme) -> UIFont {
+        let size = SlideDesign.fontSize(element, theme: theme)
+        return UIFont(name: SlideDesign.fontName(element, theme: theme), size: size)
+            ?? .systemFont(ofSize: size, weight: element.bold ? .semibold : .regular)
     }
 
     /// The element's text with bullets matching the PowerPoint export: text starts 1.1 × font size from the left.
     static func attributedText(_ element: SlideElement, theme: SlideTheme) -> NSAttributedString {
         let result = NSMutableAttributedString()
-        let font = font(element)
+        let font = font(element, theme: theme)
         let color = uiColor(theme.color(element.textColor) ?? theme.text)
         let indent = element.fontSize * 1.1
         let alignment: NSTextAlignment = element.align == .left ? .left : (element.align == .center ? .center : .right)
@@ -113,7 +127,9 @@ enum SlideDrawing {
                 style.defaultTabInterval = indent
             }
             var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: style]
-            if element.bold, element.italic { attributes[.strokeWidth] = -2 }
+            // No bold italic cut: a thin outline thickens the italic. Heading-only fonts are bold already.
+            let face = SlideDesign.font(element, theme: theme)
+            if element.bold, element.italic, face.hasStyles, !face.hasBoldItalic { attributes[.strokeWidth] = -2 }
             if bullet {
                 var bulletAttributes = attributes
                 bulletAttributes[.foregroundColor] = uiColor(theme.accent)
@@ -146,9 +162,67 @@ enum SlideDrawing {
     static func pdf(_ presentation: Presentation, images: [String: UIImage]) -> Data {
         let bounds = CGRect(x: 0, y: 0, width: SlideSize.width, height: SlideSize.height)
         return UIGraphicsPDFRenderer(bounds: bounds).pdfData { renderer in
-            for slide in presentation.slides {
+            for (index, slide) in presentation.slides.enumerated() {
                 renderer.beginPage()
-                draw(slide, theme: presentation.theme, in: renderer.cgContext, scale: 1, images: images)
+                draw(slide, theme: presentation.theme, in: renderer.cgContext, scale: 1, images: images, index: index)
+            }
+        }
+    }
+
+    /// One slide as a PNG, `width` pixels wide.
+    static func png(_ slide: Slide, theme: SlideTheme, index: Int, images: [String: UIImage], width: CGFloat = 1920) -> Data {
+        let scale = width / SlideSize.width
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: SlideSize.height * scale), format: format)
+        return renderer.pngData { context in
+            draw(slide, theme: theme, in: context.cgContext, scale: scale, images: images, index: index)
+        }
+    }
+
+    /// The deck as a PDF for handing out or rehearsing: A4 portrait, per slide the picture on top and its speaker notes
+    /// below. Notes that do not fit the page continue on further pages, so nothing is cut.
+    static func pdfWithNotes(_ presentation: Presentation, images: [String: UIImage]) -> Data {
+        let page = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let margin: CGFloat = 40
+        let contentWidth = page.width - 2 * margin
+        let scale = contentWidth / SlideSize.width
+        let slideHeight = SlideSize.height * scale
+        let notesTop = margin + slideHeight + 30
+        let firstHeight = page.height - margin - notesTop
+        let fullHeight = page.height - 2 * margin
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 11), .foregroundColor: UIColor.black]
+        let labelAttributes: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 11), .foregroundColor: UIColor.darkGray]
+        func height(_ text: String) -> CGFloat {
+            ceil((text as NSString).boundingRect(
+                with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes, context: nil
+            ).height)
+        }
+        let count = presentation.slides.count
+        return UIGraphicsPDFRenderer(bounds: page).pdfData { renderer in
+            for (index, slide) in presentation.slides.enumerated() {
+                renderer.beginPage()
+                let context = renderer.cgContext
+                context.saveGState()
+                context.translateBy(x: margin, y: margin)
+                context.clip(to: CGRect(x: 0, y: 0, width: contentWidth, height: slideHeight))
+                draw(slide, theme: presentation.theme, in: context, scale: scale, images: images, index: index)
+                context.restoreGState()
+                context.setStrokeColor(UIColor.lightGray.cgColor)
+                context.setLineWidth(0.5)
+                context.stroke(CGRect(x: margin, y: margin, width: contentWidth, height: slideHeight))
+                ("Folie \(index + 1) von \(count)" as NSString).draw(at: CGPoint(x: margin, y: margin + slideHeight + 8), withAttributes: labelAttributes)
+                let notes = slide.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                let first = DeckExport.paginate(notes.isEmpty ? "Keine Notizen." : notes) { height($0) <= firstHeight }
+                (first[0] as NSString).draw(in: CGRect(x: margin, y: notesTop, width: contentWidth, height: firstHeight), withAttributes: attributes)
+                let rest = first.dropFirst().joined(separator: " ")
+                guard !rest.isEmpty else { continue }
+                for piece in DeckExport.paginate(rest, fits: { height($0) <= fullHeight }) {
+                    renderer.beginPage()
+                    (piece as NSString).draw(in: CGRect(x: margin, y: margin, width: contentWidth, height: fullHeight), withAttributes: attributes)
+                }
             }
         }
     }
@@ -160,11 +234,18 @@ struct SlideCanvas: View {
     let theme: SlideTheme
     let images: [String: UIImage]
     var skipping: String?
+    /// The slide's place in the deck, for the title slide's decorations.
+    var index = 1
+    /// Draw the elements only, on a transparent layer.
+    var layerOnly = false
 
     var body: some View {
         Canvas { context, size in
             context.withCGContext { cg in
-                SlideDrawing.draw(slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping)
+                SlideDrawing.draw(
+                    slide, theme: theme, in: cg, scale: size.width / SlideSize.width, images: images, skipping: skipping, index: index,
+                    layerOnly: layerOnly
+                )
             }
         }
         .aspectRatio(16 / 9, contentMode: .fit)

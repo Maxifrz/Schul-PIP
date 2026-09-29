@@ -1,0 +1,36 @@
+name: CAS
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["cas/**", ".github/workflows/cas.yml"]
+  pull_request:
+    paths: ["cas/**", ".github/workflows/cas.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # cas.js against the real Giac build that ships in both apps.
+      - name: Calculator core tests
+        run: node cas/test/cas.test.js
+
+      # The calculator app: bundle it again and fail if the committed bundle is stale.
+      - name: Calculator app build
+        working-directory: cas/app
+        run: |
+          npm ci
+          npm run build
+          git diff --exit-code -- ../web/mathe.js ../web/mathe.css
+
+      - name: Calculator app tests
+        working-directory: cas/app
+        run: npm test

@@ -152,7 +152,7 @@ private struct PresentationTile: View {
     var body: some View {
         let first = presentation.slides.first ?? Slide()
         VStack(alignment: .leading, spacing: 12) {
-            SlideCanvas(slide: first, theme: presentation.theme, images: store.images(for: [first]))
+            SlideCanvas(slide: first, theme: presentation.theme, images: store.images(for: [first]), index: 0)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Quill.line, lineWidth: 1))
                 .shadow(color: .black.opacity(0.08), radius: 10, y: 6)
@@ -207,7 +207,7 @@ struct PresentationCreateView: View {
     @State private var topic = ""
     @State private var slideCount = 10
     @State private var minutes = 10
-    @State private var themeID = SlideTheme.quill.id
+    @State private var themeID = SlideDesign.auto
     @State private var isGenerating = false
     @State private var stage = PresentationAssistant.Stage.outline
     @State private var review = true
@@ -301,9 +301,14 @@ struct PresentationCreateView: View {
                     QuillRow(label: "\(minutes) Minuten Redezeit", verticalPadding: 10) {
                         QuillStepper(onMinus: { minutes = max(3, minutes - 1) }, onPlus: { minutes = min(45, minutes + 1) })
                     }
-                    QuillRow(label: "Design", verticalPadding: 10) {
-                        ThemePicker(selection: $themeID)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Design")
+                            .font(.work(15.5))
+                            .foregroundStyle(Quill.ink)
+                        ThemePicker(selection: $themeID, allowsAuto: true)
                     }
+                    .padding(.vertical, 12)
+                    .overlay(alignment: .bottom) { QuillDivider() }
                     QuillRow(label: "Kritiker überarbeitet automatisch", verticalPadding: 10) {
                         Toggle("", isOn: $review).labelsHidden().tint(Quill.accent)
                     }
@@ -443,33 +448,67 @@ struct QuillStepper: View {
     }
 }
 
-/// The four slide designs as small previews.
+/// The slide designs as real previews: a sample title slide, or the deck's own first slide, in every design. With
+/// `allowsAuto` the first tile leaves the choice to the AI.
 struct ThemePicker: View {
     @Binding var selection: String
+    var allowsAuto = false
+    var slide: Slide?
+    var images: [String: UIImage] = [:]
+
+    private static let sample = Slide(elements: SlideLayouts.build(SlideDraft(
+        layout: .title, title: "Photosynthese", subtitle: "Wie Pflanzen aus Licht Zucker machen"
+    )))
 
     var body: some View {
-        HStack(spacing: 10) {
-            ForEach(SlideTheme.all) { theme in
-                let isSelected = theme.id == selection
-                Button {
-                    selection = theme.id
-                } label: {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 3) {
-                            Capsule().fill(Color(SlideDrawing.uiColor(theme.text))).frame(width: 16, height: 4)
-                            Circle().fill(Color(SlideDrawing.uiColor(theme.accent))).frame(width: 6, height: 6)
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 14) {
+                if allowsAuto {
+                    tile(name: "Automatisch", isSelected: selection == SlideDesign.auto, select: SlideDesign.auto) {
+                        VStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Quill.accent)
+                            Text("Die KI wählt passend zum Thema")
+                                .font(.work(11.5))
+                                .foregroundStyle(Quill.muted)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 12)
                         }
-                        .frame(width: 50, height: 26)
-                        .background(Color(SlideDrawing.uiColor(theme.background)), in: RoundedRectangle(cornerRadius: 4))
-                        .padding(3)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(isSelected ? Quill.accent : Quill.line2, lineWidth: isSelected ? 2 : 1))
-                        Text(theme.name)
-                            .font(.work(11.5))
-                            .foregroundStyle(isSelected ? Quill.ink : Quill.faint)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Quill.surface)
                     }
                 }
-                .buttonStyle(.plain)
+                ForEach(SlideTheme.all) { theme in
+                    tile(name: theme.name, isSelected: theme.id == selection, select: theme.id) {
+                        SlideCanvas(slide: slide ?? Self.sample, theme: theme, images: images, index: 0)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 2)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func tile<Preview: View>(name: String, isSelected: Bool, select id: String, @ViewBuilder preview: () -> Preview) -> some View {
+        Button {
+            selection = id
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                preview()
+                    .frame(width: 168, height: 94.5)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(isSelected ? Quill.accent : Quill.line2, lineWidth: isSelected ? 2.5 : 1)
+                    )
+                Text(name)
+                    .font(.work(12.5, isSelected ? .medium : .regular))
+                    .foregroundStyle(isSelected ? Quill.ink : Quill.muted)
             }
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

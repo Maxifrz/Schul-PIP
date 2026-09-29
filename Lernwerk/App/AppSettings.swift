@@ -5,6 +5,7 @@ final class AppSettings: ObservableObject {
         static let tutor = "llm.tutor"
         static let plan = "llm.plan"
         static let demoMode = "demoMode"
+        static let bundesland = "bundesland"
     }
 
     /// Model for the help panel and the flashcards created from it.
@@ -21,6 +22,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(demoMode, forKey: Keys.demoMode) }
     }
 
+    /// For Ferien and Feiertage; nil until the student picks one, so the app never guesses wrong.
+    @Published var bundesland: Bundesland? {
+        didSet { defaults.set(bundesland?.rawValue, forKey: Keys.bundesland) }
+    }
+
     @Published private(set) var providersWithKey: Set<LLMProvider>
 
     private let defaults: UserDefaults
@@ -30,6 +36,7 @@ final class AppSettings: ObservableObject {
         tutor = AppSettings.load(Keys.tutor, from: defaults) ?? .defaultSelection(for: .tutor, provider: .nvidia)
         plan = AppSettings.load(Keys.plan, from: defaults) ?? .defaultSelection(for: .plan, provider: .openRouter)
         demoMode = defaults.bool(forKey: Keys.demoMode)
+        bundesland = (defaults.string(forKey: Keys.bundesland)).flatMap(Bundesland.init(rawValue:))
         providersWithKey = Set(LLMProvider.allCases.filter { KeychainStore.load(account: $0.keychainAccount) != nil })
     }
 

@@ -96,6 +96,7 @@ import de.maxifrz.lernwerk.present.Presentation
 import de.maxifrz.lernwerk.present.PresentationAssistant
 import de.maxifrz.lernwerk.present.PresentationPrompt
 import de.maxifrz.lernwerk.present.ShapeType
+import de.maxifrz.lernwerk.present.SlideDesign
 import de.maxifrz.lernwerk.present.SlideElement
 import de.maxifrz.lernwerk.present.SlideGeometry
 import de.maxifrz.lernwerk.present.SlideLayout
@@ -371,7 +372,8 @@ private fun SlideList(state: EditorState, images: Map<String, Bitmap>, modifier:
                             slide,
                             presentation.theme,
                             images,
-                            Modifier
+                            index = index,
+                            modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(shape)
                                 .border(if (selected) 2.dp else 1.dp, if (selected) colors.accent else colors.line2, shape)
@@ -436,9 +438,22 @@ private fun InsertBar(state: EditorState, onPickImage: () -> Unit, onPickMateria
             MenuItem("Seite aus Material") { close(); onPickMaterial() }
         }
         Box(Modifier.width(1.dp).height(24.dp).background(colors.line2))
-        MenuButton("Design") { close ->
-            SlideTheme.all.forEach { theme ->
-                MenuItem(theme.name + if (theme.id == state.presentation.themeId) "  ✓" else "") { close(); state.setTheme(theme.id) }
+        var choosingDesign by remember { mutableStateOf(false) }
+        OutlineButton("Design", { choosingDesign = true })
+        if (choosingDesign) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { choosingDesign = false }) {
+                Column(
+                    Modifier.background(colors.bg, RoundedCornerShape(18.dp)).padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    PixelCaption("Design")
+                    // The deck's own title slide in every design; tapping one restyles the whole deck.
+                    ThemePicker(state.presentation.themeId, { state.setTheme(it) }, slide = state.presentation.slides.firstOrNull())
+                    QText("Schriften und Verzierungen gehören zum Design; deine Inhalte bleiben, wie sie sind.", work(13f), colors.muted)
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        LinkButton("Fertig", { choosingDesign = false })
+                    }
+                }
             }
         }
         Box(Modifier.width(1.dp).height(24.dp).background(colors.line2))
@@ -640,7 +655,7 @@ private fun EditorCanvas(state: EditorState, images: Map<String, Bitmap>) {
                         }
                     },
             ) {
-                drawIntoCanvas { painter.draw(it.nativeCanvas, state.slide, theme, scale, images, state.editingId) }
+                drawIntoCanvas { painter.draw(it.nativeCanvas, state.slide, theme, scale, images, state.editingId, state.slideIndex) }
                 val selected = state.selected
                 if (selected != null && state.editingId == null) drawSelection(selected, scale, colors.accent)
                 state.verticalGuides.forEach { gx ->
@@ -688,12 +703,19 @@ private fun TextEditOverlay(state: EditorState, element: SlideElement, scale: Fl
     val focus = remember(element.id) { FocusRequester() }
     var value by remember(element.id) { mutableStateOf(TextFieldValue(element.text, TextRange(element.text.length))) }
     val color = theme.color(element.textColor) ?: theme.text
-    val fontSize = with(density) { (element.fontSize * scale).toSp() }
+    // The same cut and size the painter uses, so the text does not jump when editing ends.
+    val fontFile = SlideDesign.fontFile(element, theme)
+    val family = remember(fontFile) {
+        de.maxifrz.lernwerk.present.SlidePainter.FONT_RESOURCES[fontFile]?.let { androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(it)) }
+    }
+    val fontSize = with(density) { (SlideDesign.fontSize(element, theme) * scale).toSp() }
     val style = work(1f).copy(
         fontSize = fontSize,
         lineHeight = fontSize * 1.17f,
-        fontWeight = if (element.bold) FontWeight.SemiBold else FontWeight.Normal,
-        fontStyle = if (element.italic) FontStyle.Italic else FontStyle.Normal,
+        fontFamily = family,
+        // The cut is bold or italic already; asking again would thicken or slant it twice.
+        fontWeight = FontWeight.Normal,
+        fontStyle = FontStyle.Normal,
         letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
         color = hex(color),
         textAlign = when (element.align) {

@@ -56,12 +56,17 @@ struct SlideElement: Codable, Equatable, Identifiable {
     var stroke = "none"
     var strokeWidth: Double = 0
     var image: String?
+    /// "heading" for titles, "body" for other text, empty to decide by size (older decks); see `SlideDesign`.
+    var font = ""
+    /// How the element comes in while presenting; nil for none. Previews, thumbnails and exports show it in place.
+    var animation: ElementAnimation?
 
     init(
         id: String = UUID().uuidString, kind: ElementKind, x: Double, y: Double, width: Double, height: Double,
         rotation: Double = 0, text: String = "", fontSize: Double = 24, bold: Bool = false, italic: Bool = false,
         align: SlideTextAlign = .left, anchor: TextAnchor = .top, bullets: Bool = false, textColor: String = "text",
-        shape: ShapeType = .rect, fill: String = "accent", stroke: String = "none", strokeWidth: Double = 0, image: String? = nil
+        shape: ShapeType = .rect, fill: String = "accent", stroke: String = "none", strokeWidth: Double = 0, image: String? = nil,
+        font: String = "", animation: ElementAnimation? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -83,11 +88,13 @@ struct SlideElement: Codable, Equatable, Identifiable {
         self.stroke = stroke
         self.strokeWidth = strokeWidth
         self.image = image
+        self.font = font
+        self.animation = animation
     }
 
     enum CodingKeys: String, CodingKey {
         case id, kind, x, y, width, height, rotation, text, fontSize, bold, italic, align, anchor, bullets, textColor
-        case shape, fill, stroke, strokeWidth, image
+        case shape, fill, stroke, strokeWidth, image, font, animation
     }
 
     init(from decoder: Decoder) throws {
@@ -112,6 +119,9 @@ struct SlideElement: Codable, Equatable, Identifiable {
         stroke = try c.decodeIfPresent(String.self, forKey: .stroke) ?? "none"
         strokeWidth = try c.decodeIfPresent(Double.self, forKey: .strokeWidth) ?? 0
         image = try c.decodeIfPresent(String.self, forKey: .image)
+        font = try c.decodeIfPresent(String.self, forKey: .font) ?? ""
+        // Newer than the first decks: a value this version cannot read is dropped, not a reason to lose the deck.
+        animation = (try? c.decodeIfPresent(ElementAnimation.self, forKey: .animation)) ?? nil
     }
 
     var centerX: Double { x + width / 2 }
@@ -157,10 +167,15 @@ struct Slide: Codable, Equatable, Identifiable {
     var extractedText = ""
     /// "#RRGGBB", or empty for the theme's background.
     var background = ""
+    /// How the slide comes in while presenting; nil keeps the short cross-fade.
+    var transition: SlideTransition?
+    /// The component, parameters and content the slide was built from; nil once a student edits an element or for
+    /// slides that were not built by a component. Only slides with an origin can be redesigned.
+    var origin: SlideOrigin?
 
     init(
         id: String = UUID().uuidString, elements: [SlideElement] = [], notes: String = "", sources: [SourceRef] = [],
-        extractedText: String = "", background: String = ""
+        extractedText: String = "", background: String = "", transition: SlideTransition? = nil, origin: SlideOrigin? = nil
     ) {
         self.id = id
         self.elements = elements
@@ -168,6 +183,8 @@ struct Slide: Codable, Equatable, Identifiable {
         self.sources = sources
         self.extractedText = extractedText
         self.background = background
+        self.transition = transition
+        self.origin = origin
     }
 
     init(from decoder: Decoder) throws {
@@ -178,6 +195,26 @@ struct Slide: Codable, Equatable, Identifiable {
         sources = try c.decodeIfPresent([SourceRef].self, forKey: .sources) ?? []
         extractedText = try c.decodeIfPresent(String.self, forKey: .extractedText) ?? ""
         background = try c.decodeIfPresent(String.self, forKey: .background) ?? ""
+        transition = (try? c.decodeIfPresent(SlideTransition.self, forKey: .transition)) ?? nil
+        origin = (try? c.decodeIfPresent(SlideOrigin.self, forKey: .origin)) ?? nil
+    }
+
+    /// The elements as the component drew them: an animation is a setting on top of the design, not part of it.
+    private static func design(_ elements: [SlideElement]) -> [SlideElement] {
+        elements.map { element in
+            var copy = element
+            copy.animation = nil
+            return copy
+        }
+    }
+
+    /// This slide after a change made to `old`: an edit of the elements the slide's component did not make drops the
+    /// origin, because the slide no longer is what the component built. A change that sets a new origin keeps it.
+    func editedFrom(_ old: Slide) -> Slide {
+        guard origin != nil, origin == old.origin, Self.design(elements) != Self.design(old.elements) else { return self }
+        var result = self
+        result.origin = nil
+        return result
     }
 
     func backgroundColor(_ theme: SlideTheme) -> UInt32 {
@@ -222,7 +259,8 @@ struct Presentation: Codable, Equatable, Identifiable {
     var updatedDate: Date { Date(timeIntervalSince1970: Double(updatedAt) / 1000) }
 }
 
-/// A slide design: colors for the tokens elements refer to.
+/// A slide design: colors for the tokens elements refer to, a heading and a body font, and decorations drawn behind
+/// every slide (see `SlideDesign`). The first four are the original designs and look as they always did.
 struct SlideTheme: Equatable, Identifiable {
     let id: String
     let name: String
@@ -231,6 +269,24 @@ struct SlideTheme: Equatable, Identifiable {
     let muted: UInt32
     let accent: UInt32
     let surface: UInt32
+    /// A second color for decorations.
+    var accent2: UInt32? = nil
+    var heading: SlideFont = .workSans
+    var body: SlideFont = .workSans
+    var decor: DecorStyle = .none
+    /// How round the rounded shapes are: 1 is the usual corner, 0 makes them square.
+    var cornerScale: Double = 1
+    /// Subjects and moods the design suits, for the AI's suggestion.
+    var mood = ""
+
+    var secondAccent: UInt32 { accent2 ?? accent }
+
+    /// How wide the heading and the body font set text compared to Work Sans, for fitting text into its box.
+    var headingWidth: Double { heading.widthFactor }
+    var bodyWidth: Double { body.widthFactor }
+
+    /// The corner radius of a rounded shape of this size, as a fraction of its shorter side (PowerPoint's `adj`).
+    var cornerFraction: Double { 0.16667 * cornerScale }
 
     /// Resolves a token or "#RRGGBB" to 0xRRGGBB, or nil for "none".
     func color(_ value: String) -> UInt32? {
@@ -246,11 +302,91 @@ struct SlideTheme: Equatable, Identifiable {
         }
     }
 
-    static let quill = SlideTheme(id: "quill", name: "Quill", background: 0xFAF9F6, text: 0x16150F, muted: 0x6E6B62, accent: 0x7FA98C, surface: 0xEEEDE9)
-    static let night = SlideTheme(id: "nacht", name: "Nacht", background: 0x171714, text: 0xF1EFE7, muted: 0x9B978D, accent: 0x8FBE9C, surface: 0x2A2923)
-    static let chalk = SlideTheme(id: "kreide", name: "Kreide", background: 0x2F4A3A, text: 0xF4F1E8, muted: 0xC9D3C4, accent: 0xE8C872, surface: 0x3B5A48)
-    static let paper = SlideTheme(id: "papier", name: "Papier", background: 0xFFFFFF, text: 0x1F2A44, muted: 0x5B6478, accent: 0x3D6FB6, surface: 0xEEF2F8)
-    static let all = [quill, night, chalk, paper]
+    static let quill = SlideTheme(
+        id: "quill", name: "Quill", background: 0xFAF9F6, text: 0x16150F, muted: 0x6E6B62, accent: 0x7FA98C, surface: 0xEEEDE9,
+        mood: "ruhig, neutral, passt zu allem"
+    )
+    static let night = SlideTheme(
+        id: "nacht", name: "Nacht", background: 0x171714, text: 0xF1EFE7, muted: 0x9B978D, accent: 0x8FBE9C, surface: 0x2A2923,
+        mood: "dunkel, für abgedunkelte Räume, neutral"
+    )
+    static let chalk = SlideTheme(
+        id: "kreide", name: "Kreide", background: 0x2F4A3A, text: 0xF4F1E8, muted: 0xC9D3C4, accent: 0xE8C872, surface: 0x3B5A48,
+        mood: "Tafel, Mathematik, Unterricht, Erklären"
+    )
+    static let paper = SlideTheme(
+        id: "papier", name: "Papier", background: 0xFFFFFF, text: 0x1F2A44, muted: 0x5B6478, accent: 0x3D6FB6, surface: 0xEEF2F8,
+        mood: "klassisch, schlicht, druckfreundlich"
+    )
+    static let editorial = SlideTheme(
+        id: "editorial", name: "Editorial", background: 0xF7F5F0, text: 0x1B2530, muted: 0x5E6773, accent: 0x155F99,
+        surface: 0xE4ECF3, accent2: 0x9DCAEA, heading: .playfair, body: .dmSans, decor: .frame,
+        mood: "Deutsch, Literatur, Geschichte, Philosophie, Kunst, Referate mit Zitaten"
+    )
+    static let verdant = SlideTheme(
+        id: "verdant", name: "Verdant", background: 0xFBFCF8, text: 0x03362D, muted: 0x4F6B60, accent: 0x285F20,
+        surface: 0xE1EADA, accent2: 0xB4CFA2, heading: .lora, body: .dmSans, decor: .corners,
+        mood: "Biologie, Umwelt, Erdkunde, Ernährung, Nachhaltigkeit"
+    )
+    static let nova = SlideTheme(
+        id: "nova", name: "Nova", background: 0x0B1A2E, text: 0xF2F6FB, muted: 0x9FB2C8, accent: 0x5B9BE6,
+        surface: 0x16294A, accent2: 0x8A63E0, heading: .montserrat, body: .dmSans, decor: .glow,
+        mood: "Physik, Astronomie, Informatik, Technik, Zukunftsthemen"
+    )
+    static let momentum = SlideTheme(
+        id: "momentum", name: "Momentum", background: 0xF6F7FC, text: 0x111633, muted: 0x5A6280, accent: 0x213EBB,
+        surface: 0xDDE3F5, accent2: 0x7D92D8, heading: .archivoBlack, body: .dmSans, decor: .band,
+        mood: "Wirtschaft, Politik, Sozialkunde, Statistik, Umfragen"
+    )
+    static let mosaik = SlideTheme(
+        id: "mosaik", name: "Mosaik", background: 0xFFFFFF, text: 0x1A1919, muted: 0x5B5B66, accent: 0x6A57E8,
+        surface: 0xEFEDFD, accent2: 0xBDE5A8, heading: .montserrat, body: .montserrat, decor: .blocks,
+        mood: "Kunst, Musik, Medien, Projekte, jüngere Klassen"
+    )
+    static let signal = SlideTheme(
+        id: "signal", name: "Signal", background: 0xFFFBF7, text: 0x1D1311, muted: 0x6D5955, accent: 0xA9531A,
+        surface: 0xFBE9E1, accent2: 0xF4C9D6, heading: .archivoBlack, body: .workSans, decor: .band,
+        mood: "Werbung, Debatte, Religion, Ethik, Meinungsthemen"
+    )
+    static let zivil = SlideTheme(
+        id: "zivil", name: "Zivil", background: 0xECECEC, text: 0x111111, muted: 0x555555, accent: 0x111111,
+        surface: 0xDADADA, accent2: 0x8E8E8E, heading: .montserrat, body: .workSans, decor: .railLeft,
+        mood: "Politik, Recht, Gesellschaft, Geschichte des 20. Jahrhunderts, sachlich"
+    )
+    static let horizont = SlideTheme(
+        id: "horizont", name: "Horizont", background: 0xFAF6F0, text: 0x321A00, muted: 0x7A5C3E, accent: 0xA65300,
+        surface: 0xF0DFCC, accent2: 0xC49A6C, heading: .lora, body: .montserrat, decor: .circles,
+        mood: "Geschichte, Antike, Reisen, Architektur, Länderporträts"
+    )
+    static let puls = SlideTheme(
+        id: "puls", name: "Puls", background: 0xFFFFFF, text: 0x18324A, muted: 0x4B6175, accent: 0x2F6FD0,
+        surface: 0xE6F0FF, accent2: 0xC6DDFF, heading: .dmSans, body: .dmSans, decor: .railRight,
+        mood: "Chemie, Medizin, Gesundheit, Sport, Psychologie"
+    )
+    static let violett = SlideTheme(
+        id: "violett", name: "Violett", background: 0xF8F7FB, text: 0x1B1530, muted: 0x5F587A, accent: 0x7A48E0,
+        surface: 0xEEEAF9, accent2: 0xC9B8F5, heading: .montserrat, body: .dmSans, decor: .circles,
+        mood: "Mathematik, Informatik, Logik, Ethik"
+    )
+    static let glut = SlideTheme(
+        id: "glut", name: "Glut", background: 0x171717, text: 0xF5F5F5, muted: 0xA3A3A3, accent: 0xE26C2C,
+        surface: 0x262626, accent2: 0x983608, heading: .archivoBlack, body: .montserrat, decor: .band,
+        mood: "Sport, Revolutionen, Kriege, Dramatisches, starke Thesen"
+    )
+    static let frische = SlideTheme(
+        id: "frische", name: "Frische", background: 0xF2FCFF, text: 0x111827, muted: 0x4B5563, accent: 0x0E7C90,
+        surface: 0xD6F5FB, accent2: 0x9A9CF4, heading: .montserrat, body: .dmSans, decor: .blocks,
+        mood: "Englisch, Französisch, Spanisch, Sprachen, locker"
+    )
+    static let wahrzeichen = SlideTheme(
+        id: "wahrzeichen", name: "Wahrzeichen", background: 0xF7F5F3, text: 0x111111, muted: 0x5E5E5E, accent: 0xC8102E,
+        surface: 0xECE7E3, accent2: 0xE86666, heading: .playfair, body: .workSans, decor: .railLeft,
+        mood: "Geschichte, Architektur, Städte, Kultur, Denkmäler"
+    )
+
+
+    static let all = [quill, night, chalk, paper, editorial, verdant, nova, momentum, mosaik, signal, zivil, horizont, puls, violett, glut, frische, wahrzeichen]
+        + DesignCatalog.additional
 
     static func byID(_ id: String) -> SlideTheme {
         all.first { $0.id == id } ?? quill

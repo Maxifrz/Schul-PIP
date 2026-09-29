@@ -115,6 +115,11 @@ object PresentationPrompt {
         Give every slide its sourceMaterial and sourcePages${if (research) ", and webSources for facts from the research" else ""}.
     """.trimIndent()
 
+    /** Asked for in the outline when the student leaves the design to the AI. */
+    val designInstructions: String
+        get() = "Also choose the slide design that suits the subject and mood of this talk best and give its id in design.\n" +
+            "The designs:\n" + SlideDesign.catalog
+
     val outlineSchema: JsonObject = Json.parseToJsonElement(
         """
         {
@@ -122,6 +127,7 @@ object PresentationPrompt {
           "properties": {
             "title": { "type": "string" },
             "thesis": { "type": "string" },
+            "design": { "type": "string", "enum": [${SlideTheme.all.joinToString(", ") { "\"${it.id}\"" }}] },
             "slides": { "type": "array", "items": { "type": "object", "properties": {
               "role": { "type": "string" },
               "message": { "type": "string" },
@@ -381,7 +387,14 @@ object PresentationPrompt {
         }
     }
 
-    data class Outline(val title: String, val thesis: String, val slides: List<OutlineSlide>, val research: List<String> = emptyList())
+    data class Outline(
+        val title: String,
+        val thesis: String,
+        val slides: List<OutlineSlide>,
+        val research: List<String> = emptyList(),
+        /** The design the AI chose, if it was asked to. */
+        val design: String = "",
+    )
 
     data class OutlineSlide(val role: String, val message: String, val layout: String, val content: String)
 
@@ -392,7 +405,13 @@ object PresentationPrompt {
             OutlineSlide(obj.string("role") ?: "", obj.string("message")?.trim() ?: "", obj.string("layout") ?: "", obj.string("content") ?: "")
                 .takeIf { it.message.isNotEmpty() || it.content.isNotBlank() }
         }
-        return Outline(root.string("title") ?: "", root.string("thesis") ?: "", slides, strings(root["research"]).take(Research.MAX_QUERIES))
+        return Outline(
+            root.string("title") ?: "",
+            root.string("thesis") ?: "",
+            slides,
+            strings(root["research"]).take(Research.MAX_QUERIES),
+            root.string("design") ?: "",
+        )
     }
 
     /**
@@ -507,7 +526,9 @@ class PresentationAssistant(private val client: LlmClient) {
             openDocument,
         )
         // The research on the topic sits between the material and the instructions.
-        val content = prepared.dropLast(1) + sources.takeIf { it.isNotEmpty() }?.let { listOf(LlmContent.Text(Research.prompt(it))) }.orEmpty() + prepared.last()
+        val chooseDesign = themeId == SlideDesign.AUTO
+        val content = prepared.dropLast(1) + sources.takeIf { it.isNotEmpty() }?.let { listOf(LlmContent.Text(Research.prompt(it))) }.orEmpty() + prepared.last() +
+            (if (chooseDesign) listOf(LlmContent.Text(PresentationPrompt.designInstructions)) else emptyList())
         onStage(Stage.OUTLINE)
         val outlineRequest = LlmRequest(
             purpose = LlmPurpose.PresentationOutline,
@@ -561,7 +582,7 @@ class PresentationAssistant(private val client: LlmClient) {
         }
         var presentation = Presentation(
             title = deck.title.ifBlank { outline.title.ifBlank { topic.ifBlank { "Präsentation" } } },
-            themeId = themeId,
+            themeId = if (chooseDesign) SlideDesign.resolve(outline.design, listOf(topic, outline.title, outline.thesis).joinToString(" ")) else themeId,
             slides = slides,
             materialIds = materials.map { it.id },
             minutes = minutes,

@@ -1,6 +1,25 @@
 package de.maxifrz.lernwerk.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -11,6 +30,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +76,8 @@ enum class AppTab(val title: String) {
     LIBRARY("Bibliothek"),
     PLANS("Lernplan"),
     PRESENT("Präsentation"),
+    CALC("Rechner"),
+    CALENDAR("Kalender"),
     REVIEW("Wiederholen"),
     SETTINGS("Einstellungen"),
 }
@@ -74,6 +97,9 @@ class AppState(val repository: Repository, val settings: AppSettings, val presen
 
     /** For work that has to outlive the screen that started it, like turning a finished help session into a card. */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** Shared files the open document should take in as pages. */
+    val insertRequests = MutableStateFlow<List<Uri>?>(null)
 
     fun push(route: Route) {
         stack += route
@@ -95,7 +121,7 @@ fun RootScreen(
     repository: Repository,
     settings: AppSettings,
     presentations: PresentationStore,
-    openRequests: MutableStateFlow<String?>,
+    shareRequests: MutableStateFlow<List<Uri>?>,
 ) {
     val app = remember { AppState(repository, settings, presentations) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -103,16 +129,62 @@ fun RootScreen(
     var tab by rememberSaveable { mutableStateOf(AppTab.LIBRARY) }
     val colors = Quill.colors
 
-    val openRequest by openRequests.collectAsState()
-    LaunchedEffect(openRequest) {
-        val id = openRequest ?: return@LaunchedEffect
-        openRequests.value = null
-        tab = AppTab.LIBRARY
-        app.stack.clear()
-        app.push(Route.Document(id, null, "Bibliothek"))
+    // Files shared from another app: with a document open, ask whether they go into it or become new documents.
+    var shareChoice by remember { mutableStateOf<Pair<List<Uri>, Route.Document>?>(null) }
+    fun importIntoLibrary(uris: List<Uri>) {
+        app.scope.launch {
+            val imported = uris.mapNotNull { uri ->
+                runCatching { repository.importFile(uri) }
+                    .onFailure { Toast.makeText(context, it.message ?: "Import fehlgeschlagen.", Toast.LENGTH_LONG).show() }
+                    .getOrNull()
+            }
+            when {
+                imported.size == 1 -> {
+                    tab = AppTab.LIBRARY
+                    app.stack.clear()
+                    app.push(Route.Document(imported.single().id, null, "Bibliothek"))
+                }
+                imported.size > 1 -> Toast.makeText(context, "${imported.size} Dateien in der Bibliothek", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val shared by shareRequests.collectAsState()
+    // An exam in the calculator keeps the student there.
+    val exam = de.maxifrz.lernwerk.calc.ExamLock.active
+    LaunchedEffect(exam) {
+        if (exam) {
+            tab = AppTab.CALC
+            app.stack.clear()
+        }
+    }
+    LaunchedEffect(shared) {
+        val uris = shared ?: return@LaunchedEffect
+        shareRequests.value = null
+        if (exam) {
+            Toast.makeText(context, "Im Prüfungsmodus lässt sich nichts öffnen.", Toast.LENGTH_LONG).show()
+            return@LaunchedEffect
+        }
+        val open = app.stack.lastOrNull() as? Route.Document
+        if (open != null && repository.material(open.materialId) != null) shareChoice = uris to open else importIntoLibrary(uris)
+    }
+    shareChoice?.let { (uris, open) ->
+        val title = repository.material(open.materialId)?.title ?: "Dokument"
+        ShareChoiceDialog(
+            count = uris.size,
+            documentTitle = title,
+            onInsert = {
+                shareChoice = null
+                app.insertRequests.value = uris
+            },
+            onNew = {
+                shareChoice = null
+                importIntoLibrary(uris)
+            },
+            onDismiss = { shareChoice = null },
+        )
     }
 
-    BackHandler(enabled = app.stack.isNotEmpty()) { app.pop() }
+    BackHandler(enabled = app.stack.isNotEmpty() && !exam) { app.pop() }
 
     androidx.compose.runtime.CompositionLocalProvider(LocalSlidePainter provides painter) {
 
@@ -138,13 +210,15 @@ fun RootScreen(
             when (route) {
                 null -> Column(Modifier.fillMaxSize()) {
                     val now = System.currentTimeMillis()
-                    TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
-                    AnimatedContent(tab, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) }, label = "tab") {
+                    if (exam) ExamBar() else TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
+                    AnimatedContent(if (exam) AppTab.CALC else tab, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) }, label = "tab") {
                         Box(Modifier.fillMaxSize()) {
                             when (it) {
                                 AppTab.LIBRARY -> LibraryScreen(app)
                                 AppTab.PLANS -> PlanListScreen(app)
                                 AppTab.PRESENT -> PresentationListScreen(app)
+                                AppTab.CALC -> CalculatorScreen(app)
+                                AppTab.CALENDAR -> CalendarScreen(app)
                                 AppTab.REVIEW -> ReviewScreen(app)
                                 AppTab.SETTINGS -> SettingsScreen(app)
                             }
@@ -163,10 +237,65 @@ fun RootScreen(
     }
 }
 
-/** Wordmark on the left, the tabs as a capsule in the middle. */
+/** In place of the tabs during an exam: only the calculator is open; it ends the exam itself. */
+@Composable
+private fun ExamBar() {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xFFB3261E)).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        QText("Prüfungsmodus: nur der Rechner ist geöffnet. Beenden im Rechner unter „⋯“.", work(14f), Color.White)
+    }
+}
+
+/** Where shared files go while a document is open: into it after the current page, or into the library. */
+@Composable
+private fun ShareChoiceDialog(count: Int, documentTitle: String, onInsert: () -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+    val colors = Quill.colors
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        DialogCard(if (count == 1) "Datei öffnen" else "$count Dateien öffnen") {
+            QText(
+                "In „$documentTitle“ nach der aktuellen Seite einfügen oder als neues Dokument in die Bibliothek?",
+                work(15f, lineHeight = 21f),
+                colors.ink2,
+            )
+            Column(Modifier.fillMaxWidth().padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton("In „$documentTitle“ einfügen", onInsert, Modifier.fillMaxWidth())
+                OutlineButton(if (count == 1) "Als neues Dokument" else "Als neue Dokumente", onNew, Modifier.fillMaxWidth())
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    LinkButton("Abbrechen", onDismiss, colors.muted, work(15f))
+                }
+            }
+        }
+    }
+}
+
+/** Wordmark on the left, the tabs as a glass capsule in the middle; the dark pill slides to the chosen tab. */
 @Composable
 private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) -> Unit) {
     val colors = Quill.colors
+    val density = LocalDensity.current
+    // Where each tab sits inside the capsule, in pixels: the pill slides between these.
+    val bounds = remember { mutableStateMapOf<AppTab, Pair<Float, Float>>() }
+    val pillX = remember { Animatable(0f) }
+    val pillWidth = remember { Animatable(0f) }
+    val scroll = rememberScrollState()
+    val target = bounds[selection]
+    LaunchedEffect(selection, target) {
+        val (x, width) = target ?: return@LaunchedEffect
+        if (pillWidth.value == 0f) {
+            // First layout: the pill starts where it belongs instead of flying in.
+            pillX.snapTo(x)
+            pillWidth.snapTo(width)
+        } else {
+            // A little overshoot, like a drop of liquid settling.
+            val spring = spring<Float>(dampingRatio = 0.72f, stiffness = 420f)
+            launch { pillX.animateTo(x, spring) }
+            launch { pillWidth.animateTo(width, spring) }
+            // On a phone the capsule scrolls; the chosen tab stays in view.
+            launch { scroll.animateScrollTo((x + width / 2 - scroll.viewportSize / 2f).roundToInt().coerceAtLeast(0)) }
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val regular = maxWidth >= 700.dp
         Row(
@@ -178,39 +307,57 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
                     QText("SCHUL-PIP", pixel(13f).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(0.14f, androidx.compose.ui.unit.TextUnitType.Em)), colors.accent)
                 }
             }
-            Row(
+            Box(
                 Modifier
-                    .background(colors.surface, CircleShape)
-                    .border(1.dp, colors.line2, CircleShape)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    .then(if (regular) Modifier else Modifier.weight(1f, fill = false).horizontalScroll(scroll))
+                    .padding(vertical = 6.dp)
+                    .glassCapsule(),
             ) {
-                AppTab.entries.forEach { tab ->
-                    val selected = tab == selection
-                    Row(
+                if (pillWidth.value > 0f) {
+                    Box(
                         Modifier
+                            .padding(4.dp)
+                            .offset { IntOffset(pillX.value.roundToInt(), 0) }
+                            .width(with(density) { pillWidth.value.toDp() })
                             .height(36.dp)
-                            .background(if (selected) colors.ink else Color.Transparent, CircleShape)
-                            .clickable(remember { MutableInteractionSource() }, null, role = Role.Tab) { onSelect(tab) }
-                            .padding(horizontal = if (regular) 17.dp else 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        QText(
-                            tab.title,
-                            work(if (regular) 14f else 12.5f, FontWeight.Medium, tracking = -0.14f),
-                            if (selected) colors.bg else colors.ink,
-                            maxLines = 1,
-                        )
-                        if (tab == AppTab.REVIEW && reviewBadge > 0) {
-                            Box(
-                                Modifier
-                                    .widthIn(min = 19.dp)
-                                    .background(colors.accent, CircleShape)
-                                    .padding(horizontal = 5.dp, vertical = 3.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                QText("$reviewBadge", pixel(9f), colors.onAccent)
+                            .shadow(6.dp, CircleShape)
+                            .background(colors.ink, CircleShape)
+                            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)), CircleShape),
+                    )
+                }
+                Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    AppTab.entries.forEach { tab ->
+                        val selected = tab == selection
+                        val interaction = remember { MutableInteractionSource() }
+                        val pressed by interaction.collectIsPressedAsState()
+                        val scale by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = 0.6f), label = "press")
+                        val textColor by animateColorAsState(if (selected) colors.bg else colors.ink, tween(220), label = "tabText")
+                        Row(
+                            Modifier
+                                .onPlaced { bounds[tab] = it.positionInParent().x to it.size.width.toFloat() }
+                                .height(36.dp)
+                                .scale(scale)
+                                .clickable(interaction, null, role = Role.Tab) { onSelect(tab) }
+                                .padding(horizontal = if (regular) 17.dp else 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            QText(
+                                tab.title,
+                                work(if (regular) 14f else 12.5f, FontWeight.Medium, tracking = -0.14f),
+                                textColor,
+                                maxLines = 1,
+                            )
+                            if (tab == AppTab.REVIEW && reviewBadge > 0) {
+                                Box(
+                                    Modifier
+                                        .widthIn(min = 19.dp)
+                                        .background(colors.accent, CircleShape)
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    QText("$reviewBadge", pixel(9f), colors.onAccent)
+                                }
                             }
                         }
                     }
@@ -219,4 +366,14 @@ private fun TopTabBar(selection: AppTab, reviewBadge: Int, onSelect: (AppTab) ->
             if (regular) Spacer(Modifier.weight(1f))
         }
     }
+}
+
+/** Frosted glass: a translucent surface with a light rim on top and a soft shadow, the look of iOS' Liquid Glass. */
+@Composable
+private fun Modifier.glassCapsule(): Modifier {
+    val colors = Quill.colors
+    return this
+        .shadow(14.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.12f), spotColor = Color.Black.copy(alpha = 0.12f))
+        .background(Brush.verticalGradient(listOf(colors.surface.copy(alpha = 0.96f), colors.surface.copy(alpha = 0.82f))), CircleShape)
+        .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.75f), colors.line2)), CircleShape)
 }

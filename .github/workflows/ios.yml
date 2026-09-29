@@ -19,8 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      # The newest stable Xcode on the runner; with the iOS 26 SDK the tab bar uses Liquid Glass.
+      - name: Select Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$latest"
+          xcodebuild -version
 
       - name: Generate Xcode project
         run: |

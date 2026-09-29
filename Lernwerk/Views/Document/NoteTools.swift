@@ -3,7 +3,10 @@ import UIKit
 
 /// The tools of the document toolbar, like in GoodNotes.
 enum NoteTool: Equatable {
-    case read, pen, highlighter, eraser, shapes, lasso, typing, textBox, laser, mark
+    case read, pen, highlighter, eraser, shapes, lasso, typing, textBox, laser, mark, math
+
+    /// Tools that draw a frame around a region: for the tutor, or to calculate what is written there.
+    var marksRegion: Bool { self == .mark || self == .math }
 
     /// Tools that work on the PencilKit canvas of each page.
     var usesCanvas: Bool {
@@ -64,6 +67,8 @@ struct InkSettings: Equatable {
     /// Pixel erasing removes only what the eraser touches; otherwise whole strokes go.
     var eraserPixel = false
     var eraserWidth: CGFloat = 20
+    /// A written "=" offers the result, like in Apple's Notes.
+    var mathPreview = true
     var textStyle: NoteTextStyle = .body
     var textColor: UInt32 = 0x16150F
     var textAlign: NoteTextAlign = .left
@@ -97,10 +102,20 @@ enum Stickers {
 }
 
 extension NoteTextStyle {
-    var font: UIFont {
+    var font: UIFont { font(size: size) }
+
+    func font(size: CGFloat) -> UIFont {
+        if self == .handwriting {
+            // Noteworthy ships with iOS and looks written by hand; calculated results use it.
+            return UIFont(name: "Noteworthy-Light", size: size) ?? .italicSystemFont(ofSize: size)
+        }
         let name = isBold ? QuillFont.Weight.semibold.postScriptName : QuillFont.Weight.regular.postScriptName
         return UIFont(name: name, size: size) ?? .systemFont(ofSize: size, weight: isBold ? .semibold : .regular)
     }
+}
+
+extension PageAnnotation {
+    var textFont: UIFont { style.font(size: textSize) }
 }
 
 extension NoteTextAlign {

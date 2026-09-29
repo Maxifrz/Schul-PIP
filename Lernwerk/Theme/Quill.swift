@@ -87,7 +87,8 @@ enum QuillFont {
 
     /// Registers the bundled fonts for this process; the generated Info.plist cannot list them.
     static func register() {
-        for name in files {
+        // The slide designs' fonts come along; Work Sans is in both lists.
+        for name in files + SlideFont.files.filter({ !files.contains($0) }) {
             guard let url = Bundle.main.url(forResource: name, withExtension: "ttf") else { continue }
             CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
         }

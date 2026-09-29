@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Schul-PIP Rechenkern</title>
+<script src="cas.js"></script>
+<script>
+  // Giac's output goes to CAS, which reads error messages from it. When Giac is ready, the app hears about it:
+  // iOS through a script message handler, Android through a JavaScript interface.
+  var Module = {
+    print: function (line) { CAS.captured(line); },
+    printErr: function (line) { CAS.captured(line); },
+    onRuntimeInitialized: function () {
+      CAS.init(Module.cwrap('caseval', 'string', ['string']));
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cas) {
+        window.webkit.messageHandlers.cas.postMessage('ready');
+      }
+      if (window.CasBridge) window.CasBridge.ready();
+    },
+  };
+</script>
+<script src="giacwasm.js"></script>
+</head>
+<body></body>
+</html>

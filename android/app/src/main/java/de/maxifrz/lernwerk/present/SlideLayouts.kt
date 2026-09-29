@@ -123,7 +123,7 @@ object SlideLayouts {
             SlideLayout.TITLE -> listOfNotNull(
                 decoration(700f, 290f, 240f),
                 decoration(40f, 36f, 90f),
-                text(draft.title, 100f, 140f, 760f, 170f, fitSize(draft.title, 760f, 170f, 54f, 34f, bold = true), bold = true, align = TextAlign.CENTER, anchor = TextAnchor.BOTTOM),
+                text(draft.title, 100f, 140f, 760f, 170f, fitSize(draft.title, 760f, 170f, 54f, 34f, bold = true), bold = true, align = TextAlign.CENTER, anchor = TextAnchor.BOTTOM, font = "heading"),
                 SlideElement(kind = ElementKind.SHAPE, x = 450f, y = 326f, width = 60f, height = 6f, shape = ShapeType.RECT, fill = "accent"),
                 draft.subtitle.takeIf { it.isNotBlank() }?.let {
                     text(it, 100f, 350f, 760f, 80f, fitSize(it, 760f, 80f, 24f, 16f), align = TextAlign.CENTER, color = "muted")
@@ -132,12 +132,12 @@ object SlideLayouts {
             SlideLayout.SECTION -> listOfNotNull(
                 decoration(620f, 190f, 320f),
                 SlideElement(kind = ElementKind.SHAPE, x = 0f, y = 0f, width = 24f, height = SlideSize.HEIGHT, shape = ShapeType.RECT, fill = "accent"),
-                text(draft.title, 96f, 150f, 720f, 150f, fitSize(draft.title, 720f, 150f, 48f, 30f, bold = true), bold = true, anchor = TextAnchor.BOTTOM),
+                text(draft.title, 96f, 150f, 720f, 150f, fitSize(draft.title, 720f, 150f, 48f, 30f, bold = true), bold = true, anchor = TextAnchor.BOTTOM, font = "heading"),
                 draft.subtitle.takeIf { it.isNotBlank() }?.let { text(it, 96f, 312f, 720f, 80f, fitSize(it, 720f, 80f, 24f, 16f), color = "muted") },
             )
             SlideLayout.STATEMENT -> listOfNotNull(
                 SlideElement(kind = ElementKind.SHAPE, x = MARGIN, y = 150f, width = 8f, height = 200f, shape = ShapeType.RECT, fill = "accent"),
-                text(draft.title, 104f, 110f, 760f, 280f, fitSize(draft.title, 760f, 280f, 46f, 28f, bold = true), bold = true, anchor = TextAnchor.MIDDLE),
+                text(draft.title, 104f, 110f, 760f, 280f, fitSize(draft.title, 760f, 280f, 46f, 28f, bold = true), bold = true, anchor = TextAnchor.MIDDLE, font = "heading"),
                 draft.subtitle.takeIf { it.isNotBlank() }?.let {
                     text(it, 104f, 400f, 760f, 80f, fitSize(it, 760f, 80f, 22f, 15f), color = "muted")
                 },
@@ -164,7 +164,7 @@ object SlideLayouts {
             SlideLayout.PROCESS -> heading(draft.title) + process(draft.items.take(5))
             SlideLayout.TIMELINE -> heading(draft.title) + timeline(draft.items.take(6))
             SlideLayout.BIG_NUMBER -> heading(draft.title) + listOfNotNull(
-                text(draft.value, MARGIN, 170f, 440f, 240f, fitSize(draft.value, 440f, 240f, 120f, 48f, bold = true), bold = true, anchor = TextAnchor.MIDDLE, color = "accent"),
+                text(draft.value, MARGIN, 170f, 440f, 240f, fitSize(draft.value, 440f, 240f, 120f, 48f, bold = true), bold = true, anchor = TextAnchor.MIDDLE, color = "accent", font = "heading"),
                 SlideElement(kind = ElementKind.SHAPE, x = 528f, y = 200f, width = 4f, height = 180f, shape = ShapeType.RECT, fill = "surface"),
                 (draft.subtitle.ifBlank { draft.bullets.joinToString("\n") }).takeIf { it.isNotBlank() }?.let {
                     text(it, 560f, 170f, 336f, 240f, fitSize(it, 336f, 240f, 28f, 16f), anchor = TextAnchor.MIDDLE)
@@ -173,7 +173,7 @@ object SlideLayouts {
             SlideLayout.CHART -> heading(draft.title) + chart(draft.chart!!, draft.subtitle)
             SlideLayout.TABLE -> heading(draft.title) + table(draft.table)
             SlideLayout.QUOTE -> listOfNotNull(
-                text("„", 80f, 40f, 120f, 150f, 130f, bold = true, color = "accent"),
+                text("„", 80f, 40f, 120f, 150f, 130f, bold = true, color = "accent", font = "heading"),
                 (draft.quote.ifBlank { draft.title }).let {
                     text(it, 150f, 140f, 680f, 240f, fitSize(it, 680f, 240f, 36f, 22f, italic = true), italic = true, anchor = TextAnchor.MIDDLE)
                 },
@@ -189,7 +189,7 @@ object SlideLayouts {
         SlideElement(kind = ElementKind.SHAPE, x = x, y = y, width = size, height = size, shape = ShapeType.ELLIPSE, fill = "surface")
 
     private fun heading(title: String) = listOf(
-        text(title, MARGIN, 30f, CONTENT_WIDTH, 90f, fitSize(title, CONTENT_WIDTH, 90f, 36f, 24f, bold = true), bold = true, anchor = TextAnchor.BOTTOM),
+        text(title, MARGIN, 30f, CONTENT_WIDTH, 90f, fitSize(title, CONTENT_WIDTH, 90f, 36f, 24f, bold = true), bold = true, anchor = TextAnchor.BOTTOM, font = "heading"),
         SlideElement(kind = ElementKind.SHAPE, x = MARGIN, y = 128f, width = 56f, height = 5f, shape = ShapeType.RECT, fill = "accent"),
     )
 
@@ -361,9 +361,10 @@ object SlideLayouts {
         anchor: TextAnchor = TextAnchor.TOP,
         bullets: Boolean = false,
         color: String = "text",
+        font: String = "",
     ) = SlideElement(
         kind = ElementKind.TEXT, x = x, y = y, width = width, height = height, text = value, fontSize = size,
-        bold = bold, italic = italic, align = align, anchor = anchor, bullets = bullets, textColor = color,
+        bold = bold, italic = italic, align = align, anchor = anchor, bullets = bullets, textColor = color, font = font,
     )
 
     /**

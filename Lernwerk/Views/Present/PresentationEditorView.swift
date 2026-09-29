@@ -28,6 +28,8 @@ struct PresentationEditorView: View {
     @State private var renameText = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var isPickingPage = false
+    @State private var choosingDesign = false
+    @State private var choosingVariant = false
 
     init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
@@ -65,8 +67,9 @@ struct PresentationEditorView: View {
                     } label: { menuLabel("KI") }
                     .disabled(busy != nil)
                     Menu {
-                        Button("PowerPoint (.pptx)") { export(pptx: true) }
-                        Button("PDF") { export(pptx: false) }
+                        ForEach(ExportFormat.allCases) { format in
+                            Button(format.label) { export(format) }
+                        }
                     } label: { menuLabel("Export") }
                     .disabled(busy != nil)
                     Menu {
@@ -127,6 +130,15 @@ struct PresentationEditorView: View {
         }
         .fullScreenCover(isPresented: $isPresenting) {
             PresentView(presentation: model.presentation, images: images, startIndex: model.slideIndex)
+        }
+        .sheet(isPresented: $choosingDesign) {
+            DesignSheet(model: model, images: images, client: settings.makeClient(for: .tutor))
+        }
+        .sheet(isPresented: $choosingVariant) {
+            VariantSheet(slide: model.slide, theme: model.presentation.theme, images: images, index: model.slideIndex) { variant in
+                choosingVariant = false
+                model.replaceSlide(SlideVariants.applying(variant, to: model.slide))
+            }
         }
         .sheet(isPresented: $isPickingPage) {
             MaterialPagePicker { image in
@@ -189,16 +201,28 @@ struct PresentationEditorView: View {
         }
     }
 
-    private func export(pptx: Bool) {
+    private func export(_ format: ExportFormat) {
         model.finishEditing()
         let presentation = model.presentation
-        let data = pptx
-            ? PptxWriter.write(presentation) { store.mediaData($0) }
-            : SlideDrawing.pdf(presentation, images: images)
+        let data: Data
+        switch format {
+        case .pptx:
+            data = PptxWriter.write(presentation) { store.mediaData($0) }
+        case .pdf:
+            data = SlideDrawing.pdf(presentation, images: images)
+        case .pdfNotes:
+            data = SlideDrawing.pdfWithNotes(presentation, images: images)
+        case .pngZip:
+            let pages = presentation.slides.enumerated().map { index, slide in
+                SlideDrawing.png(slide, theme: presentation.theme, index: index, images: images)
+            }
+            data = DeckExport.pngArchive(pages)
+        case .markdown:
+            data = Data(DeckExport.markdown(presentation).utf8)
+        }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let name = presentation.title.components(separatedBy: CharacterSet(charactersIn: "/\\:?*\"<>|")).joined().trimmingCharacters(in: .whitespaces)
-        let url = directory.appendingPathComponent("\(name.isEmpty ? "Präsentation" : name).\(pptx ? "pptx" : "pdf")")
+        let url = directory.appendingPathComponent(DeckExport.fileName(presentation.title, format: format))
         do {
             try data.write(to: url, options: .atomic)
             exported = ExportedFile(url: url)
@@ -231,7 +255,7 @@ struct PresentationEditorView: View {
                                 .font(.work(11))
                                 .foregroundStyle(isSelected ? Quill.ink : Quill.faint)
                                 .frame(width: 16, alignment: .leading)
-                            SlideCanvas(slide: slide, theme: model.presentation.theme, images: images)
+                            SlideCanvas(slide: slide, theme: model.presentation.theme, images: images, index: index)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected ? Quill.accent : Quill.line2, lineWidth: isSelected ? 2 : 1))
                                 .onTapGesture { model.selectSlide(index) }
@@ -248,8 +272,12 @@ struct PresentationEditorView: View {
             }
             .scrollIndicators(.hidden)
             Menu {
-                ForEach(SlideLayout.allCases, id: \.self) { layout in
-                    Button(layout.label) { model.addSlide(layout) }
+                ForEach(ComponentRegistry.categories, id: \.self) { category in
+                    Menu(category.label) {
+                        ForEach(ComponentRegistry.components(in: category), id: \.id) { component in
+                            Button(component.label) { model.addSlide(component) }
+                        }
+                    }
                 }
             } label: { menuLabel("+ Folie").frame(maxWidth: .infinity) }
             .padding(14)
@@ -284,11 +312,20 @@ struct PresentationEditorView: View {
                 Button("Seite aus Material") { isPickingPage = true }
                     .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
+                Button("Design") { choosingDesign = true }
+                    .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
+                Button("Layout") {
+                    model.finishEditing()
+                    choosingVariant = true
+                }
+                .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
+                .disabled(model.slide.origin == nil)
                 Menu {
-                    ForEach(SlideTheme.all) { theme in
-                        Button(theme.name + (theme.id == model.presentation.themeId ? "  ✓" : "")) { model.setTheme(theme.id) }
+                    ForEach(MotionPreset.allCases, id: \.self) { preset in
+                        Button("\(preset.label): \(preset.detail)") { model.setMotion(preset) }
                     }
-                } label: { menuLabel("Design") }
+                } label: { menuLabel("Bewegung") }
+                transitionMenu
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                 Button("Rückgängig") { model.undo() }
                     .buttonStyle(QuillOutlineButtonStyle())
@@ -361,6 +398,7 @@ struct PresentationEditorView: View {
                     chip("Nach hinten") { model.reorderSelected(forward: false) }
                     chip("Drehung 0°") { model.updateElement(element.id) { var e = $0; e.rotation = 0; return e } }
                     chip("Duplizieren") { model.duplicateSelected() }
+                    animationMenu(element)
                     chip("Löschen", color: Quill.warn) { model.deleteSelected() }
                 }
                 .padding(.horizontal, 16)
@@ -370,6 +408,71 @@ struct PresentationEditorView: View {
             .background(Quill.bg)
             .overlay(alignment: .top) { QuillDivider(color: Quill.lineSoft) }
         }
+    }
+
+    // Motion
+
+    private var transitionMenu: some View {
+        Menu {
+            Button("Standard (kurzes Überblenden)") { model.setTransition(nil) }
+            ForEach(TransitionKind.allCases, id: \.self) { kind in
+                Button(kind.label) { changeTransition { $0.kind = kind } }
+            }
+            Menu("Richtung") {
+                ForEach(MotionDirection.allCases, id: \.self) { direction in
+                    Button(direction.label) { changeTransition { $0.direction = direction } }
+                }
+            }
+            Menu("Dauer") {
+                ForEach([0.3, 0.5, 0.8, 1.2], id: \.self) { seconds in
+                    Button(String(format: "%.1f s", seconds)) { changeTransition { $0.duration = seconds } }
+                }
+            }
+        } label: { menuLabel(model.slide.transition.map { "Übergang: \($0.kind.label)" } ?? "Übergang") }
+    }
+
+    private func changeTransition(_ change: (inout SlideTransition) -> Void) {
+        var transition = model.slide.transition ?? SlideTransition(kind: .push, direction: .right, duration: 0.5)
+        change(&transition)
+        model.setTransition(transition)
+    }
+
+    private func animationMenu(_ element: SlideElement) -> some View {
+        Menu {
+            Button("Keine") { model.updateElement(element.id) { var e = $0; e.animation = nil; return e } }
+            ForEach(AnimationKind.allCases, id: \.self) { kind in
+                Button(kind.label) { changeAnimation(element) { $0.kind = kind } }
+            }
+            if let animation = element.animation {
+                Button(animation.trigger == .click ? "Startet mit vorherigem" : "Startet bei Tipp") {
+                    changeAnimation(element) { $0.trigger = $0.trigger == .click ? .withPrevious : .click }
+                }
+                if animation.kind.usesDirection {
+                    Menu("Richtung") {
+                        ForEach(MotionDirection.allCases, id: \.self) { direction in
+                            Button(direction.label) { changeAnimation(element) { $0.direction = direction } }
+                        }
+                    }
+                }
+                Menu("Verzögerung") {
+                    ForEach([0.0, 0.25, 0.5, 1.0, 2.0], id: \.self) { seconds in
+                        Button(seconds == 0 ? "Keine" : String(format: "%.2f s", seconds)) { changeAnimation(element) { $0.delay = seconds } }
+                    }
+                }
+                Menu("Dauer") {
+                    ForEach([0.3, 0.5, 0.8, 1.2], id: \.self) { seconds in
+                        Button(String(format: "%.1f s", seconds)) { changeAnimation(element) { $0.duration = seconds } }
+                    }
+                }
+            }
+        } label: { menuLabel(element.animation.map { "Animation: \($0.kind.label)" } ?? "Animation") }
+    }
+
+    private func changeAnimation(_ element: SlideElement, _ change: (inout ElementAnimation) -> Void) {
+        var animation = element.animation ?? ElementAnimation()
+        change(&animation)
+        let result = animation
+        model.updateElement(element.id) { var e = $0; e.animation = result; return e }
     }
 
     private func chip(_ label: String, selected: Bool = false, color: Color = Quill.ink, action: @escaping () -> Void) -> some View {
@@ -484,7 +587,7 @@ private struct EditorCanvasView: View {
             let scale: Double = width / SlideSize.width
             let theme = model.presentation.theme
             ZStack(alignment: .topLeading) {
-                SlideCanvas(slide: model.slide, theme: theme, images: images, skipping: model.editingID)
+                SlideCanvas(slide: model.slide, theme: theme, images: images, skipping: model.editingID, index: model.slideIndex)
                 Canvas { context, _ in
                     drawOverlay(in: &context, scale: scale)
                 }
@@ -649,7 +752,7 @@ private struct TextEditOverlay: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        let font = SlideDrawing.font(element).withSize(element.fontSize * scale)
+        let font = SlideDrawing.font(element, theme: theme).withSize(SlideDesign.fontSize(element, theme: theme) * scale)
         TextField("", text: $text, axis: .vertical)
             .font(Font(font as CTFont))
             .foregroundStyle(Color(SlideDrawing.uiColor(theme.color(element.textColor) ?? theme.text)))

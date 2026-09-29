@@ -7,6 +7,8 @@ struct PresentView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var index: Int
+    /// How many click steps of the current slide have played.
+    @State private var steps = 0
     @State private var showsNotes = false
     @State private var laser: CGPoint?
     @State private var started = Date()
@@ -24,9 +26,9 @@ struct PresentView: View {
                 let width = min(geometry.size.width, geometry.size.height * 16 / 9)
                 ZStack {
                     if presentation.slides.indices.contains(index) {
-                        SlideCanvas(slide: presentation.slides[index], theme: presentation.theme, images: images)
+                        PresentSlideView(slide: presentation.slides[index], theme: presentation.theme, images: images, index: index, steps: steps)
                             .id(index)
-                            .transition(.opacity)
+                            .transition(PresentEffects.transition(presentation.slides[index]))
                     }
                     if let laser {
                         Circle()
@@ -61,7 +63,7 @@ struct PresentView: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
-        .animation(.easeInOut(duration: 0.2), value: index)
+        .animation(PresentEffects.animation(presentation.slides.indices.contains(index) ? presentation.slides[index] : nil), value: index)
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
         // Presenter remotes and keyboards send arrow keys or space.
@@ -75,15 +77,49 @@ struct PresentView: View {
         .onAppear {
             isFocused = true
             started = Date()
+            playFirstStep(of: index)
         }
     }
 
-    private func next() {
-        index = min(presentation.slides.count - 1, index + 1)
+    private var currentSlide: Slide? {
+        presentation.slides.indices.contains(index) ? presentation.slides[index] : nil
     }
 
+    /// A tap plays the slide's next click step; when all are played it goes on to the next slide.
+    private func next() {
+        guard let slide = currentSlide else { return }
+        if steps < MotionPlanner.timeline(slide).count {
+            steps += 1
+            return
+        }
+        guard index < presentation.slides.count - 1 else { return }
+        go(to: index + 1, showingAll: false)
+    }
+
+    /// Back undoes the last click step; on the first it goes to the previous slide, shown as it ends.
     private func previous() {
-        index = max(0, index - 1)
+        guard let slide = currentSlide else { return }
+        if steps > MotionPlanner.initialSteps(slide) {
+            steps -= 1
+            return
+        }
+        guard index > 0 else { return }
+        go(to: index - 1, showingAll: true)
+    }
+
+    private func go(to target: Int, showingAll: Bool) {
+        let slide = presentation.slides[target]
+        steps = showingAll ? MotionPlanner.timeline(slide).count : 0
+        index = target
+        if !showingAll { playFirstStep(of: target) }
+    }
+
+    /// A slide whose first effect starts by itself plays it shortly after the slide has come in.
+    private func playFirstStep(of target: Int) {
+        guard presentation.slides.indices.contains(target), MotionPlanner.initialSteps(presentation.slides[target]) == 1 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            if index == target, steps == 0 { steps = 1 }
+        }
     }
 
     private func chip(_ label: String, action: @escaping () -> Void) -> some View {
@@ -127,7 +163,7 @@ struct PresentView: View {
             VStack(alignment: .leading, spacing: 6) {
                 PixelCaption(text: "Als Nächstes", color: Color(SlideDrawing.uiColor(0x807C73)), size: 9)
                 if presentation.slides.indices.contains(index + 1) {
-                    SlideCanvas(slide: presentation.slides[index + 1], theme: presentation.theme, images: images)
+                    SlideCanvas(slide: presentation.slides[index + 1], theme: presentation.theme, images: images, index: index + 1)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
                     Text("Ende der Präsentation")

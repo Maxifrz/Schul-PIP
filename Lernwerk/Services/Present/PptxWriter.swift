@@ -4,7 +4,6 @@ import Foundation
 /// picture, so the file stays editable in PowerPoint, Keynote and Google Slides; speaker notes become notes pages.
 /// Mirrors PptxWriter.kt in the Android app.
 enum PptxWriter {
-    static let font = "Work Sans"
     private static let emuPerPoint = 12700.0
     private static let ns = #"xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main""#
     private static let rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -16,8 +15,9 @@ enum PptxWriter {
         var target: String
     }
 
-    /// `media` returns the bytes of an image file referenced by an element, or nil if it is missing.
-    static func write(_ presentation: Presentation, media: (String) -> Data?) -> Data {
+    /// `media` returns the bytes of an image file referenced by an element, or nil if it is missing. With
+    /// `includeMotion: false` transitions and animations are left out and the file is the same as for a deck without any.
+    static func write(_ presentation: Presentation, includeMotion: Bool = true, media: (String) -> Data?) -> Data {
         let theme = presentation.theme
         var files: [(String, Data)] = []
         func add(_ path: String, _ xml: String) { files.append((path, Data(xml.utf8))) }
@@ -51,7 +51,7 @@ enum PptxWriter {
                 Relation(id: "rId1", type: "\(rel)/notesMaster", target: "../notesMasters/notesMaster1.xml"),
                 Relation(id: "rId2", type: "\(rel)/slide", target: "../slides/slide\(number).xml"),
             ]))
-            slideXML.append(slideXMLString(slide, theme: theme, images: imageRelations))
+            slideXML.append(slideXMLString(slide, theme: theme, images: imageRelations, index: index, includeMotion: includeMotion))
         }
         for (index, xml) in slideXML.enumerated() { add("ppt/slides/slide\(index + 1).xml", xml) }
 
@@ -157,9 +157,9 @@ enum PptxWriter {
             + "<p:spTree>\(emptyTree)</p:spTree></p:cSld>\(colorMap)"
             + #"<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>"#
             + "<p:txStyles>"
-            + #"<p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"><a:latin typeface="\#(font)"/></a:defRPr></a:lvl1pPr></p:titleStyle>"#
-            + #"<p:bodyStyle><a:lvl1pPr><a:defRPr sz="2400"><a:latin typeface="\#(font)"/></a:defRPr></a:lvl1pPr></p:bodyStyle>"#
-            + #"<p:otherStyle><a:lvl1pPr><a:defRPr sz="1800"><a:latin typeface="\#(font)"/></a:defRPr></a:lvl1pPr></p:otherStyle>"#
+            + #"<p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"><a:latin typeface="\#(theme.heading.pptxName)"/></a:defRPr></a:lvl1pPr></p:titleStyle>"#
+            + #"<p:bodyStyle><a:lvl1pPr><a:defRPr sz="2400"><a:latin typeface="\#(theme.body.pptxName)"/></a:defRPr></a:lvl1pPr></p:bodyStyle>"#
+            + #"<p:otherStyle><a:lvl1pPr><a:defRPr sz="1800"><a:latin typeface="\#(theme.body.pptxName)"/></a:defRPr></a:lvl1pPr></p:otherStyle>"#
             + "</p:txStyles></p:sldMaster>"
     }
 
@@ -188,18 +188,25 @@ enum PptxWriter {
         return xml + "</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>"
     }
 
-    private static func slideXMLString(_ slide: Slide, theme: SlideTheme, images: [String: String]) -> String {
+    /// The design's decorations come first, as ordinary shapes behind the slide's own elements.
+    private static func slideXMLString(_ slide: Slide, theme: SlideTheme, images: [String: String], index slideIndex: Int, includeMotion: Bool) -> String {
         var xml = head + "<p:sld \(ns)><p:cSld><p:bg><p:bgPr>\(solid(slide.backgroundColor(theme)))<a:effectLst/></p:bgPr></p:bg><p:spTree>\(emptyTree)"
-        for (index, element) in slide.elements.enumerated() {
+        let decor = SlideDesign.decor(theme, index: slideIndex)
+        var shapeIDs: [String: Int] = [:]
+        for (index, element) in (decor + slide.elements).enumerated() {
             let id = index + 2
             switch element.kind {
             case .text: xml += textBox(element, id: id, theme: theme)
             case .shape: xml += shape(element, id: id, theme: theme)
             case .image:
-                if let name = element.image, let relation = images[name] { xml += picture(element, id: id, relation: relation) }
+                guard let name = element.image, let relation = images[name] else { continue }
+                xml += picture(element, id: id, relation: relation)
             }
+            if index >= decor.count { shapeIDs[element.id] = id }
         }
-        return xml + "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
+        xml += "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>"
+        if includeMotion { xml += PptxMotion.transition(slide) + PptxMotion.timing(slide, shapeIDs: shapeIDs) }
+        return xml + "</p:sld>"
     }
 
     /// Lines as Kotlin's lines(): an empty string is one empty line.
@@ -227,23 +234,30 @@ enum PptxWriter {
         let color = theme.color(element.textColor) ?? theme.text
         let anchor = element.anchor == .top ? "t" : (element.anchor == .middle ? "ctr" : "b")
         let align = element.align == .left ? "l" : (element.align == .center ? "ctr" : "r")
-        let size = Int64((element.fontSize * 100).rounded())
+        let font = SlideDesign.font(element, theme: theme)
+        let drawSize = SlideDesign.fontSize(element, theme: theme)
+        let size = Int64((drawSize * 100).rounded())
         let indent = emu(element.fontSize * 1.1)
+        // Fonts other than Work Sans get a fixed line height, so PowerPoint breaks lines as tall as the apps do.
+        let spacing = font == .workSans ? "" : #"<a:lnSpc><a:spcPts val="\#(Int64((drawSize * 120).rounded()))"/></a:lnSpc>"#
+        // Heading-only fonts: Playfair and Lora are their bold cut, Archivo Black has a single weight.
+        let bold = font.hasStyles ? element.bold : font != .archivoBlack
+        let italic = font.hasStyles && element.italic
         var xml = #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>"#
         xml += "<p:spPr>\(xfrm(element.x, element.y, element.width, element.height, element.rotation))"
         xml += #"<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>"#
         xml += #"<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="\#(anchor)"><a:noAutofit/></a:bodyPr><a:lstStyle/>"#
         var runProps = #"<a:rPr lang="de-DE" sz="\#(size)""#
-        if element.bold { runProps += #" b="1""# }
-        if element.italic { runProps += #" i="1""# }
-        runProps += #" dirty="0">\#(solid(color))<a:latin typeface="\#(font)"/></a:rPr>"#
+        if bold { runProps += #" b="1""# }
+        if italic { runProps += #" i="1""# }
+        runProps += #" dirty="0">\#(solid(color))<a:latin typeface="\#(font.pptxName)"/></a:rPr>"#
         for line in lines(element.text) {
             xml += "<a:p>"
             if element.bullets, !line.isBlank {
-                xml += #"<a:pPr marL="\#(indent)" indent="-\#(indent)" algn="\#(align)"><a:buClr><a:srgbClr val="\#(hexColor(theme.accent))"/></a:buClr>"#
+                xml += #"<a:pPr marL="\#(indent)" indent="-\#(indent)" algn="\#(align)">\#(spacing)<a:buClr><a:srgbClr val="\#(hexColor(theme.accent))"/></a:buClr>"#
                 xml += #"<a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>"#
             } else {
-                xml += #"<a:pPr algn="\#(align)"><a:buNone/></a:pPr>"#
+                xml += #"<a:pPr algn="\#(align)">\#(spacing)<a:buNone/></a:pPr>"#
             }
             if line.isEmpty {
                 xml += #"<a:endParaRPr lang="de-DE" sz="\#(size)"/>"#
@@ -264,7 +278,17 @@ enum PptxWriter {
                 + "<p:spPr>\(xfrm(element.x, element.centerY, element.width, 0, element.rotation))"
                 + #"<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="\#(width)">\#(solid(color))\#(tail)</a:ln></p:spPr></p:cxnSp>"#
         }
-        let geometry = element.shape == .rounded ? "roundRect" : (element.shape == .ellipse ? "ellipse" : "rect")
+        // Rounded shapes follow the design's corners: square ones are plain rectangles, others set PowerPoint's adj.
+        var geometry = element.shape == .rounded ? "roundRect" : (element.shape == .ellipse ? "ellipse" : "rect")
+        var adjust = "<a:avLst/>"
+        if element.shape == .rounded {
+            if theme.cornerScale <= 0 {
+                geometry = "rect"
+            } else if theme.cornerScale != 1 {
+                let value = Int(min(50000, (16667 * theme.cornerScale).rounded()))
+                adjust = "<a:avLst><a:gd name=\"adj\" fmla=\"val \(value)\"/></a:avLst>"
+            }
+        }
         let fill = theme.color(element.fill).map(solid) ?? "<a:noFill/>"
         let line: String
         if let stroke = theme.color(element.stroke), element.strokeWidth > 0 {
@@ -274,7 +298,7 @@ enum PptxWriter {
         }
         return #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Form \#(id)"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>"#
             + "<p:spPr>\(xfrm(element.x, element.y, element.width, element.height, element.rotation))"
-            + #"<a:prstGeom prst="\#(geometry)"><a:avLst/></a:prstGeom>\#(fill)\#(line)</p:spPr></p:sp>"#
+            + #"<a:prstGeom prst="\#(geometry)">"# + adjust + #"</a:prstGeom>\#(fill)\#(line)</p:spPr></p:sp>"#
     }
 
     private static func picture(_ element: SlideElement, id: Int, relation: String) -> String {
@@ -292,11 +316,11 @@ enum PptxWriter {
             + #"<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="\#(escape(name))"><a:themeElements>"#
             + #"<a:clrScheme name="\#(escape(name))">"#
             + srgb("dk1", theme.text) + srgb("lt1", theme.background) + srgb("dk2", theme.muted) + srgb("lt2", theme.surface)
-            + srgb("accent1", theme.accent) + srgb("accent2", 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55)
+            + srgb("accent1", theme.accent) + srgb("accent2", theme.accent2 ?? 0xC9974F) + srgb("accent3", 0x3D6FB6) + srgb("accent4", 0xC46A55)
             + srgb("accent5", 0x6F8FB0) + srgb("accent6", 0x9A968B) + srgb("hlink", 0x4F7A63) + srgb("folHlink", 0x6E6B62)
             + "</a:clrScheme>"
-            + #"<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="\#(font)"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>"#
-            + #"<a:minorFont><a:latin typeface="\#(font)"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>"#
+            + #"<a:fontScheme name="Schul-PIP"><a:majorFont><a:latin typeface="\#(theme.heading.pptxName)"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>"#
+            + #"<a:minorFont><a:latin typeface="\#(theme.body.pptxName)"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>"#
             + #"<a:fmtScheme name="Schul-PIP">"#
             + "<a:fillStyleLst>\(fillStyle)\(fillStyle)\(fillStyle)</a:fillStyleLst>"
             + "<a:lnStyleLst>\(lineStyle)\(lineStyle)\(lineStyle)</a:lnStyleLst>"

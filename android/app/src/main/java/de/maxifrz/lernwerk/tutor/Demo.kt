@@ -254,6 +254,8 @@ class DemoLlmClient(private val latencyMillis: Long = 700) : LlmClient {
             LlmPurpose.PresentationChat -> DemoContent.chat(request)
             LlmPurpose.PresentationCritique -> DemoContent.critique(request)
             LlmPurpose.StudyAid -> DemoContent.studyAid(request)
+            // The demo cannot read handwriting; the app falls back to on-device text recognition.
+            LlmPurpose.MathRecognition -> """{"kind": "expression", "lines": []}"""
         }
         return LlmResponse(text, "end_turn", "demo")
     }

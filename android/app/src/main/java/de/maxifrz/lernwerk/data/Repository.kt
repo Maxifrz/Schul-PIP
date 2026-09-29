@@ -7,8 +7,16 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import de.maxifrz.lernwerk.pdf.DocxRenderer
+import de.maxifrz.lernwerk.present.DocxReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +32,10 @@ import kotlin.math.roundToInt
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.util.UUID
+import java.util.zip.ZipInputStream
+
+const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 /**
  * All app data in one JSON file plus the PDFs and their ink next to it. For a single student's library this is
@@ -31,6 +43,7 @@ import java.io.IOException
  */
 class Repository(context: Context) {
     private val root = context.filesDir
+    private val cacheDir = context.cacheDir
     private val dataFile = File(root, "lernwerk.json")
     val materialsDir = File(root, "materials").apply { mkdirs() }
 
@@ -44,12 +57,16 @@ class Repository(context: Context) {
 
     /** Page texts of the materials, read once for the search. */
     private val texts = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    // The newest ink of each document, until it is on disk: writes run in the background, reads must not miss them.
+    private val pendingInk = java.util.concurrent.ConcurrentHashMap<String, Map<Int, List<InkStroke>>>()
 
     /** Every material, including those in the trash; screens use [library] and [trash]. */
     val materials = mutableStateListOf<StudyMaterial>()
     val folders = mutableStateListOf<Folder>()
     val plans = mutableStateListOf<StudyPlan>()
     val cards = mutableStateListOf<ReviewCard>()
+    val timetable = mutableStateListOf<TimetableEntry>()
+    val exams = mutableStateListOf<Exam>()
 
     init {
         val data = runCatching { json.decodeFromString(AppData.serializer(), dataFile.readText()) }.getOrNull() ?: AppData()
@@ -59,6 +76,8 @@ class Repository(context: Context) {
         folders += data.folders
         plans += data.plans
         cards += data.cards
+        timetable += data.timetable
+        exams += data.exams
         expired.forEach(::deleteFiles)
         if (expired.isNotEmpty()) save()
     }
@@ -79,18 +98,23 @@ class Repository(context: Context) {
         val name = displayName(uri)
         val title = name?.substringBeforeLast('.')?.ifBlank { null } ?: "Dokument"
         val type = resolver.getType(uri) ?: ""
-        val isImage = type.startsWith("image/") ||
-            name?.substringAfterLast('.', "")?.lowercase() in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val extension = name?.substringAfterLast('.', "")?.lowercase()
+        val isImage = type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp")
+        val isDocx = type == DOCX_MIME || extension == "docx"
+        if (extension == "goodnotes") {
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
+            val pdf = runCatching { GoodNotesPdf.render(GoodNotes.read(bytes)) }
+                .getOrElse { throw IOException("Die GoodNotes-Datei lässt sich nicht lesen.") }
+            return@withContext savePdf(pdf, title, folderId)
+        }
+        if (isDocx) {
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IOException("Die Datei lässt sich nicht öffnen.")
+            val pdf = runCatching { DocxRenderer.pdfData(DocxReader.open(bytes)) }
+                .getOrElse { throw IOException("Das Word-Dokument lässt sich nicht lesen.") }
+            return@withContext savePdf(pdf, title, folderId)
+        }
         if (isImage) {
-            val bitmap = runCatching {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                    // Plenty for reading and OCR, and keeps a 50-megapixel photo from filling the memory.
-                    val longest = maxOf(info.size.width, info.size.height)
-                    if (longest > 3000) decoder.setTargetSampleSize((longest + 2999) / 3000)
-                }
-            }.getOrElse { throw IOException("Das Bild lässt sich nicht öffnen.") }
-            return@withContext savePdf(imagePdf(bitmap), title, folderId)
+            return@withContext savePdf(imagePdf(decodeImage(uri)), title, folderId)
         }
         val material = StudyMaterial(title = title, folderId = folderId)
         val input = resolver.openInputStream(uri) ?: throw IOException("Die Datei lässt sich nicht öffnen.")
@@ -99,6 +123,111 @@ class Repository(context: Context) {
         save()
         material
     }
+
+    /**
+     * Every PDF, picture and Word file in a folder picked with the system's folder picker, subfolders included, which
+     * come back as library folders below [parentId]. For a GoodNotes export with many notebooks.
+     */
+    suspend fun importTree(treeUri: Uri, parentId: String?): FolderImportResult = withContext(Dispatchers.IO) {
+        val rootId = DocumentsContract.getTreeDocumentId(treeUri)
+        val rootName = displayName(DocumentsContract.buildDocumentUriUsingTree(treeUri, rootId))?.ifBlank { null } ?: "Ordner"
+        val files = mutableListOf<Pair<Uri, List<String>>>()
+        val skipped = mutableListOf<String>()
+        fun walk(documentId: String, path: List<String>) {
+            if (path.size > FolderImport.MAX_DEPTH) return
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
+            val columns = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            val rows = mutableListOf<Triple<String, String, String>>()
+            resolver.query(children, columns, null, null, null)?.use { cursor ->
+                while (cursor.moveToNext()) rows += Triple(cursor.getString(0), cursor.getString(1) ?: "", cursor.getString(2) ?: "")
+            }
+            for ((id, name, mime) in rows.sortedWith(compareBy(FolderImport.nameOrder) { it.second })) {
+                when {
+                    FolderImport.isHidden(name) -> Unit
+                    mime == DocumentsContract.Document.MIME_TYPE_DIR ->
+                        if (FolderImport.isPackage(name)) skipped += name else walk(id, path + name)
+                    FolderImport.isImportable(name) || mime == "application/pdf" || mime == DOCX_MIME || mime.startsWith("image/") ->
+                        files += DocumentsContract.buildDocumentUriUsingTree(treeUri, id) to path
+                    else -> skipped += name
+                }
+            }
+        }
+        walk(rootId, listOf(rootName))
+        importScanned(files, skipped, parentId)
+    }
+
+    /** A ZIP archive, as GoodNotes and file managers write them for several documents, imported like a folder. */
+    suspend fun importArchive(uri: Uri, parentId: String?): FolderImportResult = withContext(Dispatchers.IO) {
+        val archiveName = displayName(uri)?.substringBeforeLast('.')?.ifBlank { null } ?: "Archiv"
+        val staging = File(cacheDir, "zip-" + UUID.randomUUID()).apply { mkdirs() }
+        try {
+            val paths = mutableListOf<String>()
+            val staged = mutableMapOf<String, File>()
+            val input = resolver.openInputStream(uri) ?: throw IOException("Das Archiv lässt sich nicht öffnen.")
+            ZipInputStream(input.buffered()).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    paths += entry.name
+                    val parts = entry.name.replace('\\', '/').split('/').filter { it.isNotEmpty() }
+                    val name = parts.lastOrNull()
+                    // Only the file name is used on disk, in a directory of its own: nothing can escape the staging area.
+                    if (!entry.isDirectory && name != null && FolderImport.isImportable(name)) {
+                        val file = File(File(staging, staged.size.toString()).apply { mkdirs() }, name)
+                        file.outputStream().use { zip.copyTo(it) }
+                        staged[parts.joinToString("/")] = file
+                    }
+                    entry = zip.nextEntry
+                }
+            }
+            val scan = FolderImport.scanArchive(paths, archiveName)
+            val files = scan.files.mapNotNull { entry -> staged[entry.location]?.let { Uri.fromFile(it) to entry.folders } }
+            importScanned(files, scan.skipped, parentId)
+        } finally {
+            staging.deleteRecursively()
+        }
+    }
+
+    fun isArchive(uri: Uri): Boolean {
+        val type = resolver.getType(uri) ?: ""
+        val extension = displayName(uri)?.substringAfterLast('.', "")?.lowercase()
+        // A GoodNotes notebook is a ZIP too, but one document.
+        if (extension == "goodnotes") return false
+        return type == "application/zip" || type == "application/x-zip-compressed" || extension == "zip"
+    }
+
+    /** Creates the folder tree below [parentId], then imports each file into its folder. */
+    private suspend fun importScanned(files: List<Pair<Uri, List<String>>>, skipped: List<String>, parentId: String?): FolderImportResult {
+        val created = mutableMapOf<List<String>, String>()
+        withContext(Dispatchers.Main) {
+            for (path in FolderImport.folderPaths(files.map { it.second })) {
+                val folder = Folder(name = path.last(), parentId = if (path.size > 1) created[path.dropLast(1)] else parentId)
+                folders += folder
+                created[path] = folder.id
+            }
+        }
+        save()
+        var imported = 0
+        val failed = mutableListOf<String>()
+        for ((uri, path) in files) {
+            runCatching { importFile(uri, created[path] ?: parentId) }
+                .onSuccess { imported++ }
+                .onFailure { failed += displayName(uri) ?: uri.lastPathSegment ?: "Datei" }
+        }
+        return FolderImportResult(imported, skipped, failed)
+    }
+
+    private fun decodeImage(uri: Uri): Bitmap = runCatching {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            // Plenty for reading and OCR, and keeps a 50-megapixel photo from filling the memory.
+            val longest = maxOf(info.size.width, info.size.height)
+            if (longest > 3000) decoder.setTargetSampleSize((longest + 2999) / 3000)
+        }
+    }.getOrElse { throw IOException("Das Bild lässt sich nicht öffnen.") }
 
     /** One page as wide as A4, as tall as the image needs; the image keeps its full resolution inside. */
     private fun imagePdf(bitmap: Bitmap): ByteArray {
@@ -119,6 +248,89 @@ class Repository(context: Context) {
         material
     }
 
+    // Inserting pages into an existing document
+
+    /**
+     * A file shared from another app into an open document, after 0-based [afterIndex]: a PDF's pages, a Word
+     * document's rendered pages, or a picture as one page.
+     */
+    suspend fun insertFile(material: StudyMaterial, uri: Uri, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        val type = resolver.getType(uri) ?: ""
+        val extension = displayName(uri)?.substringAfterLast('.', "")?.lowercase()
+        runCatching {
+            when {
+                extension == "goodnotes" -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, GoodNotesPdf.render(GoodNotes.read(bytes)), afterIndex)
+                }
+                type == DOCX_MIME || extension == "docx" -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, DocxRenderer.pdfData(DocxReader.open(bytes)), afterIndex)
+                }
+                type.startsWith("image/") || extension in setOf("jpg", "jpeg", "png", "heic", "heif", "webp") ->
+                    insertImagePage(material, decodeImage(uri), afterIndex)
+                else -> {
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching false
+                    insertPdfPages(material, bytes, afterIndex)
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Inserts every page of [source] after 0-based [afterIndex], moving the ink of later pages along. */
+    suspend fun insertPdfPages(material: StudyMaterial, source: ByteArray, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                PDDocument.load(source).use { insertPages(target, material, it, afterIndex) }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Inserts a picture as a new page after 0-based [afterIndex], fit to the size of the document's other pages. */
+    suspend fun insertImagePage(material: StudyMaterial, bitmap: Bitmap, afterIndex: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            PDDocument.load(pdfFile(material)).use { target ->
+                val size = target.getPage(afterIndex.coerceIn(0, target.numberOfPages - 1)).mediaBox
+                PDDocument().use { source ->
+                    val page = PDPage(PDRectangle(size.width, size.height))
+                    source.addPage(page)
+                    val scale = minOf(size.width / bitmap.width, size.height / bitmap.height)
+                    val width = bitmap.width * scale
+                    val height = bitmap.height * scale
+                    PDPageContentStream(source, page).use { stream ->
+                        stream.drawImage(JPEGFactory.createFromImage(source, bitmap), (size.width - width) / 2, (size.height - height) / 2, width, height)
+                    }
+                    insertPages(target, material, source, afterIndex)
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Splices every page of [source] into [target], [material]'s own open document, right after 0-based
+     * [afterIndex]; saves the file and moves the ink of later pages along. */
+    private fun insertPages(target: PDDocument, material: StudyMaterial, source: PDDocument, afterIndex: Int): Boolean {
+        val count = source.numberOfPages
+        if (count == 0) return false
+        val position = (afterIndex + 1).coerceIn(0, target.numberOfPages)
+        val anchor = if (position < target.numberOfPages) target.getPage(position) else null
+        for (i in 0 until count) {
+            val imported = target.importPage(source.getPage(i))
+            if (anchor != null) {
+                target.pages.remove(imported)
+                target.pages.insertBefore(imported, anchor)
+            }
+        }
+        target.save(pdfFile(material))
+        saveInk(material.id, shiftedInk(currentInk(material.id), at = position, count = count))
+        texts.remove(material.id)
+        textFile(material.id).delete()
+        return true
+    }
+
+    /** Pages from [at] on move [count] forward: that many pages were inserted at [at]. */
+    private fun shiftedInk(ink: Map<Int, List<InkStroke>>, at: Int, count: Int): Map<Int, List<InkStroke>> =
+        ink.mapKeys { (page, _) -> if (page >= at) page + count else page }
+
     /** Deletes for good, with the PDF and its ink; the trash uses this. */
     fun deleteMaterial(material: StudyMaterial) {
         materials.removeAll { it.id == material.id }
@@ -128,6 +340,7 @@ class Repository(context: Context) {
 
     private fun deleteFiles(material: StudyMaterial) {
         texts.remove(material.id)
+        pendingInk.remove(material.id)
         scope.launch {
             pdfFile(material).delete()
             inkFile(material.id).delete()
@@ -186,6 +399,16 @@ class Repository(context: Context) {
         return folder
     }
 
+    /** Puts the documents into a new folder in [parentId]; the screen asks for its name right after. */
+    fun groupIntoNewFolder(ids: Collection<String>, parentId: String?): Folder? {
+        if (ids.isEmpty()) return null
+        val folder = Folder(name = "Neuer Ordner", parentId = parentId)
+        folders += folder
+        updateMaterials(ids) { it.copy(folderId = folder.id) }
+        save()
+        return folder
+    }
+
     fun renameFolder(folder: Folder, name: String) {
         val trimmed = name.trim().ifEmpty { return }
         val index = folders.indexOfFirst { it.id == folder.id }
@@ -199,6 +422,44 @@ class Repository(context: Context) {
         val index = folders.indexOfFirst { it.id == folder.id }
         if (index < 0) return
         folders[index] = folders[index].copy(parentId = parentId)
+        save()
+    }
+
+    // Timetable
+
+    fun addTimetableEntry(entry: TimetableEntry) {
+        timetable += entry
+        save()
+    }
+
+    fun updateTimetableEntry(entry: TimetableEntry) {
+        val index = timetable.indexOfFirst { it.id == entry.id }
+        if (index < 0) return
+        timetable[index] = entry
+        save()
+    }
+
+    fun deleteTimetableEntry(entry: TimetableEntry) {
+        timetable.removeAll { it.id == entry.id }
+        save()
+    }
+
+    // Exams
+
+    fun addExam(exam: Exam) {
+        exams += exam
+        save()
+    }
+
+    fun updateExam(exam: Exam) {
+        val index = exams.indexOfFirst { it.id == exam.id }
+        if (index < 0) return
+        exams[index] = exam
+        save()
+    }
+
+    fun deleteExam(exam: Exam) {
+        exams.removeAll { it.id == exam.id }
         save()
     }
 
@@ -250,14 +511,21 @@ class Repository(context: Context) {
 
     private val inkSerializer = MapSerializer(Int.serializer(), ListSerializer(InkStroke.serializer()))
 
-    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) {
-        runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
-    }
+    suspend fun loadInk(materialId: String): Map<Int, List<InkStroke>> = withContext(Dispatchers.IO) { currentInk(materialId) }
+
+    private fun currentInk(materialId: String): Map<Int, List<InkStroke>> = pendingInk[materialId]
+        ?: runCatching { json.decodeFromString(inkSerializer, inkFile(materialId).readText()) }.getOrDefault(emptyMap())
 
     fun saveInk(materialId: String, ink: Map<Int, List<InkStroke>>) {
         val snapshot = ink.filterValues { it.isNotEmpty() }
+        pendingInk[materialId] = snapshot
         scope.launch {
-            writeLock.withLock { writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, snapshot)) }
+            writeLock.withLock {
+                // Background writes may run out of order; each writes whatever is newest, so the last one wins.
+                val newest = pendingInk[materialId] ?: return@withLock
+                writeAtomically(inkFile(materialId), json.encodeToString(inkSerializer, newest))
+                pendingInk.remove(materialId, newest)
+            }
         }
     }
 
@@ -300,7 +568,7 @@ class Repository(context: Context) {
 
     /** Snapshots on the calling (main) thread, writes in the background. */
     fun save() {
-        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList())
+        val data = AppData(materials.toList(), folders.toList(), plans.toList(), cards.toList(), timetable.toList(), exams.toList())
         scope.launch {
             writeLock.withLock { writeAtomically(dataFile, json.encodeToString(AppData.serializer(), data)) }
         }

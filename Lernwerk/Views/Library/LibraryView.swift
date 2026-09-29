@@ -32,6 +32,28 @@ private enum NamePrompt {
     }
 }
 
+/// What a drag carries: a document's id, or a folder's id behind `folder:`.
+private enum DragItem {
+    case material(UUID)
+    case folder(UUID)
+
+    init?(_ payload: String) {
+        if payload.hasPrefix("folder:") {
+            guard let id = UUID(uuidString: String(payload.dropFirst(7))) else { return nil }
+            self = .folder(id)
+        } else {
+            guard let id = UUID(uuidString: payload) else { return nil }
+            self = .material(id)
+        }
+    }
+}
+
+/// Single files, or a whole folder with its subfolders.
+private enum ImportMode {
+    case files
+    case folder
+}
+
 private struct SubjectRequest: Identifiable {
     var ids: Set<UUID>
     var id: String { ids.map(\.uuidString).sorted().joined() }
@@ -39,7 +61,8 @@ private struct SubjectRequest: Identifiable {
 
 /// The library: folders like the Files app, search over titles and the text of every PDF, sorting, subjects with
 /// colors, favorites, a row to continue reading, selecting several documents at once, drag and drop onto folders
-/// and a trash that empties itself after 30 days. Mirrors the Android app.
+/// (a document dropped onto another makes a folder of both), importing whole folders and ZIP archives, and a trash
+/// that empties itself after 30 days. Mirrors the Android app.
 struct LibraryView: View {
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.modelContext) private var modelContext
@@ -58,6 +81,10 @@ struct LibraryView: View {
     @State private var indexed = false
 
     @State private var isImporting = false
+    @State private var importMode = ImportMode.files
+    @State private var importBusy = false
+    @State private var importNote: String?
+    @State private var dropTarget: String?
     @State private var errorMessage: String?
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var namePrompt: NamePrompt?
@@ -96,6 +123,9 @@ struct LibraryView: View {
         .overlay(alignment: .bottom) {
             if selecting { selectionBar }
         }
+        .overlay {
+            if importBusy { importProgress }
+        }
         .task { purgeExpiredTrash() }
         .task(id: searching) {
             guard searching else { return }
@@ -107,7 +137,7 @@ struct LibraryView: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.pdf, .image],
+            allowedContentTypes: importMode == .folder ? [.folder] : [.pdf, .image, MaterialStore.docxType, MaterialStore.goodNotesType, .zip],
             allowsMultipleSelection: true,
             onCompletion: handleImport
         )
@@ -115,6 +145,11 @@ struct LibraryView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        .alert("Import", isPresented: notePresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importNote ?? "")
         }
         .alert(namePrompt?.title ?? "", isPresented: namePresented) {
             TextField("Name", text: $nameText)
@@ -169,8 +204,15 @@ struct LibraryView: View {
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
                 } else {
                     if let current = path.last {
+                        // Dropping onto „Zurück“ moves a document or folder one level up.
                         Button("Zurück") { folderID = current.parentID }
                             .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
+                            .dropDestination(for: String.self) { items, _ in
+                                drop(items, into: current.parentID)
+                            } isTargeted: { targeted in
+                                highlight("up", targeted)
+                            }
+                            .overlay(Capsule().stroke(Quill.accent, lineWidth: 2).opacity(dropTarget == "up" ? 1 : 0))
                     }
                     Button("Auswählen") { selecting = true }
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
@@ -196,8 +238,7 @@ struct LibraryView: View {
                     }
                     photosButton
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
-                    Button("Importieren") { isImporting = true }
-                        .buttonStyle(QuillPrimaryButtonStyle())
+                    importMenu(height: 44, fontSize: 15)
                 }
             }
         }
@@ -247,7 +288,7 @@ struct LibraryView: View {
                 }
             }
             if shownFolders.isEmpty && shownMaterials.isEmpty {
-                Text(filtered ? "Keine Dokumente mit diesem Filter." : "Dieser Ordner ist leer. Importiere hierher oder zieh Dokumente auf einen Ordner.")
+                Text(filtered ? "Keine Dokumente mit diesem Filter." : "Dieser Ordner ist leer. Importiere hierher oder zieh Dokumente auf „Zurück“, um sie eine Ebene nach oben zu holen.")
                     .font(.work(15))
                     .foregroundStyle(Quill.faint)
             }
@@ -347,7 +388,8 @@ struct LibraryView: View {
 
     @ViewBuilder
     private func tile(_ material: StudyMaterial, page: Int? = nil, snippet: String? = nil) -> some View {
-        let tileView = DocumentTile(material: material, snippet: snippet, selecting: selecting, isSelected: selected.contains(material.id))
+        let key = "m" + material.id.uuidString
+        let tileView = DocumentTile(material: material, snippet: snippet, selecting: selecting, isSelected: selected.contains(material.id) || dropTarget == key)
         if selecting {
             Button { toggle(material.id) } label: { tileView }
                 .buttonStyle(TileButtonStyle())
@@ -356,6 +398,11 @@ struct LibraryView: View {
                 .buttonStyle(TileButtonStyle())
                 .draggable(material.id.uuidString) {
                     DocumentTile(material: material, showsCaption: false).frame(width: 120)
+                }
+                .dropDestination(for: String.self) { items, _ in
+                    drop(items, onto: material)
+                } isTargeted: { targeted in
+                    highlight(key, targeted)
                 }
                 .contextMenu {
                     Button("Umbenennen") { prompt(.renameMaterial(material), text: material.title) }
@@ -379,16 +426,20 @@ struct LibraryView: View {
     private func folderTile(_ folder: MaterialFolder) -> some View {
         let inside = Library.descendants(folders, of: folder.folderID)
         let count = library.filter { material in material.folderKey.map { inside.contains($0) } ?? false }.count
+        let key = "f" + folder.id.uuidString
         return Button {
             if !selecting { folderID = folder.id }
         } label: {
-            FolderTile(name: folder.name, count: count)
+            FolderTile(name: folder.name, count: count, highlighted: dropTarget == key)
         }
         .buttonStyle(TileButtonStyle())
-        .dropDestination(for: String.self) { ids, _ in
-            let uuids = Set(ids.compactMap(UUID.init))
-            for material in library where uuids.contains(material.id) { material.folderID = folder.id }
-            return !uuids.isEmpty
+        .draggable("folder:" + folder.id.uuidString) {
+            FolderTile(name: folder.name, count: count).frame(width: 120)
+        }
+        .dropDestination(for: String.self) { items, _ in
+            drop(items, into: folder.id)
+        } isTargeted: { targeted in
+            highlight(key, targeted)
         }
         .contextMenu {
             Button("Umbenennen") { prompt(.renameFolder(folder), text: folder.name) }
@@ -422,6 +473,10 @@ struct LibraryView: View {
                 .padding(.trailing, 6)
             Group {
                 Button("Verschieben") { moveRequest = .materials(selected) }
+                Button("Neuer Ordner") {
+                    group(chosen, in: folderID)
+                    endSelection()
+                }
                 Button("Fach") { subjectRequest = SubjectRequest(ids: selected) }
                 Button(allFavorite ? "Kein Favorit" : "Favorit") { chosen.forEach { $0.isFavorite = !allFavorite } }
                 Button("Papierkorb") {
@@ -519,6 +574,56 @@ struct LibraryView: View {
         }
     }
 
+    private func highlight(_ key: String, _ targeted: Bool) {
+        if targeted {
+            dropTarget = key
+        } else if dropTarget == key {
+            dropTarget = nil
+        }
+    }
+
+    /// Documents and folders dropped into a folder; nil is the top level. A folder never lands inside itself.
+    private func drop(_ items: [String], into target: UUID?) -> Bool {
+        var moved = false
+        for item in items.compactMap(DragItem.init) {
+            switch item {
+            case let .material(id):
+                guard let material = library.first(where: { $0.id == id }) else { continue }
+                material.folderID = target
+                moved = true
+            case let .folder(id):
+                guard let folder = folders.first(where: { $0.id == id }) else { continue }
+                let inside = Library.descendants(folders, of: folder.folderID)
+                if let target, inside.contains(target.uuidString) { continue }
+                folder.parentID = target
+                moved = true
+            }
+        }
+        return moved
+    }
+
+    /// A document dropped onto another: both go into a new folder where the target was, as on the home screen.
+    private func drop(_ items: [String], onto target: StudyMaterial) -> Bool {
+        var others: [StudyMaterial] = []
+        for item in items.compactMap(DragItem.init) {
+            if case let .material(id) = item, id != target.id, let material = library.first(where: { $0.id == id }) {
+                others.append(material)
+            }
+        }
+        guard !others.isEmpty else { return false }
+        group([target] + others, in: target.folderID)
+        return true
+    }
+
+    /// Puts the documents into a new folder and asks for its name right away.
+    private func group(_ materials: [StudyMaterial], in parent: UUID?) {
+        guard !materials.isEmpty else { return }
+        let folder = MaterialFolder(name: "Neuer Ordner", parentID: parent)
+        modelContext.insert(folder)
+        for material in materials { material.folderID = folder.id }
+        prompt(.renameFolder(folder), text: folder.name)
+    }
+
     /// Removes the folder and its subfolders; the documents inside go to the trash and come back to the top level.
     private func delete(_ folder: MaterialFolder) {
         let removed = Library.descendants(folders, of: folder.folderID)
@@ -560,15 +665,14 @@ struct LibraryView: View {
                 .tracking(-0.85)
                 .foregroundStyle(Quill.ink)
                 .padding(.top, 16)
-            Text("Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF oder Foto.")
+            Text("Importiere Skripte, Arbeitsblätter oder Mitschriften als PDF oder Foto, oder gleich einen ganzen Ordner, etwa deinen GoodNotes-Export.")
                 .font(.work(15.5))
                 .lineSpacing(5)
                 .foregroundStyle(Quill.muted)
                 .padding(.top, 14)
                 .padding(.bottom, 30)
             HStack(spacing: 20) {
-                Button("PDF importieren") { isImporting = true }
-                    .buttonStyle(QuillPrimaryButtonStyle(height: 48, fontSize: 15.5))
+                importMenu(height: 48, fontSize: 15.5)
                 photosButton
                     .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
                 Button("Leeres Notizbuch") { creatingNotebook = true }
@@ -597,10 +701,60 @@ struct LibraryView: View {
         )
     }
 
+    private var notePresented: Binding<Bool> {
+        Binding(
+            get: { importNote != nil },
+            set: { if !$0 { importNote = nil } }
+        )
+    }
+
+    /// „Importieren“: single files (PDF, picture, Word, ZIP) or a whole folder.
+    private func importMenu(height: CGFloat, fontSize: CGFloat) -> some View {
+        Menu {
+            Button {
+                importMode = .files
+                isImporting = true
+            } label: {
+                Label("Dateien (PDF, Bild, Word, ZIP)", systemImage: "doc.on.doc")
+            }
+            Button {
+                importMode = .folder
+                isImporting = true
+            } label: {
+                Label("Ganzen Ordner", systemImage: "folder")
+            }
+        } label: {
+            Text("Importieren")
+                .font(.work(fontSize, .medium))
+                .tracking(-fontSize * 0.01)
+                .foregroundStyle(Quill.bg)
+                .padding(.horizontal, height * 0.46)
+                .frame(height: height)
+                .background(Quill.ink, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .disabled(importBusy)
+    }
+
+    private var importProgress: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+            Text("Importiere …").font(.work(15, .medium)).foregroundStyle(Quill.ink)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 14)
+        .background(Quill.surface, in: Capsule())
+        .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+    }
+
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case let .success(urls):
-            for url in urls {
+            // A GoodNotes package looks like a folder but is one notebook.
+            let folders = urls.filter { importMode == .folder || ($0.hasDirectoryPath && !GoodNotes.isGoodNotes($0)) }
+            let archives = urls.filter { !folders.contains($0) && $0.pathExtension.lowercased() == "zip" }
+            for url in urls where !folders.contains(url) && !archives.contains(url) {
                 do {
                     let material = try MaterialStore.importFile(from: url)
                     material.folderID = folderID
@@ -609,8 +763,61 @@ struct LibraryView: View {
                     errorMessage = error.localizedDescription
                 }
             }
+            if !folders.isEmpty || !archives.isEmpty {
+                importTrees(folders: folders, archives: archives)
+            }
         case let .failure(error):
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Folders and archives copy on a background thread; a GoodNotes export can hold hundreds of PDFs.
+    @MainActor
+    private func importTrees(folders: [URL], archives: [URL]) {
+        let target = folderID
+        importBusy = true
+        Task {
+            let results = await Task.detached(priority: .userInitiated) { () -> [Result<MaterialStore.FolderResult, Error>] in
+                let fromFolders = folders.map { Result<MaterialStore.FolderResult, Error>.success(MaterialStore.importFolder(at: $0)) }
+                let fromArchives = archives.map { url in Result<MaterialStore.FolderResult, Error> { try MaterialStore.importArchive(at: url) } }
+                return fromFolders + fromArchives
+            }.value
+            var imported = 0
+            var skipped: [String] = []
+            var failed: [String] = []
+            for result in results {
+                switch result {
+                case let .success(tree):
+                    insert(tree, into: target)
+                    imported += tree.files.count
+                    skipped += tree.skipped
+                    failed += tree.failed
+                case let .failure(error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+            importBusy = false
+            if imported == 0 && errorMessage == nil {
+                importNote = FolderImport.summary(imported: 0, skipped: skipped, failed: failed)
+                    ?? "Im Ordner waren keine PDFs, Bilder oder Word-Dateien."
+            } else {
+                importNote = FolderImport.summary(imported: imported, skipped: skipped, failed: failed)
+            }
+        }
+    }
+
+    /// Recreates the folder tree below `target` and files every document where it was.
+    private func insert(_ tree: MaterialStore.FolderResult, into target: UUID?) {
+        var created: [[String]: UUID] = [:]
+        for path in FolderImport.folderPaths(tree.files.map { $0.folders }) {
+            let parent = path.count > 1 ? created[Array(path.dropLast())] : target
+            let folder = MaterialFolder(name: path.last ?? "Ordner", parentID: parent)
+            modelContext.insert(folder)
+            created[path] = folder.id
+        }
+        for entry in tree.files {
+            let material = StudyMaterial(title: entry.file.title, fileName: entry.file.fileName, folderID: created[entry.folders] ?? target)
+            modelContext.insert(material)
         }
     }
 
@@ -670,6 +877,7 @@ struct LibraryView: View {
 private struct FolderTile: View {
     let name: String
     let count: Int
+    var highlighted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -679,7 +887,10 @@ private struct FolderTile: View {
                     .frame(width: 64, height: 20)
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Quill.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Quill.line2, lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(highlighted ? Quill.accent : Quill.line2, lineWidth: highlighted ? 3 : 1)
+                    )
                     .frame(height: 96)
                     .padding(.top, 12)
             }

@@ -1,5 +1,8 @@
 package de.maxifrz.lernwerk.ui
 
+import androidx.compose.foundation.horizontalScroll
+import de.maxifrz.lernwerk.present.SlideDraft
+import de.maxifrz.lernwerk.present.SlideDesign
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -91,10 +94,18 @@ fun rememberSlideImages(store: PresentationStore, slides: List<Slide>, maxSize: 
 
 /** One slide drawn by the shared painter, always 16:9. */
 @Composable
-fun SlideView(slide: Slide, theme: SlideTheme, images: Map<String, Bitmap>, modifier: Modifier = Modifier, skipElementId: String? = null) {
+fun SlideView(
+    slide: Slide,
+    theme: SlideTheme,
+    images: Map<String, Bitmap>,
+    modifier: Modifier = Modifier,
+    skipElementId: String? = null,
+    /** The slide's place in the deck, for the title slide's decorations. */
+    index: Int = 1,
+) {
     val painter = LocalSlidePainter.current
     Canvas(modifier.aspectRatio(16f / 9f).clipToBounds()) {
-        drawIntoCanvas { painter.draw(it.nativeCanvas, slide, theme, size.width / 960f, images, skipElementId) }
+        drawIntoCanvas { painter.draw(it.nativeCanvas, slide, theme, size.width / 960f, images, skipElementId, index) }
     }
 }
 
@@ -219,6 +230,7 @@ private fun PresentationTile(app: AppState, presentation: Presentation) {
                 presentation.theme,
                 images,
                 Modifier.fillMaxWidth().shadow(8.dp, shape, ambientColor = colors.ink, spotColor = colors.ink).clip(shape).border(1.dp, colors.line, shape),
+                index = 0,
             )
             DropdownMenu(menuOpen, { menuOpen = false }, containerColor = colors.surface) {
                 DropdownMenuItem(text = { QText("Präsentieren", work(15f), colors.ink) }, onClick = {
@@ -262,7 +274,7 @@ fun PresentationCreateScreen(app: AppState) {
     var topic by remember { mutableStateOf("") }
     var slideCount by remember { mutableIntStateOf(10) }
     var minutes by remember { mutableIntStateOf(10) }
-    var themeId by remember { mutableStateOf(SlideTheme.QUILL.id) }
+    var themeId by remember { mutableStateOf(SlideDesign.AUTO) }
     var isGenerating by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf(PresentationAssistant.Stage.OUTLINE) }
     var review by remember { mutableStateOf(true) }
@@ -388,9 +400,11 @@ fun PresentationCreateScreen(app: AppState) {
                     QuillRow("$minutes Minuten Redezeit", verticalPadding = 10.dp) {
                         Stepper({ minutes = maxOf(3, minutes - 1) }, { minutes = minOf(45, minutes + 1) })
                     }
-                    QuillRow("Design", verticalPadding = 10.dp) {
-                        ThemePicker(themeId) { themeId = it }
+                    Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        QText("Design", work(15.5f), colors.ink)
+                        ThemePicker(themeId, { themeId = it }, allowsAuto = true)
                     }
+                    QuillDivider()
                     QuillRow("Kritiker überarbeitet automatisch", verticalPadding = 10.dp) {
                         QuillSwitch(review) { review = it }
                     }
@@ -451,30 +465,57 @@ fun Stepper(onMinus: () -> Unit, onPlus: () -> Unit) {
     }
 }
 
-/** The four slide designs as small previews. */
+/**
+ * The slide designs as real previews: a sample title slide, or the deck's own first slide, in every design. With
+ * [allowsAuto] the first tile leaves the choice to the AI.
+ */
 @Composable
-fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
+fun ThemePicker(
+    selected: String,
+    onSelect: (String) -> Unit,
+    allowsAuto: Boolean = false,
+    slide: Slide? = null,
+    images: Map<String, Bitmap> = emptyMap(),
+) {
     val colors = Quill.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SlideTheme.all.forEach { theme ->
-            val isSelected = theme.id == selected
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(
-                    Modifier
-                        .size(width = 56.dp, height = 32.dp)
-                        .border(if (isSelected) 2.dp else 1.dp, if (isSelected) colors.accent else colors.line2, RoundedCornerShape(6.dp))
-                        .padding(3.dp)
-                        .background(hex(theme.background), RoundedCornerShape(4.dp))
-                        .pressable(RoundedCornerShape(4.dp)) { onSelect(theme.id) },
-                    contentAlignment = Alignment.Center,
+    val sample = remember {
+        Slide(elements = SlideLayouts.build(SlideDraft(SlideLayout.TITLE, title = "Photosynthese", subtitle = "Wie Pflanzen aus Licht Zucker machen")))
+    }
+    Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (allowsAuto) {
+            ThemeTile("Automatisch", selected == SlideDesign.AUTO, { onSelect(SlideDesign.AUTO) }) {
+                Column(
+                    Modifier.fillMaxSize().background(colors.surface).padding(horizontal = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(width = 16.dp, height = 4.dp).background(hex(theme.text), CircleShape))
-                        Box(Modifier.size(6.dp).background(hex(theme.accent), CircleShape))
-                    }
+                    QText("✦", work(22f), colors.accent)
+                    QText("Die KI wählt passend zum Thema", work(11.5f), colors.muted)
                 }
-                QText(theme.name, work(11.5f), if (isSelected) colors.ink else colors.faint)
             }
         }
+        SlideTheme.all.forEach { theme ->
+            ThemeTile(theme.name, theme.id == selected, { onSelect(theme.id) }) {
+                SlideView(slide ?: sample, theme, images, Modifier.fillMaxSize(), index = 0)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeTile(name: String, isSelected: Boolean, onClick: () -> Unit, preview: @Composable () -> Unit) {
+    val colors = Quill.colors
+    val shape = RoundedCornerShape(6.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(
+            Modifier
+                .size(width = 168.dp, height = 94.5.dp)
+                .clip(shape)
+                .border(if (isSelected) 2.5.dp else 1.dp, if (isSelected) colors.accent else colors.line2, shape)
+                .pressable(shape, onClick = onClick),
+        ) {
+            preview()
+        }
+        QText(name, work(12.5f, if (isSelected) FontWeight.Medium else FontWeight.Normal), if (isSelected) colors.ink else colors.muted)
     }
 }

@@ -28,6 +28,7 @@ enum LLMPurpose: Equatable {
     case presentationChat
     case presentationCritique
     case studyAid
+    case mathRecognition
 
     /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
     var timeout: TimeInterval {
@@ -36,6 +37,7 @@ enum LLMPurpose: Equatable {
         case .flashcard, .slideRewrite: return 90
         case .studyPlan, .presentationOutline, .presentation, .presentationCritique: return 600
         case .speakerNotes, .studyAid: return 180
+        case .mathRecognition: return 60
         case .presentationFeedback, .presentationChat: return 120
         }
     }

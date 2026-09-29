@@ -143,7 +143,7 @@ fun PresentScreen(app: AppState, presentationId: String, startSlide: Int) {
                     },
             ) {
                 Crossfade(index, Modifier.fillMaxSize(), animationSpec = tween(200), label = "slide") { shown ->
-                    SlideView(slides[shown], presentation.theme, images, Modifier.fillMaxSize())
+                    SlideView(slides[shown], presentation.theme, images, Modifier.fillMaxSize(), index = shown)
                 }
                 laser?.let { point ->
                     Canvas(Modifier.fillMaxSize()) {
@@ -171,6 +171,7 @@ fun PresentScreen(app: AppState, presentationId: String, startSlide: Int) {
                 elapsed = (now - started) / 1000,
                 plannedMinutes = presentation.minutes,
                 next = slides.getOrNull(index + 1),
+                nextIndex = index + 1,
                 theme = presentation.theme,
                 images = images,
             )
@@ -199,6 +200,7 @@ private fun PresenterBar(
     elapsed: Long,
     plannedMinutes: Int,
     next: de.maxifrz.lernwerk.present.Slide?,
+    nextIndex: Int,
     theme: de.maxifrz.lernwerk.present.SlideTheme,
     images: Map<String, android.graphics.Bitmap>,
 ) {
@@ -222,7 +224,7 @@ private fun PresenterBar(
         Column(Modifier.width(220.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             PixelCaption("Als Nächstes", color = Color(0xFF807C73), size = 9f)
             if (next != null) {
-                SlideView(next, theme, images, Modifier.fillMaxWidth().background(Color.Black, RoundedCornerShape(4.dp)))
+                SlideView(next, theme, images, Modifier.fillMaxWidth().background(Color.Black, RoundedCornerShape(4.dp)), index = nextIndex)
             } else {
                 QText("Ende der Präsentation", work(14f), Color(0xFF9B978D))
             }

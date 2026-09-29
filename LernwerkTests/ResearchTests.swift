@@ -126,8 +126,10 @@ final class ResearchTests: XCTestCase {
         let critic = texts(client.requests[2].messages[0].content)
         XCTAssertTrue(critic.contains("Pflanzen machen") && critic.contains(#"<article id="W1""#))
 
-        XCTAssertTrue(presentation.slides[0].notes.hasSuffix("Quelle: Wikipedia – „Chlorophyll“"))
-        let sourcesText = presentation.slides[1].elements.map(\.text).joined(separator: "\n")
+        // The deck rhythm puts a title slide in front of a deck that starts with anything else.
+        XCTAssertEqual(presentation.slides.count, 3)
+        XCTAssertTrue(presentation.slides[1].notes.hasSuffix("Quelle: Wikipedia – „Chlorophyll“"))
+        let sourcesText = presentation.slides[2].elements.map(\.text).joined(separator: "\n")
         XCTAssertTrue(sourcesText.contains("Skript"))
         XCTAssertTrue(sourcesText.contains("„Chlorophyll“, Wikipedia, de.wikipedia.org/wiki/Chlorophyll (abgerufen am 24.09.2026)"))
         XCTAssertFalse(sourcesText.contains("Chlorophyll a"))
@@ -157,8 +159,8 @@ final class ResearchTests: XCTestCase {
         let first = client.requests[0].messages[0].content
         XCTAssertTrue(texts(Array(first.prefix(1))).contains(#"<article id="W1" title="Chlorophyll""#))
         XCTAssertTrue(texts(Array(first.suffix(1))).contains("there is no material"))
-        XCTAssertEqual(presentation.slides.count, 2)
-        let sourcesText = presentation.slides[1].elements.map(\.text).joined(separator: "\n")
+        XCTAssertEqual(presentation.slides.count, 3, "title slide added by the deck rhythm, sources slide by the research")
+        let sourcesText = presentation.slides[2].elements.map(\.text).joined(separator: "\n")
         XCTAssertTrue(sourcesText.contains("„Chlorophyll“, Wikipedia") && !sourcesText.contains("Material:"))
 
         let nothing = ResearchScriptedClient([])

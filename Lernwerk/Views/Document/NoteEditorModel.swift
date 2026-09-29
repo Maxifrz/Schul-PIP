@@ -1,5 +1,6 @@
 import PDFKit
 import SwiftUI
+import UniformTypeIdentifiers
 import UIKit
 
 /// The state of the document toolbar and the commands behind its buttons; the controller does the work on the
@@ -18,7 +19,13 @@ final class NoteEditorModel: ObservableObject {
     @Published var zoomActive = false {
         didSet { controller?.setZoom(zoomActive) }
     }
+    /// The drawing instrument on the page, if any.
+    @Published var instrument: InstrumentKind? {
+        didSet { controller?.showInstrument(instrument) }
+    }
     @Published private(set) var controller: NotesController?
+    /// A region framed with the calculate tool, shown in a sheet.
+    @Published var mathRegion: MathRegionRequest?
     @Published private(set) var currentPage = 0
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
@@ -28,6 +35,7 @@ final class NoteEditorModel: ObservableObject {
 
     let material: StudyMaterial
     var onMark: ((MarkedRegion) -> Void)?
+    var onMathLine: ((MathLineRequest) -> Void)?
     private var lastWritingTool: NoteTool = .pen
 
     init(material: StudyMaterial) {
@@ -75,6 +83,12 @@ final class NoteEditorModel: ObservableObject {
         controller.onZoomClosed = { [weak self] in
             MainActor.assumeIsolated { self?.zoomActive = false }
         }
+        controller.onMathLine = { [weak self] request in
+            MainActor.assumeIsolated { self?.onMathLine?(request) }
+        }
+        controller.onMathRegion = { [weak self] request in
+            MainActor.assumeIsolated { self?.mathRegion = request }
+        }
         controller.apply(tool: tool, settings: settings)
         bookmarks = controller.notes.bookmarks
         currentPage = page
@@ -82,6 +96,7 @@ final class NoteEditorModel: ObservableObject {
         canRedo = false
         self.controller = controller
         if zoomActive { controller.setZoom(true) }
+        if let instrument { controller.showInstrument(instrument) }
     }
 
     private func push() {
@@ -102,6 +117,16 @@ final class NoteEditorModel: ObservableObject {
         zoomActive.toggle()
         if zoomActive, !tool.writesInZoom { tool = lastWritingTool }
     }
+
+    /// Lays an instrument on the page in view; the pen comes back, so it can be used right away.
+    func chooseInstrument(_ kind: InstrumentKind) {
+        instrument = kind
+        if !tool.writesInZoom { tool = lastWritingTool }
+    }
+
+    func trueScale() { controller?.setTrueScale() }
+
+    func fitWidth() { controller?.fitWidth() }
 
     func undo() { controller?.undo() }
 
@@ -131,6 +156,54 @@ final class NoteEditorModel: ObservableObject {
         let index = page ?? currentPage
         controller?.saveNow()
         guard MaterialStore.insertPage(in: material, after: index, paper: paper) else { return }
+        reopen(at: index + 1)
+    }
+
+    /// Inserts a PDF file's pages after `page` and opens the document there.
+    @discardableResult
+    func insertPDF(from source: URL, after page: Int? = nil) -> Bool {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertPDF(from: source, in: material, after: index) else { return false }
+        reopen(at: index + 1)
+        return true
+    }
+
+    /// A file shared from another app, after the current page: a PDF's pages, a Word document's rendered pages or a
+    /// picture as one page.
+    func insertFile(from source: URL) -> Bool {
+        let isScoped = source.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { source.stopAccessingSecurityScopedResource() }
+        }
+        let type = UTType(filenameExtension: source.pathExtension)
+        if GoodNotes.isGoodNotes(source) {
+            guard let notebook = try? GoodNotes.read(url: source), let data = try? GoodNotesRenderer.pdfData(notebook) else { return false }
+            let rendered = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+            defer { try? FileManager.default.removeItem(at: rendered) }
+            guard (try? data.write(to: rendered)) != nil else { return false }
+            return insertPDF(from: rendered)
+        }
+        if type?.conforms(to: MaterialStore.docxType) == true || source.pathExtension.lowercased() == "docx" {
+            guard let data = try? Data(contentsOf: source), let document = try? DocxReader.open(data) else { return false }
+            let rendered = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+            defer { try? FileManager.default.removeItem(at: rendered) }
+            guard (try? DocxRenderer.pdfData(document).write(to: rendered)) != nil else { return false }
+            return insertPDF(from: rendered)
+        }
+        if let type, type.conforms(to: .image), !type.conforms(to: .pdf) {
+            guard let data = try? Data(contentsOf: source), let image = UIImage(data: data) else { return false }
+            insertImagePage(image)
+            return true
+        }
+        return insertPDF(from: source)
+    }
+
+    /// Inserts a picture as a new page after `page`, fit to the document's page size.
+    func insertImagePage(_ image: UIImage, after page: Int? = nil) {
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertImagePage(image, in: material, after: index) else { return }
         reopen(at: index + 1)
     }
 
