@@ -25,6 +25,27 @@ enum SlotField: String {
     case none, bullets, items, tableRows, chartPoints
 }
 
+/// The kinds of content a draft can hold, apart from its title, notes and sources. A component lists the ones it draws.
+enum DraftPart: String, CaseIterable {
+    case subtitle, bullets, columns, quote, items, value, chart, table
+}
+
+extension SlideDraft {
+    /// The kinds of content this draft actually has.
+    var parts: Set<DraftPart> {
+        var result: Set<DraftPart> = []
+        if !subtitle.isBlank { result.insert(.subtitle) }
+        if !bullets.isEmpty { result.insert(.bullets) }
+        if !leftTitle.isBlank || !rightTitle.isBlank || !left.isEmpty || !right.isEmpty { result.insert(.columns) }
+        if !quote.isBlank || !attribution.isBlank { result.insert(.quote) }
+        if !items.isEmpty { result.insert(.items) }
+        if !value.isBlank { result.insert(.value) }
+        if let chart, !chart.labels.isEmpty || !chart.values.isEmpty { result.insert(.chart) }
+        if !table.isEmpty { result.insert(.table) }
+        return result
+    }
+}
+
 /// What a component can take: how many entries, whether it needs a picture or numbers, and how long one slot's text may
 /// be. Content outside the contract is never squeezed in: the registry falls back to another component.
 struct SlotContract: Equatable {
@@ -94,9 +115,16 @@ struct SlideComponent {
     /// A line for the model's candidate list.
     var summary: String
     var accepts: SlotContract
+    /// The kinds of content it draws. A component can replace another for a draft only if it draws all of the draft's.
+    var reads: Set<DraftPart> = []
     var parameters: [ComponentParameter] = []
     /// The layout to take when the content does not fit (see `ComponentRegistry.build`).
     var fallback: SlideLayout = .bullets
+    /// The first-version layout this component is, for the fifteen that are one.
+    var layout: SlideLayout?
+
+    /// The layout name the model gives in `layout` next to this component: its own, or the fallback.
+    var hintLayout: SlideLayout { layout ?? fallback }
     /// Draws the elements. Gets valid parameters only; the theme is there for its text widths.
     var build: (_ draft: SlideDraft, _ params: ComponentParams, _ image: PlacedImage?, _ theme: SlideTheme) -> [SlideElement]
 
@@ -114,6 +142,11 @@ struct SlideComponent {
     /// Whether the draft fits this component's contract.
     func fits(_ draft: SlideDraft, image: PlacedImage?, placeholder: Bool = false) -> Bool {
         accepts.violation(draft, image: image, placeholder: placeholder) == nil
+    }
+
+    /// Whether the component draws every kind of content the draft has, so choosing it loses none.
+    func covers(_ draft: SlideDraft) -> Bool {
+        draft.parts.isSubset(of: reads)
     }
 
     /// The layout drawing of the first version, for the fifteen components that are those layouts.

@@ -82,30 +82,30 @@ enum ComponentRegistry {
     // MARK: The fifteen layouts of the first version
 
     private static func legacyComponent(
-        _ layout: SlideLayout, _ category: ComponentCategory, _ tags: [ContentTag], _ summary: String, accepts: SlotContract = SlotContract(),
-        draw: @escaping (SlideDraft, PlacedImage?) -> [SlideElement]
+        _ layout: SlideLayout, _ category: ComponentCategory, _ tags: [ContentTag], _ summary: String, reads: Set<DraftPart> = [],
+        accepts: SlotContract = SlotContract(), draw: @escaping (SlideDraft, PlacedImage?) -> [SlideElement]
     ) -> SlideComponent {
         SlideComponent(
-            id: layout.componentID, label: layout.label, category: category, tags: tags, summary: summary, accepts: accepts,
+            id: layout.componentID, label: layout.label, category: category, tags: tags, summary: summary, accepts: accepts, reads: reads, layout: layout,
             build: { draft, _, image, _ in draw(draft, image) }
         )
     }
 
     static let legacyComponents: [SlideComponent] = [
-        legacyComponent(.title, .opening, [.title], "Titelfolie mit Untertitel") { d, _ in LayoutKit.buildTitle(d) },
-        legacyComponent(.section, .opening, [.section], "Abschnittswechsel mit großem Titel") { d, _ in LayoutKit.buildSection(d) },
-        legacyComponent(.statement, .text, [.statement], "Eine große Aussage oder Frage") { d, _ in LayoutKit.buildStatement(d) },
-        legacyComponent(.bullets, .text, [.list], "Überschrift mit Stichpunkten", accepts: SlotContract(field: .bullets, max: 30)) { d, _ in LayoutKit.buildBullets(d) },
-        legacyComponent(.imageText, .visual, [.image, .list], "Bild links, Stichpunkte rechts", accepts: SlotContract(needsImage: true)) { d, i in LayoutKit.buildImageText(d, image: i) },
-        legacyComponent(.imageFull, .visual, [.image], "Ein großes Bild mit Unterschrift", accepts: SlotContract(needsImage: true)) { d, i in LayoutKit.buildImageFull(d, image: i) },
-        legacyComponent(.twoColumns, .comparison, [.comparison, .list], "Zwei Spalten mit Stichpunkten") { d, _ in LayoutKit.buildTwoColumns(d) },
-        legacyComponent(.cards, .structure, [.grid, .list], "Zwei bis vier Karten", accepts: SlotContract(field: .items, min: 2, max: 4)) { d, _ in LayoutKit.buildCards(d) },
-        legacyComponent(.process, .structure, [.steps], "Zwei bis fünf Schritte mit Pfeilen", accepts: SlotContract(field: .items, min: 2, max: 5)) { d, _ in LayoutKit.buildProcess(d) },
-        legacyComponent(.timeline, .structure, [.timeline], "Zeitstrahl mit zwei bis sechs Ereignissen", accepts: SlotContract(field: .items, min: 2, max: 6)) { d, _ in LayoutKit.buildTimeline(d) },
-        legacyComponent(.bigNumber, .data, [.numbers], "Eine große Zahl mit Erklärung", accepts: SlotContract(needsNumbers: true)) { d, _ in LayoutKit.buildBigNumber(d) },
-        legacyComponent(.chart, .data, [.chart, .numbers], "Balken- oder Liniendiagramm", accepts: SlotContract(field: .chartPoints, min: 2, max: 12, needsNumbers: true)) { d, _ in LayoutKit.buildChart(d) },
-        legacyComponent(.table, .data, [.table], "Tabelle mit Kopfzeile", accepts: SlotContract(field: .tableRows, min: 2, max: 8)) { d, _ in LayoutKit.buildTable(d) },
-        legacyComponent(.quote, .text, [.quote], "Zitat mit Quelle") { d, _ in LayoutKit.buildQuote(d) },
+        legacyComponent(.title, .opening, [.title], "Titelfolie mit Untertitel", reads: [.subtitle]) { d, _ in LayoutKit.buildTitle(d) },
+        legacyComponent(.section, .opening, [.section], "Abschnittswechsel mit großem Titel", reads: [.subtitle]) { d, _ in LayoutKit.buildSection(d) },
+        legacyComponent(.statement, .text, [.statement], "Eine große Aussage oder Frage", reads: [.subtitle]) { d, _ in LayoutKit.buildStatement(d) },
+        legacyComponent(.bullets, .text, [.list], "Überschrift mit Stichpunkten", reads: [.bullets], accepts: SlotContract(field: .bullets, max: 30)) { d, _ in LayoutKit.buildBullets(d) },
+        legacyComponent(.imageText, .visual, [.image, .list], "Bild links, Stichpunkte rechts", reads: [.bullets], accepts: SlotContract(needsImage: true)) { d, i in LayoutKit.buildImageText(d, image: i) },
+        legacyComponent(.imageFull, .visual, [.image], "Ein großes Bild mit Unterschrift", reads: [.subtitle], accepts: SlotContract(needsImage: true)) { d, i in LayoutKit.buildImageFull(d, image: i) },
+        legacyComponent(.twoColumns, .comparison, [.comparison, .list], "Zwei Spalten mit Stichpunkten", reads: [.columns]) { d, _ in LayoutKit.buildTwoColumns(d) },
+        legacyComponent(.cards, .structure, [.grid, .list], "Zwei bis vier Karten", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 4)) { d, _ in LayoutKit.buildCards(d) },
+        legacyComponent(.process, .structure, [.steps], "Zwei bis fünf Schritte mit Pfeilen", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 5)) { d, _ in LayoutKit.buildProcess(d) },
+        legacyComponent(.timeline, .structure, [.timeline], "Zeitstrahl mit zwei bis sechs Ereignissen", reads: [.items], accepts: SlotContract(field: .items, min: 2, max: 6)) { d, _ in LayoutKit.buildTimeline(d) },
+        legacyComponent(.bigNumber, .data, [.numbers], "Eine große Zahl mit Erklärung", reads: [.value, .subtitle, .bullets], accepts: SlotContract(needsNumbers: true)) { d, _ in LayoutKit.buildBigNumber(d) },
+        legacyComponent(.chart, .data, [.chart, .numbers], "Balken- oder Liniendiagramm", reads: [.chart, .subtitle], accepts: SlotContract(field: .chartPoints, min: 2, max: 12, needsNumbers: true)) { d, _ in LayoutKit.buildChart(d) },
+        legacyComponent(.table, .data, [.table], "Tabelle mit Kopfzeile", reads: [.table], accepts: SlotContract(field: .tableRows, min: 2, max: 8)) { d, _ in LayoutKit.buildTable(d) },
+        legacyComponent(.quote, .text, [.quote], "Zitat mit Quelle", reads: [.quote]) { d, _ in LayoutKit.buildQuote(d) },
         legacyComponent(.blank, .text, [], "Leere Folie") { _, _ in [] },
     ]
 

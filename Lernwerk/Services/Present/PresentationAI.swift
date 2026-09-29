@@ -182,6 +182,58 @@ enum PresentationPrompt {
     }
     """)
 
+    /// How the model is asked to choose the look of each slide: its candidate components, at most five per slide.
+    static func componentInstructions(_ candidates: [[SlideComponent]]) -> String {
+        var lines = [
+            """
+            Components: besides the slide type, choose how every slide looks. Below each slide has a short list of
+            candidate components. Give the id of one of them in component and, where it has parameters, the values you
+            want in params. Keep filling the content fields of the slide type named after "layout" for that component.
+            Use only ids from the slide's own list.
+            """,
+        ]
+        for (index, list) in candidates.enumerated() {
+            lines.append("Slide \(index + 1):")
+            for component in list {
+                var line = "- \(component.id) (layout: \(component.hintLayout.rawValue)): \(component.summary)"
+                let parameters = component.parameters.map { "\($0.name) = \($0.values.joined(separator: "|")) (default \($0.defaultValue))" }
+                if !parameters.isEmpty { line += "; params: " + parameters.joined(separator: ", ") }
+                lines.append(line)
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// The deck schema with a `component` enum of exactly the offered ids and a `params` object of their parameters.
+    static func deckSchema(components: [SlideComponent]) -> [String: Any] {
+        var ids: [String] = []
+        var values: [String: [String]] = [:]
+        for component in components {
+            if !ids.contains(component.id) { ids.append(component.id) }
+            for parameter in component.parameters {
+                var known = values[parameter.name] ?? []
+                for value in parameter.values where !known.contains(value) { known.append(value) }
+                values[parameter.name] = known
+            }
+        }
+        func list(_ items: [String]) -> String { items.map { "\"\($0)\"" }.joined(separator: ", ") }
+        let params = values.keys.sorted().map { "\"\($0)\": { \"type\": \"string\", \"enum\": [\(list(values[$0] ?? []))] }" }.joined(separator: ", ")
+        return JSONSchema.object("""
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "slides": { "type": "array", "items": { "type": "object", "properties": {
+              \(slideProperties),
+              "component": { "type": "string", "enum": [\(list(ids))] },
+              "params": { "type": "object", "properties": { \(params) } }
+            }, "required": ["layout", "title", "notes"] } }
+          },
+          "required": ["title", "slides"]
+        }
+        """)
+    }
+
     enum Rewrite: CaseIterable {
         case shorter, simpler, detailed
 
@@ -369,11 +421,24 @@ enum PresentationPrompt {
             notes: object["notes"] as? String ?? "",
             sourceMaterial: int(object["sourceMaterial"]),
             sourcePages: (object["sourcePages"] as? [Any])?.compactMap(int) ?? [],
-            webSources: strings(object["webSources"]).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "[] ")).uppercased() }
+            webSources: strings(object["webSources"]).map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "[] ")).uppercased() },
+            component: (object["component"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            params: parameters(object["params"])
         )
         let hasContent = !draft.title.isBlank || !draft.bullets.isEmpty || !draft.quote.isBlank || !draft.left.isEmpty
             || !draft.items.isEmpty || !draft.table.isEmpty || draft.chart != nil
         return hasContent ? draft : nil
+    }
+
+    /// Parameter values as text; anything that is not an object of text, numbers or booleans is ignored.
+    private static func parameters(_ value: Any?) -> ComponentParams {
+        guard let object = value as? [String: Any] else { return [:] }
+        var result: ComponentParams = [:]
+        for (key, entry) in object {
+            if let text = entry as? String { result[key] = text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            else if let number = entry as? NSNumber { result[key] = number.stringValue }
+        }
+        return result
     }
 
     /// Numbers may come as strings, with a German decimal comma or a unit attached.
@@ -534,6 +599,9 @@ enum ResearchError: LocalizedError, Equatable {
 /// The AI features of the presentation tab; all of them are ordinary LLM requests through the chosen provider.
 struct PresentationAssistant {
     let client: any LLMClient
+    /// Receives one line for everything the component choice had to correct on its way (unknown ids, content a
+    /// component could not draw, swaps for variety).
+    var onLog: (String) -> Void = { _ in }
 
     /// The steps of building a deck, for the progress shown while the student waits.
     enum Stage: Int, CaseIterable {
@@ -602,7 +670,14 @@ struct PresentationAssistant {
         let found = Array(sources.dropFirst(known))
 
         onStage(.slides)
+        // The app narrows the components down per slide; the model picks from those lists.
+        var offered: [[SlideComponent]] = []
+        for slide in outline.slides {
+            let form = ComponentSelector.form(role: slide.role, layout: slide.layout, content: slide.content)
+            offered.append(ComponentSelector.candidates(for: form, recent: offered.compactMap { $0.first?.id }))
+        }
         let slidesPrompt = PresentationPrompt.slidesInstructions(slideCount: outline.slides.count, minutes: minutes, research: research && !sources.isEmpty)
+            + "\n\n" + PresentationPrompt.componentInstructions(offered)
         let request = LLMRequest(
             purpose: .presentation,
             system: system,
@@ -613,27 +688,43 @@ struct PresentationAssistant {
             ],
             maxTokens: 16000,
             effort: .medium,
-            jsonSchema: PresentationPrompt.deckSchema
+            jsonSchema: PresentationPrompt.deckSchema(components: offered.flatMap { $0 })
         )
         let deck = try await StructuredOutput.complete(request: request, client: client, parse: PresentationPrompt.parseDeck) { !$0.slides.isEmpty }
-        var slides: [Slide] = []
-        let drafts = PresentationPrompt.citingSources(deck.slides, sources: sources, materialTitles: materialTitles, date: today)
-        for draft in LayoutAdvisor.split(drafts) {
-            var image: PlacedImage?
-            if draft.layout == .imageText || draft.layout == .imageFull, let page = draft.imagePage {
-                let index = draft.imageMaterial ?? draft.sourceMaterial ?? 0
-                if materialIDs.indices.contains(index) { image = await pageImage(index, page) }
-            }
-            let materialID = draft.sourceMaterial.flatMap { materialIDs.indices.contains($0) ? materialIDs[$0] : nil }
-                ?? (materialIDs.count == 1 ? materialIDs[0] : nil)
-            slides.append(Slide(
-                elements: SlideLayouts.build(draft, image: image),
-                notes: draft.notes,
-                sources: draft.sourcePages.map { SourceRef(materialId: materialID, page: $0) }
-            ))
-        }
         let title = !deck.title.isBlank ? deck.title : (!outline.title.isBlank ? outline.title : (topic.isBlank ? "Präsentation" : topic))
         let theme = chooseDesign ? SlideDesign.resolve(outline.design, fallback: [topic, outline.title, outline.thesis].joined(separator: " ")) : themeID
+        let slideTheme = Presentation(title: title, themeId: theme).theme
+
+        let drafts = LayoutAdvisor.split(PresentationPrompt.citingSources(deck.slides, sources: sources, materialTitles: materialTitles, date: today))
+        // The outline's roles only line up with the slides if nothing was split or added.
+        let roles = drafts.count == outline.slides.count ? outline.slides.map(\.role) : []
+        var choices: [SlideChoice] = []
+        for (index, draft) in drafts.enumerated() {
+            var image: PlacedImage?
+            if draft.layout == .imageText || draft.layout == .imageFull, let page = draft.imagePage {
+                let materialIndex = draft.imageMaterial ?? draft.sourceMaterial ?? 0
+                if materialIDs.indices.contains(materialIndex) { image = await pageImage(materialIndex, page) }
+            }
+            let role = roles.indices.contains(index) ? roles[index] : ""
+            let choice = ComponentSelector.choose(draft, image: image, role: role, recent: choices.map(\.componentID))
+            choice.log.forEach { onLog("Folie \(index + 1): \($0)") }
+            choices.append(SlideChoice(draft: draft, image: image, componentID: choice.componentID, params: choice.params, role: role))
+        }
+        let rhythm = DeckRhythm.refine(choices, deckTitle: title)
+        rhythm.log.forEach(onLog)
+        var slides: [Slide] = []
+        for choice in rhythm.slides {
+            let built = ComponentRegistry.build(choice.draft, componentID: choice.componentID, params: choice.params, image: choice.image, theme: slideTheme)
+            built.log.forEach { onLog("\(choice.componentID): \($0)") }
+            let materialID = choice.draft.sourceMaterial.flatMap { materialIDs.indices.contains($0) ? materialIDs[$0] : nil }
+                ?? (materialIDs.count == 1 ? materialIDs[0] : nil)
+            slides.append(Slide(
+                elements: built.elements,
+                notes: choice.draft.notes,
+                sources: choice.draft.sourcePages.map { SourceRef(materialId: materialID, page: $0) },
+                origin: SlideOrigin(componentID: built.componentID, params: built.params, draft: built.draft)
+            ))
+        }
         var presentation = Presentation(title: title, themeId: theme, slides: slides, materialIds: materialIDs, minutes: minutes)
         presentation = SlideAutoFit.fit(presentation)
         if review {

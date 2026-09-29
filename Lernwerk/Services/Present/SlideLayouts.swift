@@ -116,12 +116,15 @@ struct SlideDraft: Equatable, Codable {
     var sourcePages: [Int] = []
     /// Ids of the Wikipedia articles (W1, W2 …) the slide's facts come from.
     var webSources: [String] = []
+    /// The component the model chose from the candidates it was offered, and its parameters; nil for the layout alone.
+    var component: String?
+    var params: ComponentParams = [:]
 
     init(
         layout: SlideLayout, title: String = "", subtitle: String = "", bullets: [String] = [], leftTitle: String = "", left: [String] = [],
         rightTitle: String = "", right: [String] = [], quote: String = "", attribution: String = "", items: [DraftItem] = [], value: String = "",
         chart: ChartDraft? = nil, table: [[String]] = [], imageMaterial: Int? = nil, imagePage: Int? = nil, notes: String = "",
-        sourceMaterial: Int? = nil, sourcePages: [Int] = [], webSources: [String] = []
+        sourceMaterial: Int? = nil, sourcePages: [Int] = [], webSources: [String] = [], component: String? = nil, params: ComponentParams = [:]
     ) {
         self.layout = layout
         self.title = title
@@ -143,11 +146,13 @@ struct SlideDraft: Equatable, Codable {
         self.sourceMaterial = sourceMaterial
         self.sourcePages = sourcePages
         self.webSources = webSources
+        self.component = component
+        self.params = params
     }
 
     enum CodingKeys: String, CodingKey {
         case layout, title, subtitle, bullets, leftTitle, left, rightTitle, right, quote, attribution, items, value, chart, table
-        case imageMaterial, imagePage, notes, sourceMaterial, sourcePages, webSources
+        case imageMaterial, imagePage, notes, sourceMaterial, sourcePages, webSources, component, params
     }
 
     /// Every field is optional and a wrong type counts as missing, so a draft saved by another version still loads.
@@ -175,6 +180,8 @@ struct SlideDraft: Equatable, Codable {
         sourceMaterial = try? c.decode(Int.self, forKey: .sourceMaterial)
         sourcePages = (try? c.decode([Int].self, forKey: .sourcePages)) ?? []
         webSources = lines(.webSources)
+        component = try? c.decode(String.self, forKey: .component)
+        params = (try? c.decode(ComponentParams.self, forKey: .params)) ?? [:]
     }
 }
 
