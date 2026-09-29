@@ -190,12 +190,20 @@ final class ComponentMatrixTests: XCTestCase {
     private let newIDs = ["stat-row", "comparison", "matrix-2x2", "definition", "agenda", "checklist", "quote-image", "icon-grid", "staircase", "before-after"]
 
     private func strings(_ draft: SlideDraft) -> [String] {
-        [draft.title, draft.subtitle, draft.value, draft.quote, draft.attribution, draft.leftTitle, draft.rightTitle]
-            + draft.bullets + draft.left + draft.right + draft.items.flatMap { [$0.title, $0.text] }
+        var result: [String] = [draft.title, draft.subtitle, draft.value, draft.quote, draft.attribution, draft.leftTitle, draft.rightTitle]
+        result += draft.bullets
+        result += draft.left
+        result += draft.right
+        result += draft.items.flatMap { [$0.title, $0.text] }
+        return result
     }
 
-    private func inBounds(_ element: SlideElement) -> Bool {
-        element.x >= -0.5 && element.y >= -0.5 && element.x + element.width <= SlideSize.width + 0.5 && element.y + element.height <= SlideSize.height + 0.5
+    private func inBounds(_ e: SlideElement) -> Bool {
+        let right: Double = e.x + e.width
+        let bottom: Double = e.y + e.height
+        let limitX: Double = SlideSize.width + 0.5
+        let limitY: Double = SlideSize.height + 0.5
+        return e.x >= -0.5 && e.y >= -0.5 && right <= limitX && bottom <= limitY
     }
 
     func testTenNewComponentsWithTwoOrMoreVariantsEach() {

@@ -20,12 +20,29 @@ enum SlideVariants {
 
     /// A comparable form of the elements, without their random ids.
     static func signature(_ elements: [SlideElement]) -> String {
-        elements.map { e in
-            [
-                "\(e.kind)", "\(e.shape)", String(format: "%.2f", e.x), String(format: "%.2f", e.y), String(format: "%.2f", e.width), String(format: "%.2f", e.height),
-                String(format: "%.2f", e.fontSize), e.text, e.fill, e.stroke, e.textColor, e.image ?? "", "\(e.bold)", "\(e.italic)", "\(e.align)", "\(e.anchor)",
-            ].joined(separator: "|")
-        }.joined(separator: "\n")
+        func number(_ value: Double) -> String { String(format: "%.2f", value) }
+        var lines: [String] = []
+        for e in elements {
+            var parts: [String] = []
+            parts.append("\(e.kind)")
+            parts.append("\(e.shape)")
+            parts.append(number(e.x))
+            parts.append(number(e.y))
+            parts.append(number(e.width))
+            parts.append(number(e.height))
+            parts.append(number(e.fontSize))
+            parts.append(e.text)
+            parts.append(e.fill)
+            parts.append(e.stroke)
+            parts.append(e.textColor)
+            parts.append(e.image ?? "")
+            parts.append("\(e.bold)")
+            parts.append("\(e.italic)")
+            parts.append("\(e.align)")
+            parts.append("\(e.anchor)")
+            lines.append(parts.joined(separator: "|"))
+        }
+        return lines.joined(separator: "\n")
     }
 
     static func placedImage(_ slide: Slide) -> PlacedImage? {

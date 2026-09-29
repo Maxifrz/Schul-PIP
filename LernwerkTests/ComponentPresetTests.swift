@@ -3,7 +3,11 @@ import XCTest
 
 final class ComponentPresetTests: XCTestCase {
     private func inBounds(_ e: SlideElement) -> Bool {
-        e.x >= -0.5 && e.y >= -0.5 && e.x + e.width <= SlideSize.width + 0.5 && e.y + e.height <= SlideSize.height + 0.5
+        let right: Double = e.x + e.width
+        let bottom: Double = e.y + e.height
+        let limitX: Double = SlideSize.width + 0.5
+        let limitY: Double = SlideSize.height + 0.5
+        return e.x >= -0.5 && e.y >= -0.5 && right <= limitX && bottom <= limitY
     }
 
     func testEveryComponentHasAPlaceholderSlideThatFitsItsOwnContract() {
@@ -67,7 +71,12 @@ final class ComponentPresetTests: XCTestCase {
                 XCTAssertTrue(seen.insert(SlideVariants.signature(variant.slide.elements)).inserted, "\(component.id): duplicate look")
                 XCTAssertFalse(variant.label.isEmpty)
                 let all = variant.slide.elements.map(\.text).joined(separator: "\n")
-                for text in [draft.title, draft.subtitle, draft.value, draft.quote] + draft.bullets + draft.left + draft.right + draft.items.flatMap({ [$0.title, $0.text] }) where !text.isBlank {
+                var texts: [String] = [draft.title, draft.subtitle, draft.value, draft.quote]
+                texts += draft.bullets
+                texts += draft.left
+                texts += draft.right
+                texts += draft.items.flatMap { [$0.title, $0.text] }
+                for text in texts where !text.isBlank {
                     XCTAssertTrue(all.contains(text), "\(component.id) -> \(variant.id) lost \"\(text)\"")
                 }
                 let applied = SlideVariants.applying(variant, to: slide)

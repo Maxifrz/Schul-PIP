@@ -24,9 +24,15 @@ enum DeckRhythm {
     static let compactFrom = 200.0
 
     static func characters(_ draft: SlideDraft) -> Int {
-        let strings = [draft.subtitle, draft.leftTitle, draft.rightTitle, draft.quote, draft.value]
-            + draft.bullets + draft.left + draft.right + draft.items.flatMap { [$0.title, $0.text] } + draft.table.flatMap { $0 }
-        return strings.reduce(0) { $0 + $1.trimmingCharacters(in: .whitespacesAndNewlines).count }
+        var strings: [String] = [draft.subtitle, draft.leftTitle, draft.rightTitle, draft.quote, draft.value]
+        strings += draft.bullets
+        strings += draft.left
+        strings += draft.right
+        strings += draft.items.flatMap { [$0.title, $0.text] }
+        strings += draft.table.flatMap { $0 }
+        var total = 0
+        for text in strings { total += text.trimmingCharacters(in: .whitespacesAndNewlines).count }
+        return total
     }
 
     static func family(_ drafts: [SlideDraft]) -> DensityFamily {

@@ -91,11 +91,30 @@ enum GoldenLayoutCases {
 
     /// The elements without their random ids, as one line each.
     static func digest(_ elements: [SlideElement]) -> String {
-        let lines = elements.map { e in
-            [
-                "\(e.kind)", n(e.x), n(e.y), n(e.width), n(e.height), n(e.rotation), e.text, n(e.fontSize), "\(e.bold)", "\(e.italic)",
-                "\(e.align)", "\(e.anchor)", "\(e.bullets)", e.textColor, "\(e.shape)", e.fill, e.stroke, n(e.strokeWidth), e.image ?? "-", e.font,
-            ].joined(separator: "|")
+        var lines: [String] = []
+        for e in elements {
+            var parts: [String] = []
+            parts.append("\(e.kind)")
+            parts.append(n(e.x))
+            parts.append(n(e.y))
+            parts.append(n(e.width))
+            parts.append(n(e.height))
+            parts.append(n(e.rotation))
+            parts.append(e.text)
+            parts.append(n(e.fontSize))
+            parts.append("\(e.bold)")
+            parts.append("\(e.italic)")
+            parts.append("\(e.align)")
+            parts.append("\(e.anchor)")
+            parts.append("\(e.bullets)")
+            parts.append(e.textColor)
+            parts.append("\(e.shape)")
+            parts.append(e.fill)
+            parts.append(e.stroke)
+            parts.append(n(e.strokeWidth))
+            parts.append(e.image ?? "-")
+            parts.append(e.font)
+            lines.append(parts.joined(separator: "|"))
         }
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in lines.joined(separator: "\n").utf8 {
