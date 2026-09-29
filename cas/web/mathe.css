@@ -299,3 +299,16 @@ html.exam body { box-shadow: inset 0 0 0 4px #B3261E; }
 .exam-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .exam-row span { color: var(--muted); }
 @media (max-width: 560px) { .exam-banner span:not(.exam-clock):not(.exam-dot) { display: none; } }
+
+/* Undo and redo, favourites, help */
+.icon-button.history { font-size: 18px; }
+.icon-button.history:disabled { opacity: 0.3; }
+.command .name { display: flex; align-items: center; justify-content: space-between; }
+.command .star { font-size: 18px; color: var(--muted); width: 32px; height: 32px; border-radius: 50%; }
+.command .star[aria-pressed="true"] { color: #E08A1E; }
+.help-block { margin-bottom: 10px; }
+.help-block p { margin: 3px 0 0; color: var(--ink2); line-height: 1.45; font-size: 14px; }
+.shortcuts div { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.shortcuts kbd { font-family: ui-monospace, Menlo, monospace; min-width: 200px; color: var(--ink); }
+.shortcuts span { color: var(--muted); }
+@media (max-width: 560px) { .icon-button.history { display: none; } }

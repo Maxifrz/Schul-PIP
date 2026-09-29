@@ -4,6 +4,7 @@
 
 import * as S from './stats.js';
 import { latexNumber } from './expr.js';
+import { command, COMMANDS, CATEGORIES } from './commands.js';
 
 const num = (v, digits = 6) => (Number.isFinite(v) ? latexNumber(String(v), digits) : v === Infinity ? '\\infty' : v === -Infinity ? '-\\infty' : '\\text{–}');
 // Decimal commas in words too: B(20; 0,3)
@@ -727,6 +728,23 @@ const iterationTable = (xs) => ({
 });
 
 Object.assign(STAT_COMMANDS, {
+  hilfe: {
+    run(ctx, args) {
+      const name = args[0] && (args[0].t === 'sym' ? args[0].v : args[0].t === 'call' ? args[0].f : args[0].t === 'str' ? args[0].v : null);
+      if (!name) {
+        return { title: 'Befehle nach Bereichen', table: { head: ['Bereich', 'Befehle'], rows: CATEGORIES.map((cat) => [text(cat), text(COMMANDS.filter((c) => c.cat === cat).map((c) => c.name).join(', '))]) } };
+      }
+      const c = command(name);
+      if (!c) throw new Error(`Einen Befehl „${name}“ gibt es nicht. hilfe() zeigt alle.`);
+      return { title: `Hilfe: ${c.name}`, rows: [
+        { label: 'Schreibweise', latex: text(c.syntax) },
+        { label: 'Was er tut', latex: text(c.text) },
+        { label: 'Beispiel', latex: text(c.example.split('\n')[0]) },
+        ...(c.aliases && c.aliases.length ? [{ label: 'Auch', latex: text(c.aliases.join(', ')) }] : []),
+        { label: 'Bereich', latex: text(c.cat) },
+      ] };
+    },
+  },
   folgenplot: {
     chart: 'sequence',
     roles: (args) => [{ fn: [args[1] && args[1].t === 'sym' ? args[1].v : 'n'] }, { name: true }],

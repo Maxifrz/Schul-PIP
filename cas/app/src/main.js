@@ -9,6 +9,7 @@ import { commandPanel } from './palette.js';
 import { LAYOUTS } from './keyboard.js';
 import { store, share, reply, notifyReady, insertIntoDocument, hasApp } from './native.js';
 import { toLatex, parsePlain } from './expr.js';
+import { command as commandByName } from './commands.js';
 import { nextName } from './graph/tools.js';
 import { Scene, styleOf, isVisible } from './graph/scene.js';
 import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
@@ -48,10 +49,77 @@ const engineProxy = {
 
 let saveTimer = null;
 
+// Undo and redo: the project as it was after each change, up to 100 steps back
+const history = { past: [], future: [], current: null, restoring: false, timer: null };
+
+function recordHistory() {
+  if (history.restoring || !state.cas) return;
+  const now = snapshot();
+  if (now === history.current) return;
+  if (history.current !== null) history.past.push(history.current);
+  if (history.past.length > 100) history.past.shift();
+  history.current = now;
+  history.future = [];
+  updateHistoryButtons();
+}
+
+function undo() {
+  if (!history.past.length) return;
+  history.future.push(history.current);
+  restoreHistory(history.past.pop());
+}
+
+function redo() {
+  if (!history.future.length) return;
+  history.past.push(history.current);
+  restoreHistory(history.future.pop());
+}
+
+function restoreHistory(json) {
+  history.restoring = true;
+  history.current = json;
+  const layout = state.layout;
+  load(json);
+  setLayout(layout);
+  history.restoring = false;
+  updateHistoryButtons();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(autosave, 600);
+}
+
+function updateHistoryButtons() {
+  undoButton.disabled = !history.past.length;
+  redoButton.disabled = !history.future.length;
+}
+
 function changed() {
   state.dirty = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(autosave, 600);
+  clearTimeout(history.timer);
+  history.timer = setTimeout(recordHistory, 350);
+}
+
+// Favourite and recently used commands, remembered on this device
+const commandMemory = { favorites: new Set(), recent: [] };
+
+function rememberCommands(row) {
+  const r = row.result;
+  if (!r || !r.ok || !r.tree || !state.engine) return;
+  const used = [];
+  const walk = (n) => {
+    if (!n || typeof n !== 'object') return;
+    if (n.t === 'call') {
+      const c = commandByName(n.f);
+      if (c) used.push(c.name);
+    }
+    for (const key of ['a', 'b', 'inner', 'body']) walk(n[key]);
+    for (const key of ['args', 'items']) (n[key] || []).forEach(walk);
+  };
+  walk(r.tree);
+  if (!used.length) return;
+  commandMemory.recent = [...new Set([...used.reverse(), ...commandMemory.recent])].slice(0, 15);
+  store.set('recent', JSON.stringify(commandMemory.recent));
 }
 
 function snapshot() {
@@ -526,6 +594,9 @@ function togglePanel() {
   }
   state.panel = commandPanel({
     hidden: blockedCategories(state.exam),
+    favorites: commandMemory.favorites,
+    recent: commandMemory.recent,
+    onFavorite: (set) => store.set('favorites', JSON.stringify([...set])),
     onInsert: (name) => {
       if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
       state.cas.insertCommand(name);
@@ -698,6 +769,70 @@ document.addEventListener('paste', (e) => {
   toast('Einfügen ist im Prüfungsmodus gesperrt.');
 }, true);
 
+const SHORTCUTS = [
+  ['Strg + Z', 'Rückgängig'],
+  ['Strg + Umschalt + Z, Strg + Y', 'Wiederholen'],
+  ['Strg + K', 'Befehle suchen'],
+  ['Strg + 1 … 5', 'Ansicht: Beides, CAS, Grafik, 3D, Tabelle'],
+  ['Strg + E', 'Grafik exportieren'],
+  ['Eingabe', 'Zeile rechnen (in Programmen: nächste Zeile bis zum letzten „ende“)'],
+  ['Umschalt + Eingabe', 'neue Zeile im Textfeld'],
+  ['Tabelle: Pfeile, Eingabe, Tab', 'Zelle wechseln; Strg + D füllt nach unten'],
+  ['F1', 'diese Hilfe'],
+];
+
+const HELP = [
+  ['Rechnen', 'Jede Zeile ist eine Rechnung. Mit f(x) = …, a = 2 oder A(1|2) definiertes gilt in allen Zeilen darunter. „T“ an der Zeile schaltet auf Texteingabe um, ↳ übernimmt ein Ergebnis.'],
+  ['Befehle', 'Die Befehlsliste zeigt jeden Befehl mit Beispiel; ☆ macht ihn zum Favoriten, „Zuletzt“ zeigt die zuletzt benutzten. hilfe(befehl) erklärt einen Befehl direkt in der Zeile.'],
+  ['Grafik', 'Alles Zeichenbare erscheint in der Grafik. Antippen zeigt besondere Punkte, Ziehen verschiebt Punkte und Schieberegler; ◐ an der Zeile ändert Farbe, Stil und Skript.'],
+  ['Tabelle', 'Zahlen, Text oder =Formeln. Zellen heißen im CAS A1, B2 …; zellen(A1, A10) ist ein Bereich.'],
+  ['Programme', 'programm name(n) … ende mit wenn/sonst, für, solange, wiederhole, zurück und ausgabe. knopf("Text") macht einen Knopf mit Skript.'],
+  ['Prüfung', 'Im Menü startet der Prüfungsmodus; beenden lässt er sich nur dort, danach ist alles aus der Prüfung gelöscht.'],
+];
+
+function helpSheet() {
+  sheet((close) => [
+    h('h2', {}, 'Hilfe'),
+    ...HELP.map(([title, text]) => h('div.help-block', {}, h('b', {}, title), h('p', {}, text))),
+    h('h2', {}, 'Tastenkürzel'),
+    h('div.list.compact.shortcuts', {}, ...SHORTCUTS.map(([keys, what]) => h('div', {}, h('kbd', {}, keys), h('span', {}, what)))),
+    h('div.actions', {}, h('button.pill.primary', { onclick: () => close() }, 'Fertig')),
+  ]);
+}
+
+document.addEventListener('keydown', (e) => {
+  const mod = e.ctrlKey || e.metaKey;
+  const inText = e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'MATH-FIELD');
+  if (e.key === 'F1') {
+    e.preventDefault();
+    helpSheet();
+    return;
+  }
+  if (!mod) return;
+  const key = e.key.toLowerCase();
+  // In a text field the field's own undo comes first.
+  if (key === 'z' && !inText) {
+    e.preventDefault();
+    if (e.shiftKey) redo();
+    else undo();
+  } else if (key === 'y' && !inText) {
+    e.preventDefault();
+    redo();
+  } else if (key === 'k') {
+    e.preventDefault();
+    togglePanel();
+  } else if (key === 'e' && !state.exam) {
+    e.preventDefault();
+    exportGraph();
+  } else if (/^[1-5]$/.test(key)) {
+    const target = ['both', 'cas', 'graph', 'space', 'table'][Number(key) - 1];
+    if (layouts().some(([k]) => k === target)) {
+      e.preventDefault();
+      setLayout(target);
+    }
+  }
+});
+
 function menu() {
   if (state.exam) {
     sheet((close) => [
@@ -712,12 +847,15 @@ function menu() {
   sheet((close) => [
     h('h2', {}, 'Projekt'),
     h('div.list', {},
+      window.innerWidth <= 560 ? h('button', { onclick: () => { close(); undo(); }, disabled: !history.past.length }, 'Rückgängig') : null,
+      window.innerWidth <= 560 ? h('button', { onclick: () => { close(); redo(); }, disabled: !history.future.length }, 'Wiederholen') : null,
       h('button', { onclick: () => { close(); newProject(); } }, 'Neues Projekt'),
       h('button', { onclick: () => { close(); openProject(); } }, 'Öffnen …'),
       h('button', { onclick: () => { close(); saveAs(); } }, 'Speichern unter …'),
       h('button', { onclick: () => { close(); exportText(); } }, 'Als Text teilen'),
       h('button', { onclick: () => { close(); exportGraph(); } }, 'Grafik exportieren …'),
       h('button', { onclick: () => { close(); settings(); } }, 'Einstellungen'),
+      h('button', { onclick: () => { close(); helpSheet(); } }, 'Hilfe und Tastenkürzel'),
       h('button', { onclick: () => { close(); examSheet(); } }, 'Prüfungsmodus …'),
     ),
   ]);
@@ -868,11 +1006,16 @@ function buildInputLine() {
   return line;
 }
 
+const undoButton = h('button.icon-button.history', { onclick: undo, 'aria-label': 'Rückgängig', title: 'Rückgängig (Strg+Z)', disabled: true }, '↶');
+const redoButton = h('button.icon-button.history', { onclick: redo, 'aria-label': 'Wiederholen', title: 'Wiederholen (Strg+Umschalt+Z)', disabled: true }, '↷');
+
 const header = h('header.bar', {},
   h('span.pixel', {}, 'Rechner'),
   titleEl,
   h('span.spacer'),
   statusEl,
+  undoButton,
+  redoButton,
   layoutEl,
   h('button.pill', { onclick: togglePanel }, 'Befehle'),
   h('button.icon-button', { onclick: menu, 'aria-label': 'Projekt' }, '⋯'),
@@ -891,6 +1034,7 @@ function start() {
     },
     onStyle: openStyle,
     onSubmitted: (row) => {
+      rememberCommands(row);
       // Typing a new value makes it the one a reset returns to.
       if (row.graph && row.graph.slider) delete row.graph.slider.initial;
       if (row.graph && row.graph.checkbox) delete row.graph.checkbox;
@@ -975,6 +1119,20 @@ function start() {
     app.style.paddingBottom = window.mathVirtualKeyboard.visible ? window.mathVirtualKeyboard.boundingRect.height + 'px' : '0px';
   });
 
+  store.get('favorites').then((json) => {
+    try {
+      for (const name of JSON.parse(json || '[]')) commandMemory.favorites.add(name);
+    } catch (e) {
+      // no favourites yet
+    }
+  });
+  store.get('recent').then((json) => {
+    try {
+      commandMemory.recent = JSON.parse(json || '[]');
+    } catch (e) {
+      commandMemory.recent = [];
+    }
+  });
   store.get('exam').then((exam) => {
     try {
       state.exam = exam ? JSON.parse(exam) : null;

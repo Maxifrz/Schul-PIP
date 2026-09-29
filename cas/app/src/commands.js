@@ -218,6 +218,8 @@ export const COMMANDS = [
 
   { name: 'zellen', aliases: ['bereich'], cat: 'Tabelle', syntax: 'zellen(A1, A10) oder zellen(A1, C5)', text: 'Die Werte eines Tabellenbereichs: eine Spalte oder Zeile als Liste, mehrere als Matrix. Einzelne Zellen heißen im CAS einfach A1, B2 …', example: 'zellen(A1, A3)', noExample: true },
 
+  { name: 'hilfe', aliases: ['help', 'erklärung'], cat: 'Rechnen', syntax: 'hilfe(Befehl)', text: 'Zeigt Schreibweise, Erklärung und Beispiel eines Befehls; hilfe() listet die Bereiche.', example: 'hilfe(ableiten)' },
+
   // Folgen, Iterationen, Numerik
   { name: 'folgenplot', aliases: ['folgengraph', 'folgendiagramm'], cat: 'Folgen', syntax: 'folgenplot(Term, n, von, bis)', text: 'Zeichnet die Folgenglieder als Punkte (n | aₙ), mit Tabelle und Grenzwert.', example: 'folgenplot((1+1/n)^n, n, 1, 20)' },
   { name: 'iteration', aliases: ['iteriere', 'fixpunktiteration'], cat: 'Folgen', syntax: 'iteration(f(x), Startwert, Schritte)', text: 'Folgeniteration xₖ₊₁ = f(xₖ) mit Tabelle und Fehlerschätzung aus der letzten Änderung.', example: 'iteration(cos(x), 1, 15)' },
