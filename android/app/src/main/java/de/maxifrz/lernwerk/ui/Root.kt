@@ -149,9 +149,21 @@ fun RootScreen(
         }
     }
     val shared by shareRequests.collectAsState()
+    // An exam in the calculator keeps the student there.
+    val exam = de.maxifrz.lernwerk.calc.ExamLock.active
+    LaunchedEffect(exam) {
+        if (exam) {
+            tab = AppTab.CALC
+            app.stack.clear()
+        }
+    }
     LaunchedEffect(shared) {
         val uris = shared ?: return@LaunchedEffect
         shareRequests.value = null
+        if (exam) {
+            Toast.makeText(context, "Im Prüfungsmodus lässt sich nichts öffnen.", Toast.LENGTH_LONG).show()
+            return@LaunchedEffect
+        }
         val open = app.stack.lastOrNull() as? Route.Document
         if (open != null && repository.material(open.materialId) != null) shareChoice = uris to open else importIntoLibrary(uris)
     }
@@ -172,7 +184,7 @@ fun RootScreen(
         )
     }
 
-    BackHandler(enabled = app.stack.isNotEmpty()) { app.pop() }
+    BackHandler(enabled = app.stack.isNotEmpty() && !exam) { app.pop() }
 
     androidx.compose.runtime.CompositionLocalProvider(LocalSlidePainter provides painter) {
 
@@ -198,8 +210,8 @@ fun RootScreen(
             when (route) {
                 null -> Column(Modifier.fillMaxSize()) {
                     val now = System.currentTimeMillis()
-                    TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
-                    AnimatedContent(tab, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) }, label = "tab") {
+                    if (exam) ExamBar() else TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
+                    AnimatedContent(if (exam) AppTab.CALC else tab, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) }, label = "tab") {
                         Box(Modifier.fillMaxSize()) {
                             when (it) {
                                 AppTab.LIBRARY -> LibraryScreen(app)
@@ -222,6 +234,17 @@ fun RootScreen(
             }
         }
     }
+    }
+}
+
+/** In place of the tabs during an exam: only the calculator is open; it ends the exam itself. */
+@Composable
+private fun ExamBar() {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xFFB3261E)).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        QText("Prüfungsmodus: nur der Rechner ist geöffnet. Beenden im Rechner unter „⋯“.", work(14f), Color.White)
     }
 }
 

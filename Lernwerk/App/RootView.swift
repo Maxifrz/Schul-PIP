@@ -33,6 +33,8 @@ struct RootView: View {
     @State private var tab: AppTab = .library
     @State private var path = NavigationPath()
     @State private var sharedFile: URL?
+    /// An exam in the calculator keeps the student there.
+    @ObservedObject private var exam = ExamLock.shared
 
     private var dueCount: Int {
         let now = Date()
@@ -42,9 +44,19 @@ struct RootView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                TopTabBar(selection: $tab, reviewBadge: dueCount)
+                if exam.active {
+                    Text("Prüfungsmodus: nur der Rechner ist geöffnet. Beenden im Rechner unter „⋯“.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(Color(red: 0.70, green: 0.15, blue: 0.12))
+                } else {
+                    TopTabBar(selection: $tab, reviewBadge: dueCount)
+                }
                 Group {
-                    switch tab {
+                    switch exam.active ? AppTab.calculator : tab {
                     case .library: LibraryView()
                     case .plans: PlanListView()
                     case .presentations: PresentationListView()
@@ -56,7 +68,7 @@ struct RootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
-                .id(tab)
+                .id(exam.active ? AppTab.calculator : tab)
             }
             .background(Quill.bg.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
@@ -73,6 +85,11 @@ struct RootView: View {
         }
         .tint(Quill.accent)
         .onOpenURL(perform: importShared)
+        .onChange(of: exam.active, initial: true) { _, active in
+            guard active else { return }
+            tab = .calculator
+            path = NavigationPath()
+        }
         .confirmationDialog("Datei öffnen", isPresented: sharePresented, titleVisibility: .visible, presenting: sharedFile) { url in
             Button("In „\(OpenDocument.shared.title)“ einfügen") { insertIntoOpenDocument(url) }
             Button("Als neues Dokument") { importAsNew(url) }
@@ -91,6 +108,10 @@ struct RootView: View {
     /// and opens.
     private func importShared(_ url: URL) {
         guard url.isFileURL else { return }
+        if exam.active {
+            removeFromInbox(url)
+            return
+        }
         if OpenDocument.shared.materialID != nil, !path.isEmpty {
             sharedFile = url
         } else {

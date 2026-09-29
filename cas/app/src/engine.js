@@ -8,6 +8,7 @@ import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
 import { STAT_COMMANDS, isWord } from './statcommands.js';
 import { newSeed } from './stats.js';
 import { isProgram, translateProgram, mapCommandCalls } from './program.js';
+import { blockedCategories, examResult } from './exam.js';
 
 /** Letters that stay unknowns: "x = 3" is an equation, not a definition. */
 const UNKNOWNS = new Set(['x', 'y', 'z', 't', 'n', 'k', 's']);
@@ -126,7 +127,40 @@ export class Engine {
    * Evaluates one input ({ latex } or { text }). Returns { ok, latex, approxLatex, kind, rows?, assigns?, error? };
    * `kind` is 'value', 'definition', 'solutions', 'analysis' or 'boolean'.
    */
+  /** Evaluates one input under the exam rules when an exam is running (see exam.js). */
   evaluate(input) {
+    if (!this.exam) return this.evaluateFree(input);
+    const blocked = blockedCategories(this.exam);
+    if (input.text !== undefined && isProgram(input.text) && blocked.has('Programme')) return { ok: false, error: 'Programme sind in dieser Prüfung gesperrt.' };
+    try {
+      const tree = input.text !== undefined && isProgram(input.text) ? null : this.parse(input);
+      const hit = tree && this.findCommand(tree, (c) => blocked.has(c.cat));
+      if (hit) return { ok: false, error: `${hit.name}(…) ist in dieser Prüfung gesperrt.` };
+    } catch (e) {
+      // the input is not readable; evaluateFree says so
+    }
+    const result = this.evaluateFree(input);
+    return examResult(this.exam, result, result.ok && hasVariables(result.latex));
+  }
+
+  findCommand(node, test) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.t === 'call' && !this.defined.has(node.f)) {
+      const c = command(node.f);
+      if (c && test(c)) return c;
+    }
+    for (const key of ['a', 'b', 'inner', 'body']) {
+      const found = this.findCommand(node[key], test);
+      if (found) return found;
+    }
+    for (const key of ['args', 'items']) for (const n of node[key] || []) {
+      const found = this.findCommand(n, test);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  evaluateFree(input) {
     if (input.text !== undefined && isProgram(input.text)) return this.program(input);
     let tree;
     try {
@@ -520,6 +554,16 @@ export class Engine {
     const shown = this.solutions(answer.approx, true);
     return shown.replace('L\\approx', 'L=') === this.solutions(answer.exact, false) ? null : shown;
   }
+}
+
+/** Whether a LaTeX result still has letters that are variables (not commands, e, i, units or words) */
+function hasVariables(latex) {
+  const rest = String(latex || '')
+    .replace(/\\(text|mathrm|operatorname)\{[^}]*\}/g, '')
+    .replace(/\\[A-Za-z]+/g, '')
+    .replace(/^L=/, '')
+    .replace(/(^|[^A-Za-z])[ei](?![A-Za-z])/g, '$1');
+  return /[A-Za-z]/.test(rest);
 }
 
 function inputText(input) {

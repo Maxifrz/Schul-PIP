@@ -104,6 +104,8 @@ final class MatheHost: NSObject, ObservableObject, WKScriptMessageHandler, WKNav
         case "share":
             share(body)
             reply(id, true)
+        case "exam":
+            ExamLock.shared.active = body["active"] as? Bool ?? false
         case "insertImage":
             guard let id, let text = body["png"] as? String, let data = Data(base64Encoded: text), let image = UIImage(data: data) else {
                 reply(id, NSNull())

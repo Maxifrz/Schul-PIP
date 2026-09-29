@@ -117,6 +117,10 @@ class MatheHost private constructor(private val context: Context) {
                 share(body)
                 reply(id, JsonPrimitive(true))
             }
+            "exam" -> {
+                val active = (body["active"] as? JsonPrimitive)?.content == "true"
+                main.post { ExamLock.set(context, active) }
+            }
             "insertImage" -> {
                 val bytes = runCatching { Base64.decode(body.string("png"), Base64.DEFAULT) }.getOrNull()
                 val picture = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }

@@ -93,3 +93,8 @@ export function insertIntoDocument(png) {
 export function notifyReady() {
   post({ type: 'ready' });
 }
+
+/** Tells the app that an exam started or ended: it then keeps the student in the calculator. */
+export function examChanged(active) {
+  post({ type: 'exam', active });
+}

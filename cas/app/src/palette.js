@@ -3,7 +3,7 @@
 import { h } from './ui.js';
 import { COMMANDS, CATEGORIES, searchCommands } from './commands.js';
 
-export function commandPanel({ onInsert, onTry, onClose }) {
+export function commandPanel({ onInsert, onTry, onClose, hidden = new Set() }) {
   let query = '';
   let category = null;
   const search = h('input.search', { type: 'search', placeholder: 'Befehl suchen, z. B. Nullstellen, Normalverteilung …', autocomplete: 'off' });
@@ -13,13 +13,13 @@ export function commandPanel({ onInsert, onTry, onClose }) {
   const renderChips = () => {
     chips.replaceChildren(
       h('button', { 'aria-pressed': String(category === null), onclick: () => { category = null; render(); } }, 'Alle'),
-      ...CATEGORIES.map((c) => h('button', { 'aria-pressed': String(category === c), onclick: () => { category = category === c ? null : c; render(); } }, c)),
+      ...CATEGORIES.filter((c) => !hidden.has(c)).map((c) => h('button', { 'aria-pressed': String(category === c), onclick: () => { category = category === c ? null : c; render(); } }, c)),
     );
   };
 
   const render = () => {
     renderChips();
-    const found = (query ? searchCommands(query) : COMMANDS).filter((c) => !category || c.cat === category);
+    const found = (query ? searchCommands(query) : COMMANDS).filter((c) => !hidden.has(c.cat) && (!category || c.cat === category));
     results.replaceChildren(
       ...found.map((c) => h('div.command', {},
         h('div.name', {}, c.name),

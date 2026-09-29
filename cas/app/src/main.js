@@ -15,6 +15,8 @@ import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
 import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
 import { styleSheet, settingsSheet, objectsSheet, exportSheet, scriptSheet } from './graph/sheets.js';
 import { runScript } from './script.js';
+import { PROFILES, DEFAULT_OPTIONS, viewAllowed, blockedCategories, formatDuration } from './exam.js';
+import { examChanged } from './native.js';
 import { SpaceView, DEFAULT_SETTINGS_3D } from './graph/view3d.js';
 import { TableView } from './table-view.js';
 
@@ -493,7 +495,8 @@ function setStatus(kind, text) {
 }
 
 function layouts() {
-  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']] : [['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']];
+  const all = window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']] : [['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D'], ['table', 'Tabelle']];
+  return all.filter(([key]) => viewAllowed(state.exam, key));
 }
 
 function setLayout(layout) {
@@ -522,6 +525,7 @@ function togglePanel() {
     return;
   }
   state.panel = commandPanel({
+    hidden: blockedCategories(state.exam),
     onInsert: (name) => {
       if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
       state.cas.insertCommand(name);
@@ -594,7 +598,117 @@ function settings() {
   ]);
 }
 
+// The exam mode (exam.js): a fresh project, rules for the engine, a banner with the clock, nothing from outside.
+
+const examBanner = h('div.exam-banner', { hidden: true });
+let examTimer = null;
+
+function applyExam() {
+  const exam = state.exam;
+  if (state.engine) state.engine.exam = exam ? { profile: exam.profile, options: exam.options } : null;
+  document.documentElement.classList.toggle('exam', Boolean(exam));
+  examBanner.hidden = !exam;
+  if (state.engine) setStatus('ready', exam && exam.profile !== 'cas' ? 'Giac · nur Zahlen' : 'Giac · exakt');
+  clearInterval(examTimer);
+  if (exam) {
+    const tick = () => {
+      examBanner.replaceChildren(
+        h('span.exam-dot'),
+        h('b', {}, 'Prüfungsmodus'),
+        h('span', {}, PROFILES[exam.profile].label),
+        h('span.exam-clock', {}, formatDuration(Date.now() - exam.start)),
+        h('span', {}, 'seit ' + new Date(exam.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })),
+        h('button.pill', { onclick: endExam }, 'Beenden …'),
+      );
+    };
+    tick();
+    examTimer = setInterval(tick, 1000);
+  }
+  if (state.panel) togglePanel();
+  setLayout(state.layout);
+  examChanged(Boolean(exam));
+}
+
+function examSheet() {
+  let profile = 'gtr';
+  const options = { ...DEFAULT_OPTIONS };
+  const pin = h('input', { type: 'text', inputmode: 'numeric', maxlength: '8', placeholder: 'optional, z. B. von der Lehrkraft' });
+  const explain = h('p.hint', {}, PROFILES[profile].text);
+  const flag = (label, key) => h('div.field', {}, label, toggle([[true, 'ja'], [false, 'nein']], options[key], (v) => { options[key] = v; }));
+  sheet((close) => [
+    h('h2', {}, 'Prüfungsmodus'),
+    h('p.hint', {}, 'Der Rechner beginnt mit einem leeren Projekt. Bis zum Beenden lassen sich keine Projekte öffnen, speichern, teilen oder einfügen, und in der App bleibt nur der Rechner offen. Beim Beenden wird alles aus der Prüfung gelöscht und dein vorheriges Projekt kommt zurück.'),
+    h('div.field.stacked', {}, 'Umfang', toggle(Object.entries(PROFILES).map(([k, p]) => [k, p.label]), profile, (v) => { profile = v; explain.textContent = PROFILES[v].text; })),
+    explain,
+    flag('Programme und Skripte', 'programs'),
+    flag('Tabelle', 'table'),
+    flag('3D-Ansicht', 'space'),
+    h('div.field.stacked', {}, 'Code zum Beenden', pin),
+    h('div.actions', {}, h('button.pill', { onclick: () => close() }, 'Abbrechen'), h('button.pill.primary', { onclick: () => { close(); startExam(profile, options, pin.value.trim()); } }, 'Prüfung starten')),
+  ]);
+}
+
+async function startExam(profile, options, pin) {
+  await store.set('exam-backup', snapshot());
+  state.exam = { profile, options, pin: pin || null, start: Date.now() };
+  await store.set('exam', JSON.stringify(state.exam));
+  load(JSON.stringify({ cas: [] }));
+  applyExam();
+  changed();
+  toast('Prüfung gestartet');
+}
+
+async function endExam() {
+  const exam = state.exam;
+  if (!exam) return;
+  const code = h('input', { type: 'text', inputmode: 'numeric', placeholder: 'Code' });
+  const ended = new Date();
+  const ok = await sheet((close) => [
+    h('h2', {}, 'Prüfung beenden'),
+    h('div.list', {},
+      h('div.exam-row', {}, 'Umfang', h('span', {}, PROFILES[exam.profile].label)),
+      h('div.exam-row', {}, 'Beginn', h('span', {}, new Date(exam.start).toLocaleString('de-DE'))),
+      h('div.exam-row', {}, 'Ende', h('span', {}, ended.toLocaleString('de-DE'))),
+      h('div.exam-row', {}, 'Dauer', h('span', {}, formatDuration(ended - exam.start))),
+    ),
+    h('p.hint', {}, 'Alle Zeilen, Tabellen und Grafiken aus der Prüfung werden gelöscht.'),
+    exam.pin ? h('div.field.stacked', {}, 'Code zum Beenden', code) : null,
+    h('div.actions', {}, h('button.pill', { onclick: () => close(false) }, 'Weiter prüfen'), h('button.pill.primary', { onclick: () => close(true) }, 'Beenden und löschen')),
+  ]);
+  if (!ok) return;
+  if (exam.pin && code.value.trim() !== exam.pin) {
+    toast('Der Code stimmt nicht.');
+    return;
+  }
+  const backup = await store.get('exam-backup');
+  state.exam = null;
+  await store.delete('exam');
+  await store.delete('exam-backup');
+  load(backup || JSON.stringify({ cas: [] }));
+  applyExam();
+  changed();
+  toast(`Prüfung beendet nach ${formatDuration(ended - exam.start)}`);
+}
+
+// Nothing comes in from outside during an exam.
+document.addEventListener('paste', (e) => {
+  if (!state.exam) return;
+  e.preventDefault();
+  e.stopPropagation();
+  toast('Einfügen ist im Prüfungsmodus gesperrt.');
+}, true);
+
 function menu() {
+  if (state.exam) {
+    sheet((close) => [
+      h('h2', {}, 'Prüfungsmodus'),
+      h('div.list', {},
+        h('button', { onclick: () => { close(); settings(); } }, 'Einstellungen'),
+        h('button', { onclick: () => { close(); endExam(); } }, 'Prüfung beenden …'),
+      ),
+    ]);
+    return;
+  }
   sheet((close) => [
     h('h2', {}, 'Projekt'),
     h('div.list', {},
@@ -604,6 +718,7 @@ function menu() {
       h('button', { onclick: () => { close(); exportText(); } }, 'Als Text teilen'),
       h('button', { onclick: () => { close(); exportGraph(); } }, 'Grafik exportieren …'),
       h('button', { onclick: () => { close(); settings(); } }, 'Einstellungen'),
+      h('button', { onclick: () => { close(); examSheet(); } }, 'Prüfungsmodus …'),
     ),
   ]);
 }
@@ -611,6 +726,10 @@ function menu() {
 // Graphics: tools, the strip of sliders and the input line
 
 function exportGraph() {
+  if (state.exam) {
+    toast('Exportieren ist im Prüfungsmodus gesperrt.');
+    return;
+  }
   if (state.layout === 'cas') setLayout('graph');
   requestAnimationFrame(() => exportSheet({
     canInsert: hasApp(),
@@ -666,7 +785,7 @@ function buildSpaceTools() {
     h('button.tool', { 'aria-label': 'Standardansicht', title: 'Standardansicht', onclick: () => v.resetView() }, '⌂'),
     projection,
     h('button.tool', { 'aria-label': 'Koordinatensystem', title: 'Koordinatensystem', onclick: () => spaceSettings() }, '⚙'),
-    h('button.tool', { 'aria-label': 'Exportieren', title: 'Exportieren', onclick: () => exportSheet({
+    h('button.tool', { 'aria-label': 'Exportieren', title: 'Exportieren', onclick: () => state.exam ? toast('Exportieren ist im Prüfungsmodus gesperrt.') : exportSheet({
       canInsert: hasApp(),
       onShare: () => share('Grafik-3D.png', 'image/png', v.png(), true),
       onInsert: async () => {
@@ -837,7 +956,7 @@ function start() {
   state.space.el.classList.add('space-pane');
   state.table.el.classList.add('table-pane');
   mainEl.append(state.cas.el, state.graph.el, state.space.el, state.table.el);
-  app.append(header, mainEl);
+  app.append(header, examBanner, mainEl);
   let remembered = null;
   try {
     remembered = localStorage.getItem('mathe.layout');
@@ -856,7 +975,15 @@ function start() {
     app.style.paddingBottom = window.mathVirtualKeyboard.visible ? window.mathVirtualKeyboard.boundingRect.height + 'px' : '0px';
   });
 
-  store.get('current').then((json) => {
+  store.get('exam').then((exam) => {
+    try {
+      state.exam = exam ? JSON.parse(exam) : null;
+    } catch (e) {
+      state.exam = null;
+    }
+    applyExam();
+    return store.get('current');
+  }).then((json) => {
     if (json) load(json);
     else {
       state.graph.setSettings(DEFAULT_SETTINGS);
@@ -874,8 +1001,9 @@ function giacReady() {
   if (state.engine) return;
   state.engine = new Engine(window.CAS);
   state.engine.sheet = state.table.sheet;
+  if (state.exam) state.engine.exam = { profile: state.exam.profile, options: state.exam.options };
   applySettings();
-  setStatus('ready', 'Giac · exakt');
+  setStatus('ready', state.exam && state.exam.profile !== 'cas' ? 'Giac · nur Zahlen' : 'Giac · exakt');
   recalcTable();
   state.cas.recalculate(0);
 }
