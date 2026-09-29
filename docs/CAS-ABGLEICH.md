@@ -1,62 +1,62 @@
 # CAS-Rechner: Abgleich mit der Feature-Checkliste
 
-Stand: 29.09.2026, nach Stufe 5 (Tabelle, Statistik, Wahrscheinlichkeit) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
+Stand: 29.09.2026, nach Stufe 6 (Programme, Prüfungsmodus und der Rest) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
 
 Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) · `[~]` rechnet, aber nur per (meist englischem) Giac-Befehl ohne Taste/Hilfe, oder nur teilweise · `[!]` geht, aber mit Fehler · `[ ]` fehlt
 
 ## Zusammenfassung
 
-703 Punkte: 413 in der App, 69 nur per Befehl, 100 teilweise, 1 mit Fehler, 120 fehlen.
+703 Punkte: 607 in der App, 13 nur per Befehl, 72 teilweise, 0 mit Fehler, 11 fehlen.
 
 | Kapitel | Punkte | in der App | nur Befehl | teilweise | Fehler | fehlt |
 |---|---:|---:|---:|---:|---:|---:|
-| 1. Grundfunktionen | 18 | 16 | 1 | 1 | 0 | 0 |
-| 2. CAS – Computer Algebra System | 18 | 12 | 5 | 0 | 0 | 1 |
-| 3. Gleichungen | 18 | 13 | 2 | 1 | 0 | 2 |
-| 4. Ungleichungen | 13 | 7 | 0 | 4 | 0 | 2 |
-| 5. Funktionen | 21 | 14 | 6 | 1 | 0 | 0 |
-| 6. Funktionsanalyse | 24 | 11 | 0 | 4 | 0 | 9 |
-| 7. Differentialrechnung | 17 | 6 | 1 | 6 | 0 | 4 |
-| 8. Integralrechnung | 14 | 4 | 1 | 8 | 0 | 1 |
-| 9. Grenzwerte und Reihen | 14 | 9 | 2 | 2 | 0 | 1 |
-| 10. Numerische Mathematik | 11 | 1 | 4 | 0 | 0 | 6 |
+| 1. Grundfunktionen | 18 | 18 | 0 | 0 | 0 | 0 |
+| 2. CAS – Computer Algebra System | 18 | 18 | 0 | 0 | 0 | 0 |
+| 3. Gleichungen | 18 | 16 | 0 | 2 | 0 | 0 |
+| 4. Ungleichungen | 13 | 9 | 0 | 4 | 0 | 0 |
+| 5. Funktionen | 21 | 21 | 0 | 0 | 0 | 0 |
+| 6. Funktionsanalyse | 24 | 24 | 0 | 0 | 0 | 0 |
+| 7. Differentialrechnung | 17 | 17 | 0 | 0 | 0 | 0 |
+| 8. Integralrechnung | 14 | 11 | 0 | 3 | 0 | 0 |
+| 9. Grenzwerte und Reihen | 14 | 14 | 0 | 0 | 0 | 0 |
+| 10. Numerische Mathematik | 11 | 11 | 0 | 0 | 0 | 0 |
 | 11. 2D-Grafik | 25 | 25 | 0 | 0 | 0 | 0 |
 | 12. Dynamische Mathematik | 13 | 13 | 0 | 0 | 0 | 0 |
 | 13. Geometrie | 28 | 27 | 0 | 1 | 0 | 0 |
-| 14. Geometrische Transformationen | 10 | 8 | 0 | 1 | 0 | 1 |
+| 14. Geometrische Transformationen | 10 | 10 | 0 | 0 | 0 | 0 |
 | 15. Analytische Geometrie | 24 | 24 | 0 | 0 | 0 | 0 |
 | 16. 3D-Rechner | 24 | 21 | 0 | 3 | 0 | 0 |
-| 17. Matrizen | 15 | 10 | 4 | 1 | 0 | 0 |
-| 18. Komplexe Zahlen | 11 | 2 | 7 | 1 | 0 | 1 |
-| 19. Folgen | 9 | 1 | 1 | 2 | 0 | 5 |
+| 17. Matrizen | 15 | 15 | 0 | 0 | 0 | 0 |
+| 18. Komplexe Zahlen | 11 | 10 | 0 | 1 | 0 | 0 |
+| 19. Folgen | 9 | 9 | 0 | 0 | 0 | 0 |
 | 20. Statistik | 21 | 21 | 0 | 0 | 0 | 0 |
 | 21. Regression | 12 | 12 | 0 | 0 | 0 | 0 |
 | 22. Wahrscheinlichkeitsrechnung | 15 | 15 | 0 | 0 | 0 | 0 |
 | 23. Stochastische Simulationen | 9 | 9 | 0 | 0 | 0 | 0 |
 | 24. Statistische Tests | 10 | 10 | 0 | 0 | 0 | 0 |
 | 25. Tabellenkalkulation | 14 | 14 | 0 | 0 | 0 | 0 |
-| 26. Einheiten | 15 | 1 | 12 | 2 | 0 | 0 |
-| 27. Physikalische Mathematik | 13 | 1 | 1 | 10 | 0 | 1 |
+| 26. Einheiten | 15 | 3 | 11 | 1 | 0 | 0 |
+| 27. Physikalische Mathematik | 13 | 2 | 0 | 11 | 0 | 0 |
 | 28. Interaktive Benutzeroberfläche | 15 | 13 | 0 | 2 | 0 | 0 |
 | 29. Animation | 12 | 12 | 0 | 0 | 0 | 0 |
-| 30. Skripting | 12 | 0 | 0 | 0 | 0 | 12 |
-| 31. Programmier-/Entwicklerfunktionen | 12 | 1 | 4 | 0 | 1 | 6 |
-| 32. Lernfunktionen | 11 | 0 | 0 | 6 | 0 | 5 |
-| 33. Dokumente und Materialien | 12 | 1 | 0 | 7 | 0 | 4 |
-| 34. Dateisystem | 13 | 2 | 0 | 5 | 0 | 6 |
-| 35. Prüfung / Exam Mode | 7 | 0 | 0 | 0 | 0 | 7 |
-| 36. Bedienkomfort | 13 | 2 | 0 | 2 | 0 | 9 |
+| 30. Skripting | 12 | 11 | 0 | 1 | 0 | 0 |
+| 31. Programmier-/Entwicklerfunktionen | 12 | 11 | 1 | 0 | 0 | 0 |
+| 32. Lernfunktionen | 11 | 7 | 0 | 4 | 0 | 0 |
+| 33. Dokumente und Materialien | 12 | 1 | 0 | 8 | 0 | 3 |
+| 34. Dateisystem | 13 | 10 | 0 | 1 | 0 | 2 |
+| 35. Prüfung / Exam Mode | 7 | 7 | 0 | 0 | 0 | 0 |
+| 36. Bedienkomfort | 13 | 12 | 0 | 1 | 0 | 0 |
 | 37. Mobile Funktionen | 12 | 8 | 0 | 3 | 0 | 1 |
-| 38. Erweiterte Visualisierung | 13 | 11 | 0 | 0 | 0 | 2 |
-| 39. Mathematik-Eingabe | 12 | 2 | 0 | 2 | 0 | 8 |
-| 40. KI-Funktionen | 12 | 4 | 0 | 7 | 0 | 1 |
-| 41. Qualitätskontrolle der Berechnungen | 10 | 4 | 0 | 4 | 0 | 2 |
-| 42. Professionelle CAS-Funktionen | 17 | 0 | 12 | 2 | 0 | 3 |
-| 43. Differentialgleichungen | 11 | 0 | 4 | 3 | 0 | 4 |
-| 44. Erweiterte 3D-Mathematik | 13 | 4 | 2 | 1 | 0 | 6 |
-| 45. Architektur der App | 16 | 9 | 0 | 3 | 0 | 4 |
-| 46. Kernanforderung für eine vollständige CAS-App | 16 | 12 | 0 | 3 | 0 | 1 |
-| Minimaler Funktionsumfang | 28 | 21 | 0 | 2 | 0 | 5 |
+| 38. Erweiterte Visualisierung | 13 | 12 | 0 | 0 | 0 | 1 |
+| 39. Mathematik-Eingabe | 12 | 10 | 0 | 2 | 0 | 0 |
+| 40. KI-Funktionen | 12 | 4 | 0 | 8 | 0 | 0 |
+| 41. Qualitätskontrolle der Berechnungen | 10 | 7 | 0 | 3 | 0 | 0 |
+| 42. Professionelle CAS-Funktionen | 17 | 12 | 1 | 2 | 0 | 2 |
+| 43. Differentialgleichungen | 11 | 10 | 0 | 1 | 0 | 0 |
+| 44. Erweiterte 3D-Mathematik | 13 | 11 | 0 | 1 | 0 | 1 |
+| 45. Architektur der App | 16 | 12 | 0 | 4 | 0 | 0 |
+| 46. Kernanforderung für eine vollständige CAS-App | 16 | 12 | 0 | 4 | 0 | 0 |
+| Minimaler Funktionsumfang | 28 | 26 | 0 | 1 | 0 | 1 |
 
 ## Gefundene Fehler
 
@@ -87,9 +87,9 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Klammerrechnung
 - [x] Prioritätsregeln
 - [x] Exakte Berechnung
-- [~] Numerische Näherungswerte — teilweise: immer 10 Stellen; näherung(pi, 30) zeigt trotzdem nur 10
+- [x] Numerische Näherungswerte — in der App: näherung(Term, Stellen), beliebig viele Stellen
 - [x] Automatische Vereinfachung — in der App: Giac vereinfacht exakt, z. B. √72 → 6√2
-- [~] Einheitenunterstützung — nur Befehl: Giac-Einheiten wie 3_m + 20_cm, convert(...); keine Taste, keine Hilfe
+- [x] Einheitenunterstützung — in der App: 3_m + 20_cm, umrechnen, si, einheiten(), temperatur
 - [x] Konstanten wie π und e
 - [x] Physikalische Konstanten — in der App: lichtgeschwindigkeit, _c_ als Wert mit Einheit
 
@@ -102,17 +102,17 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Faktorisieren
 - [x] Zusammenfassen — in der App: vereinfache(...)
 - [x] Kürzen
-- [~] Partialbruchzerlegung — nur Befehl: partfrac(...), subst(...)
-- [~] Ersetzen von Variablen — nur Befehl: partfrac(...), subst(...)
-- [~] Substitution — nur Befehl: partfrac(...), subst(...)
+- [x] Partialbruchzerlegung — in der App: partialbruch(...)
+- [x] Ersetzen von Variablen — in der App: ersetze(...)
+- [x] Substitution — in der App: ersetze(...)
 - [x] Ausdrücke expandieren
 - [x] Exakte Brüche
 - [x] Exakte Wurzeln
 - [x] Exakte trigonometrische Werte
 - [x] Symbolische Konstanten
-- [~] Annahmen über Variablen — nur Befehl: assume(a>0)
-- [ ] Definitionsbereiche — fehlt: keine Ausgabe der Definitionsmenge
-- [~] Bedingungen für Variablen — nur Befehl: assume(...)
+- [x] Annahmen über Variablen — in der App: annahme(a > 0), vergiss(a)
+- [x] Definitionsbereiche — in der App: definitionsmenge(f), in der Kurvendiskussion
+- [x] Bedingungen für Variablen — in der App: annahme(...)
 
 ## 3. Gleichungen
 
@@ -129,11 +129,11 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Gleichungssysteme
 - [x] Nichtlineare Gleichungssysteme
 - [x] Exakte Lösungen
-- [~] Numerische Lösungen — nur Befehl: fsolve(...); löse() liefert exakt plus Näherung
+- [x] Numerische Lösungen — in der App: lösenumerisch(...)
 - [~] Mehrere Lösungszweige — teilweise: alle Lösungen im Intervall [0; 2π) statt allgemeiner Form mit k·2π
-- [~] Komplexe Lösungen — nur Befehl: csolve(...)
-- [ ] Lösungsprüfung — fehlt: keine automatische Probe
-- [ ] Schrittweise Lösungsdarstellung — fehlt: der Rechner zeigt nur das Ergebnis; der KI-Tutor erklärt in Dokumenten
+- [x] Komplexe Lösungen — in der App: lösekomplex(...)
+- [x] Lösungsprüfung — in der App: jede Lösung von löse(…) wird eingesetzt (✓ Probe), dazu probe(...)
+- [~] Schrittweise Lösungsdarstellung — teilweise: lösungsschritte für lineare und quadratische Gleichungen, ableitungsschritte, gaußschritte, newton- und bisektionsschritte
 
 ## 4. Ungleichungen
 
@@ -146,16 +146,16 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Logarithmische Ungleichungen — teilweise
 - [~] Trigonometrische Ungleichungen — teilweise
 - [x] Betragsungleichungen
-- [ ] Ungleichungssysteme — fehlt: nicht geprüft/angeboten
+- [x] Ungleichungssysteme — in der App: ungleichungssystem(...) als Intervall oder Fläche
 - [x] Intervalllösungen — in der App: L = ]-∞; -2] ∪ [2; ∞[
 - [x] Grafische Lösungsdarstellung — in der App: Ungleichung in x und y als gefärbte Fläche in der Grafik
-- [ ] Automatische Vorzeichenanalyse — fehlt: keine Vorzeichentabelle
+- [x] Automatische Vorzeichenanalyse — in der App: vorzeichentabelle(f)
 
 ## 5. Funktionen
 
 - [x] Funktionsdefinitionen
 - [x] Verkettete Funktionen
-- [~] Umkehrfunktionen — teilweise: über löse(y=…, x), kein eigener Befehl
+- [x] Umkehrfunktionen — in der App: umkehrfunktion(f)
 - [x] Parameterfunktionen — in der App: a = 2 wird Schieberegler, f(x) = a·x² bewegt sich mit
 - [x] Stückweise definierte Funktionen — in der App: Fälle-Taste, Ausgabe als Fallunterscheidung, gezeichnet
 - [x] Polynomfunktionen
@@ -167,40 +167,40 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Sinus
 - [x] Kosinus
 - [x] Tangens
-- [~] Arkussinus — nur Befehl: asin/acos/atan eintippbar, keine Taste
-- [~] Arkuskosinus — nur Befehl: asin/acos/atan eintippbar, keine Taste
-- [~] Arkustangens — nur Befehl: asin/acos/atan eintippbar, keine Taste
-- [~] Hyperbelfunktionen — nur Befehl: sinh, cosh, tanh eintippbar, keine Taste
+- [x] Arkussinus — in der App: Taste sin⁻¹
+- [x] Arkuskosinus — in der App: Taste cos⁻¹
+- [x] Arkustangens — in der App: Taste tan⁻¹
+- [x] Hyperbelfunktionen — in der App: Tasten sinh, cosh
 - [x] Betragsfunktionen
-- [~] Floor/Ceiling-Funktionen — nur Befehl: floor, ceil
-- [~] Signum-Funktion — nur Befehl: sign
+- [x] Floor/Ceiling-Funktionen — in der App: abrunden, aufrunden
+- [x] Signum-Funktion — in der App: Taste sgn, signum
 
 ## 6. Funktionsanalyse
 
-- [ ] Definitionsmenge
-- [ ] Wertebereich
+- [x] Definitionsmenge — in der App: definitionsmenge(f)
+- [x] Wertebereich — in der App: wertebereich(f)
 - [x] Nullstellen — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
 - [x] y-Achsenabschnitt — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
 - [x] x-Achsenabschnitte — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
 - [x] Extrempunkte — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
 - [x] Hochpunkte — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
 - [x] Tiefpunkte — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
-- [~] Wendepunkte — teilweise: nur über löse(ableiten(f,x,2)=0)
-- [ ] Sattel-/Terrassenpunkte
-- [~] Polstellen — teilweise: Graph erkennt Sprünge, keine Ausgabe als Polstelle
-- [ ] Lücken
-- [~] Asymptoten — teilweise: über grenzwert(...), keine Asymptoten-Ausgabe
+- [x] Wendepunkte — in der App: wendepunkte(f) mit hinreichender Bedingung
+- [x] Sattel-/Terrassenpunkte — in der App: in wendepunkte und kurvendiskussion
+- [x] Polstellen — in der App: kurvendiskussion, vorzeichentabelle
+- [x] Lücken — in der App: hebbare Lücken mit Grenzwert in asymptoten/kurvendiskussion
+- [x] Asymptoten — in der App: asymptoten(f)
 - [x] Schnittpunkte — in der App: im Graph-Modus automatisch markiert, nullstellen(...) im Rechner
-- [ ] Monotonie
-- [ ] Krümmung
-- [ ] Vorzeichenbereiche
+- [x] Monotonie — in der App: monotonie(f)
+- [x] Krümmung — in der App: krümmung(f)
+- [x] Vorzeichenbereiche — in der App: vorzeichentabelle(f)
 - [x] Grenzwerte — in der App: grenzwert(...)
 - [x] Verhalten im Unendlichen — in der App: grenzwert(f, x, unendlich)
 - [x] Funktionswertberechnung — in der App: f(3)
 - [x] Tangenten — in der App: tangente(f, a)
-- [ ] Sekanten
-- [~] Normale — teilweise: nur von Hand zusammengesetzt
-- [ ] Vollständige Funktionsuntersuchung
+- [x] Sekanten — in der App: sekante(...)
+- [x] Normale — in der App: normale(f, a)
+- [x] Vollständige Funktionsuntersuchung — in der App: kurvendiskussion(f)
 
 ## 7. Differentialrechnung
 
@@ -208,35 +208,35 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Zweite Ableitung
 - [x] Höhere Ableitungen
 - [x] Partielle Ableitungen — in der App: ableiten(f, y)
-- [~] Gradient — nur Befehl: grad(f, [x, y])
-- [ ] Richtungsableitung
-- [~] Produktregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
-- [~] Quotientenregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
-- [~] Kettenregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
+- [x] Gradient — in der App: gradient(...)
+- [x] Richtungsableitung — in der App: richtungsableitung(...)
+- [x] Produktregel — in der App: ableitungsschritte zeigt u, v, u′, v′
+- [x] Quotientenregel — in der App: ableitungsschritte
+- [x] Kettenregel — in der App: ableitungsschritte zeigt innen und außen
 - [x] Implizite Ableitung — in der App: implizit(x^2+y^2=1, x, y) = −x/y
-- [ ] Parametrische Ableitung
-- [ ] Numerische Ableitung
-- [~] Ableitungsgraph — teilweise: ableiten(f) in den Graph eintragen, nicht automatisch
+- [x] Parametrische Ableitung — in der App: parameterableitung(x(t), y(t))
+- [x] Numerische Ableitung — in der App: ableitungnumerisch(f, a)
+- [x] Ableitungsgraph — in der App: f'(x) als Zeile, in der Grafik einschalten
 - [x] Tangentensteigung
-- [~] Normale — teilweise: nur von Hand
-- [~] Extremwertanalyse — teilweise: Graph markiert Extrempunkte, keine hinreichende Bedingung
-- [ ] Kurvendiskussion — fehlt: keine vollständige Kurvendiskussion
+- [x] Normale — in der App: normale(f, a)
+- [x] Extremwertanalyse — in der App: extrempunkte(f) mit hinreichender Bedingung
+- [x] Kurvendiskussion — in der App: kurvendiskussion(f)
 
 ## 8. Integralrechnung
 
 - [x] Unbestimmte Integrale
 - [x] Bestimmte Integrale
 - [x] Stammfunktionen
-- [~] Numerische Integration — nur Befehl: romberg(...)
-- [~] Flächen unter Funktionen — teilweise: Wert ja, keine Flächenmarkierung im Graph
-- [~] Flächen zwischen Funktionen — teilweise: integriere(f-g, …) von Hand, keine Flächenmarkierung im Graph
+- [x] Numerische Integration — in der App: integralnumerisch(f, a, b)
+- [x] Flächen unter Funktionen — in der App: fläche(f, a, b), in der Grafik schraffiert
+- [x] Flächen zwischen Funktionen — in der App: flächezwischen(f, g, a, b), schraffiert
 - [x] Uneigentliche Integrale
 - [~] Parametrische Integrale — teilweise: Parameter möglich
 - [~] Mehrfachintegrale — teilweise: verschachtelt integriere(integriere(...))
-- [ ] Flächenintegrale
-- [~] Volumenberechnung — teilweise: über die Formel von Hand
-- [~] Rotationsvolumen — teilweise: π·integriere(f², …) von Hand
-- [~] Mittelwert einer Funktion — teilweise: von Hand
+- [x] Flächenintegrale — in der App: flächenintegral(...)
+- [x] Volumenberechnung — in der App: volumen(Körper), rotationsvolumen
+- [x] Rotationsvolumen — in der App: rotationsvolumen(...)
+- [x] Mittelwert einer Funktion — in der App: mittelwertfunktion(f, a, b)
 - [~] Hauptsatz der Differential- und Integralrechnung — teilweise: rechnet, erklärt nicht
 
 ## 9. Grenzwerte und Reihen
@@ -245,30 +245,30 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Rechtsseitige Grenzwerte
 - [x] Linksseitige Grenzwerte
 - [x] Grenzwerte gegen ±∞
-- [~] Folgen — nur Befehl: seq(...)
+- [x] Folgen — in der App: folge(...), folgenplot(...)
 - [x] Reihen
-- [~] Konvergenz — teilweise: über den Grenzwert, keine Aussage „konvergent“
-- [~] Divergenz — teilweise: über den Grenzwert
+- [x] Konvergenz — in der App: konvergenz(aₙ, n) für Folge und Reihe
+- [x] Divergenz — in der App: konvergenz(aₙ, n): bestimmt oder unbestimmt divergent
 - [x] Geometrische Reihen
-- [~] Potenzreihen — nur Befehl: series(...)
+- [x] Potenzreihen — in der App: taylor(...)
 - [x] Taylorreihen — in der App: taylor(f(x), x = a, n)
 - [x] Maclaurinreihen — in der App: taylor(f(x), x = 0, n)
 - [x] Taylorpolynome — in der App: taylor(f(x), x = a, n)
-- [ ] Restglied-/Fehlerbetrachtung
+- [x] Restglied-/Fehlerbetrachtung — in der App: restglied(f, a, n, b)
 
 ## 10. Numerische Mathematik
 
-- [~] Numerische Nullstellensuche — nur Befehl: fsolve(...); der Graph findet Nullstellen numerisch
-- [~] Newton-Verfahren — nur Befehl: newton(...), ohne Schritte
-- [ ] Bisektionsverfahren
-- [ ] Iterationsverfahren
-- [~] Numerische Integration — nur Befehl: romberg(...)
-- [ ] Numerische Ableitung
-- [~] Numerische Gleichungslösung — nur Befehl: fsolve(...)
+- [x] Numerische Nullstellensuche — in der App: lösenumerisch, newton, bisektion
+- [x] Newton-Verfahren — in der App: newtonschritte(f, x₀) mit Tangenten im Bild
+- [x] Bisektionsverfahren — in der App: bisektionsschritte(f, a, b)
+- [x] Iterationsverfahren — in der App: iteration(f, x₀, n)
+- [x] Numerische Integration — in der App: integralnumerisch(f, a, b)
+- [x] Numerische Ableitung — in der App: ableitungnumerisch(f, a)
+- [x] Numerische Gleichungslösung — in der App: lösenumerisch(...)
 - [x] Näherungslösungen — in der App: jedes Ergebnis auch als Dezimalzahl
-- [ ] Fehlerabschätzung
-- [ ] Rundungsfehleranalyse
-- [ ] Iterationsvisualisierung
+- [x] Fehlerabschätzung — in der App: Fehlerschranke in bisektionsschritte, iteration, restglied
+- [x] Rundungsfehleranalyse — in der App: rundungsfehler(Term)
+- [x] Iterationsvisualisierung — in der App: spinnweb, newtonschritte, bisektionsschritte
 
 ## 11. 2D-Grafik
 
@@ -353,8 +353,8 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Spiegelung an einem Punkt — in der App: spiegeln(Objekt, P)
 - [x] Streckung — in der App: strecken(Objekt, k, Z)
 - [x] Zentrische Streckung
-- [ ] Affine Transformationen
-- [~] Transformation mit Matrizen — teilweise: Matrix · Vektor rechnet, ohne Darstellung
+- [x] Affine Transformationen — in der App: abbilden(Objekt, M, v)
+- [x] Transformation mit Matrizen — in der App: abbilden(Objekt, M) zeichnet das Bild
 - [x] Transformationen animieren — in der App: Winkel oder Faktor als Schieberegler
 - [x] Original und Bild gleichzeitig darstellen
 
@@ -422,39 +422,39 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Transponieren
 - [x] Determinante
 - [x] Inverse Matrix
-- [~] Rang — nur Befehl: rank(...)
+- [x] Rang — in der App: rang(M)
 - [x] Eigenwerte — in der App: eigenwerte(A)
-- [~] Eigenvektoren — nur Befehl: eigenvects(...)
+- [x] Eigenvektoren — in der App: eigenvektoren(M)
 - [x] Lineare Gleichungssysteme — in der App: löse([…], [x, y])
-- [~] Gauß-Verfahren — nur Befehl: rref(...), ohne Schritte
-- [~] Matrixzerlegungen — nur Befehl: lu(...), qr(...)
-- [~] Lineare Transformationen — teilweise: nur rechnerisch
+- [x] Gauß-Verfahren — in der App: gaußschritte(M) mit jeder Zeilenumformung
+- [x] Matrixzerlegungen — in der App: lu(M)
+- [x] Lineare Transformationen — in der App: abbilden(Objekt, M), dazu eigenwerte, determinante
 
 ## 18. Komplexe Zahlen
 
 - [x] Komplexe Zahlen — in der App: i eintippbar
-- [~] Realteil — nur Befehl
-- [~] Imaginärteil — nur Befehl
+- [x] Realteil — in der App: realteil(z)
+- [x] Imaginärteil — in der App: imaginärteil(z)
 - [x] Betrag — in der App: betrag(3+4i)
-- [~] Argument — nur Befehl
-- [~] Konjugation — nur Befehl
-- [~] Polarform — nur Befehl
-- [~] Exponentialform — nur Befehl
-- [~] Komplexe Gleichungen — nur Befehl
-- [ ] Gaußsche Zahlenebene
+- [x] Argument — in der App: argument(z)
+- [x] Konjugation — in der App: konjugiert(z)
+- [x] Polarform — in der App: polarform(z)
+- [x] Exponentialform — in der App: polarform(z) gibt r und φ für r·e^(iφ)
+- [x] Komplexe Gleichungen — in der App: lösekomplex(...)
+- [x] Gaußsche Zahlenebene — in der App: zahlenebene(z₁, z₂, …)
 - [~] Komplexe Funktionen — teilweise: rechnet, kein Plot
 
 ## 19. Folgen
 
-- [~] Arithmetische Folgen — teilweise
-- [~] Geometrische Folgen — teilweise
-- [ ] Rekursive Folgen — fehlt: seqsolve fehlt in dieser Giac-Version
-- [~] Explizite Folgen — nur Befehl: seq(k^2, k, 1, 6)
-- [ ] Fibonacci-Folge — fehlt: fibonacci(...) wird nicht ausgewertet
-- [ ] Folgeniteration
-- [ ] Folgen grafisch darstellen
+- [x] Arithmetische Folgen — in der App: folge, folgenplot, summe
+- [x] Geometrische Folgen — in der App: folge, folgenplot, summe
+- [x] Rekursive Folgen — in der App: rekursion(...), iteration(f, x₀, n)
+- [x] Explizite Folgen — in der App: folge(Term, n, von, bis)
+- [x] Fibonacci-Folge — in der App: fibonacci(n)
+- [x] Folgeniteration — in der App: iteration(f, x₀, n)
+- [x] Folgen grafisch darstellen — in der App: folgenplot(...)
 - [x] Grenzwerte von Folgen — in der App: grenzwert(a(n), n, unendlich)
-- [ ] Rekursionsdiagramme
+- [x] Rekursionsdiagramme — in der App: spinnweb(f, x₀, n)
 
 ## 20. Statistik
 
@@ -568,9 +568,9 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Energie — nur Befehl
 - [~] Leistung — nur Befehl
 - [~] Druck — nur Befehl
-- [~] Temperatur — teilweise: Giac kennt °C/K, Umrechnung mit Nullpunkt heikel
+- [x] Temperatur — in der App: temperatur(20, C, F) mit Nullpunkt
 - [x] Winkel — in der App: Umschalter Grad/Bogenmaß
-- [~] Automatische Einheitenumrechnung — nur Befehl
+- [x] Automatische Einheitenumrechnung — in der App: umrechnen, si
 - [~] Dimensionsprüfung — teilweise: Giac lehnt m + s ab, Meldung unverständlich
 
 ## 27. Physikalische Mathematik
@@ -585,9 +585,9 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Energie — teilweise
 - [~] Arbeit — teilweise
 - [~] Kräfte — teilweise
-- [~] Einheitenumrechnung — nur Befehl: convert(...)
+- [x] Einheitenumrechnung — in der App: umrechnen(...)
 - [x] Physikalische Konstanten — in der App: lichtgeschwindigkeit, _c_ als Wert mit Einheit
-- [ ] Dynamische physikalische Modelle
+- [~] Dynamische physikalische Modelle — teilweise: Schieberegler, lösungskurve, phasenporträt, Skripte
 
 ## 28. Interaktive Benutzeroberfläche
 
@@ -624,47 +624,47 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 
 ## 30. Skripting
 
-- [ ] Ereignisse
-- [ ] Klickaktionen
-- [ ] Objektänderungen
-- [ ] Bedingungen
-- [ ] Variablen setzen
-- [ ] Objekte erzeugen
-- [ ] Objekte löschen
-- [ ] Animation starten
-- [ ] Animation stoppen
-- [ ] Konstruktion zurücksetzen
-- [ ] Benutzerinteraktionen programmieren
-- [ ] Eigene mathematische Werkzeuge
+- [x] Ereignisse — in der App: Skripte beim Antippen, bei Änderung und an Knöpfen
+- [x] Klickaktionen — in der App: Skript „beim Antippen“
+- [x] Objektänderungen — in der App: Skript „wenn sich der Wert ändert“
+- [x] Bedingungen — in der App: wenn … dann … sonst in Skripten
+- [x] Variablen setzen — in der App: a = a + 1, setze A = (2|3)
+- [x] Objekte erzeugen — in der App: erzeuge Q(1|2)
+- [x] Objekte löschen — in der App: lösche Q
+- [x] Animation starten — in der App: starte a
+- [x] Animation stoppen — in der App: stoppe a
+- [x] Konstruktion zurücksetzen — in der App: zurücksetzen
+- [x] Benutzerinteraktionen programmieren — in der App: knopf("…") mit Skript
+- [~] Eigene mathematische Werkzeuge — teilweise: Programme als eigene Befehle, keine eigenen Grafikwerkzeuge
 
 ## 31. Programmier-/Entwicklerfunktionen
 
-- [~] Eigene Befehle — nur Befehl: Giac-Programme g(n):={…}
+- [x] Eigene Befehle — in der App: programm name(n) … ende
 - [x] Benutzerdefinierte Funktionen — in der App: f(x) = …, bleibt nach Neustart erhalten
-- [~] Listenverarbeitung — nur Befehl: map, seq, sum
-- [~] Schleifenähnliche Konstruktionen — nur Befehl: for/while in Giac-Programmen
+- [x] Listenverarbeitung — in der App: anwenden, auswählen, folge, x -> …
+- [x] Schleifenähnliche Konstruktionen — in der App: für, solange, wiederhole
 - [~] Bedingungen — nur Befehl: if/else in Giac-Programmen
-- [!] Rekursion — Fehler: Programme mit { … } lassen sich im neuen Rechner noch nicht eingeben (kommt mit Skripting in Stufe 6)
-- [ ] Skripte
-- [ ] JavaScript-Integration
-- [ ] JavaScript API
-- [ ] Einbettung in Webseiten
-- [ ] Zugriff auf mathematische Objekte über API
-- [ ] Dynamische Kommunikation zwischen Webseite und Rechner
+- [x] Rekursion — in der App: Programme dürfen sich selbst aufrufen
+- [x] Skripte — in der App: Skripte an Objekten und Knöpfen
+- [x] JavaScript-Integration — in der App: window.Mathe.api
+- [x] JavaScript API — in der App: evaluate, addRow, getValue, setValue, objects, cell, on(change)
+- [x] Einbettung in Webseiten — in der App: mathe.html im iframe, gesteuert per postMessage
+- [x] Zugriff auf mathematische Objekte über API — in der App: api.objects(), getValue
+- [x] Dynamische Kommunikation zwischen Webseite und Rechner — in der App: postMessage in beide Richtungen
 
 ## 32. Lernfunktionen
 
-- [ ] Schritt-für-Schritt-Lösungen
+- [~] Schritt-für-Schritt-Lösungen — teilweise: Ableitungen, lineare und quadratische Gleichungen, Gauß, Newton, Bisektion
 - [~] Mathematische Erklärungen — teilweise: KI-Tutor in Dokumenten, nicht im Rechner
-- [~] Interaktive Aufgaben — teilweise: Übungsaufgaben aus dem Lernplan
-- [~] Automatische Aufgaben — teilweise: Übungsaufgaben pro Thema im Lernplan
-- [~] Übungsmodus — teilweise: Karteikarten (Wiederholen-Tab)
-- [~] Sofortiges Feedback — teilweise: Tutor und Karteikarten
-- [ ] Fehleranalyse
-- [ ] Ähnliche Aufgaben generieren
+- [x] Interaktive Aufgaben — in der App: aufgabe(Thema, Stufe) und prüfe(Antwort)
+- [x] Automatische Aufgaben — in der App: aufgabe(...) erzeugt Zahlen
+- [x] Übungsmodus — in der App: aufgabe/prüfe, Karteikarten im Wiederholen-Tab
+- [x] Sofortiges Feedback — in der App: prüfe(...) mit Hinweis
+- [~] Fehleranalyse — teilweise: Hinweise auf Vorzeichen, Faktor, Kettenregel, fehlende Lösung
+- [x] Ähnliche Aufgaben generieren — in der App: aufgabe(…, Variante)
 - [~] Lernfortschritt — teilweise: Lernplan und Wiederholen
-- [ ] Aufgabenserien
-- [ ] Schwierigkeitsstufen
+- [x] Aufgabenserien — in der App: aufgabe(Thema, Stufe, Anzahl)
+- [x] Schwierigkeitsstufen — in der App: Stufe 1 bis 3
 
 ## 33. Dokumente und Materialien
 
@@ -673,7 +673,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Bilder — teilweise
 - [ ] Videos
 - [~] mathematische Konstruktionen — teilweise: Graph als Seite in ein Dokument einfügen
-- [ ] interaktive Aufgaben
+- [~] interaktive Aufgaben — teilweise: im Rechner (aufgabe, prüfe), nicht in Dokumenten
 - [~] mehrere Seiten — teilweise
 - [ ] Kapitel
 - [ ] Lernbücher
@@ -683,45 +683,45 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 
 ## 34. Dateisystem
 
-- [ ] Projektdateien — fehlt: Rechner-Verlauf ist kein eigenes Dokument
-- [~] Import — teilweise
-- [~] Export — teilweise
+- [x] Projektdateien — in der App: Projekt als Datei teilen und aus Datei öffnen
+- [x] Import — in der App: Projektdateien, CSV, Einfügen in die Tabelle
+- [x] Export — in der App: Text, Projektdatei, CSV, Grafik als Bild
 - [x] Speichern
 - [x] Autosave — in der App: Verlauf und Definitionen werden gespeichert
-- [ ] Versionsverwaltung
+- [x] Versionsverwaltung — in der App: die letzten 10 Fassungen je Projekt
 - [ ] Cloud-Speicherung
 - [ ] Teilen per Link
-- [ ] Import von Daten
-- [ ] Export von Daten
-- [~] Export als Bild — teilweise: Graph als Dokumentseite
+- [x] Import von Daten — in der App: CSV-Datei, Einfügen aus Tabellen
+- [x] Export von Daten — in der App: Tabelle als CSV
+- [x] Export als Bild — in der App: Grafik als PNG teilen oder als Dokumentseite
 - [~] Export als PDF — teilweise: über das Dokument
-- [~] Export mathematischer Ergebnisse — teilweise: Ergebnis in Notizen übernehmen
+- [x] Export mathematischer Ergebnisse — in der App: Als Text teilen
 
 ## 35. Prüfung / Exam Mode
 
-- [ ] Prüfungsmodus
-- [ ] Einschränkung bestimmter Funktionen
-- [ ] Kontrollierter Funktionsumfang
-- [ ] Sperrung externer Inhalte
-- [ ] Prüfungsstatus
-- [ ] sichtbare Statusanzeige
-- [ ] Zurücksetzen nach Prüfung
+- [x] Prüfungsmodus — in der App: Menü → Prüfungsmodus
+- [x] Einschränkung bestimmter Funktionen — in der App: mit CAS, GTR (nur Zahlen), WTR; Programme, Tabelle, 3D abschaltbar
+- [x] Kontrollierter Funktionsumfang — in der App: gesperrte Befehle verschwinden aus der Liste
+- [x] Sperrung externer Inhalte — in der App: kein Öffnen, Teilen, Einfügen; die App bleibt im Rechner
+- [x] Prüfungsstatus — in der App: Umfang, Beginn, Dauer, Code zum Beenden
+- [x] sichtbare Statusanzeige — in der App: rotes Band mit Uhr, roter Rahmen
+- [x] Zurücksetzen nach Prüfung — in der App: alles aus der Prüfung wird gelöscht
 
 ## 36. Bedienkomfort
 
-- [ ] Suchfunktion für Befehle
-- [ ] Autovervollständigung
-- [ ] Syntax-Hervorhebung
+- [x] Suchfunktion für Befehle — in der App: Befehle (Strg+K)
+- [x] Autovervollständigung — in der App: Vorschläge beim Tippen
+- [x] Syntax-Hervorhebung — in der App: Textzeilen und Programme
 - [x] mathematische Tastatur — in der App: eigene Tastatur mit Befehlstasten
 - [x] Verlauf — in der App: mit ans und Wiederverwenden
-- [~] Rückgängig — teilweise: ⌫/AC, kein Undo
-- [ ] Wiederholen
-- [ ] Favoriten
-- [ ] zuletzt verwendete Befehle
-- [ ] Tastaturkürzel
+- [x] Rückgängig — in der App: ↶, Strg+Z
+- [x] Wiederholen — in der App: ↷, Strg+Umschalt+Z
+- [x] Favoriten — in der App: ☆ in der Befehlsliste
+- [x] zuletzt verwendete Befehle — in der App: „Zuletzt“ in der Befehlsliste
+- [x] Tastaturkürzel — in der App: F1 zeigt alle
 - [~] Kontextabhängige Werkzeuge — teilweise
-- [ ] Hilfetexte
-- [ ] Befehlsdokumentation
+- [x] Hilfetexte — in der App: Hilfe im Menü
+- [x] Befehlsdokumentation — in der App: jeder Befehl mit Beispiel, hilfe(befehl)
 
 ## 37. Mobile Funktionen
 
@@ -752,22 +752,22 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Rasterkonfiguration — in der App: grob/fein/aus
 - [x] logarithmische Skalierung
 - [ ] mehrere Koordinatensysteme
-- [ ] benutzerdefinierte Ansichten
+- [x] benutzerdefinierte Ansichten — in der App: gespeicherte Ansichten im Koordinatensystem
 
 ## 39. Mathematik-Eingabe
 
-- [ ] LaTeX-Eingabe
-- [ ] Brucheditor
-- [ ] Wurzeleditor
-- [ ] Integraleditor
-- [ ] Summeneditor
+- [x] LaTeX-Eingabe — in der App: $…$ oder \frac … in einer Textzeile
+- [x] Brucheditor — in der App: Formeleditor, Taste a/b
+- [x] Wurzeleditor — in der App: Formeleditor, Tasten √ und ⁿ√
+- [x] Integraleditor — in der App: Formeleditor, Tasten ∫ und ∫ₐᵇ
+- [x] Summeneditor — in der App: Formeleditor, Tasten Σ und Π
 - [~] Matrixeditor — teilweise: Matrix-Vorlage [[ , ], [ , ]], Ausgabe als Tabelle
-- [ ] Indexe
+- [x] Indexe — in der App: Taste xₙ
 - [x] Exponenten — in der App: x², xⁿ-Taste, hochgestellte Ausgabe
-- [~] griechische Buchstaben — teilweise: π, sonst als Wort (alpha)
+- [x] griechische Buchstaben — in der App: αβγ-Tastatur
 - [x] mathematische Symbole — in der App: √, π, ≤, ≥, ≠, ×, ÷ werden verstanden
-- [ ] Autovervollständigung
-- [ ] natürliche mathematische Eingabe
+- [x] Autovervollständigung — in der App: Vorschläge beim Tippen
+- [~] natürliche mathematische Eingabe — teilweise: feste deutsche Wendungen wie „Ableitung von x^3“, „20 Prozent von 150“
 
 ## 40. KI-Funktionen
 
@@ -779,7 +779,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] alternative Lösungswege — teilweise
 - [x] automatische Aufgabengenerierung — in der App: Übungsaufgaben im Lernplan
 - [~] Schwierigkeitsanpassung — teilweise: Hinweisstufen des Tutors
-- [ ] natürliche Sprache → mathematische Formel
+- [~] natürliche Sprache → mathematische Formel — teilweise: feste Wendungen, ohne KI
 - [~] mathematische Formel → Erklärung — teilweise
 - [~] Diagramm-/Graphenanalyse — teilweise: Tutor liest markierte Bereiche
 - [x] interaktive KI-Nachhilfe — in der App: Tutor
@@ -792,58 +792,58 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Logarithmusbedingungen prüfen — teilweise
 - [x] Scheinlösungen erkennen — in der App: siehe oben
 - [~] numerische Stabilität berücksichtigen — teilweise: Giac rechnet exakt, Graph numerisch
-- [ ] Rundungsfehler anzeigen
+- [x] Rundungsfehler anzeigen — in der App: rundungsfehler(Term)
 - [x] exakte/numerische Ergebnisse unterscheiden — in der App: exakt und ≈ getrennt
-- [~] Lösungsmenge korrekt darstellen — teilweise: L = {…}, Ungleichungen nicht als Intervall
-- [ ] Ergebnis automatisch verifizieren
+- [x] Lösungsmenge korrekt darstellen — in der App: L = {…}, Intervalle, ∅
+- [x] Ergebnis automatisch verifizieren — in der App: ✓ Probe bei Gleichungen
 
 ## 42. Professionelle CAS-Funktionen
 
 - [~] Symbolische Matrizen — nur Befehl
-- [~] Eigenwertprobleme — nur Befehl
-- [~] Differentialgleichungen — nur Befehl
+- [x] Eigenwertprobleme — in der App: eigenwerte, eigenvektoren, charpoly
+- [x] Differentialgleichungen — in der App: dgl(...)
 - [~] Systeme von Differentialgleichungen — teilweise: desolve mit Systemen, nicht geprüft
 - [ ] partielle Differentialgleichungen
-- [~] Laplace-Transformation — nur Befehl
-- [~] inverse Laplace-Transformation — nur Befehl
-- [~] Fourier-Reihen — nur Befehl
-- [ ] Fourier-Transformation — fehlt: nicht geprüft; Fourier-Koeffizienten per fourier_an
-- [~] Z-Transformation — nur Befehl
-- [~] symbolische Summen — nur Befehl
-- [~] symbolische Produkte — nur Befehl
-- [~] Reihenentwicklung — nur Befehl
-- [~] Residuen — nur Befehl
+- [x] Laplace-Transformation — in der App: laplace(...)
+- [x] inverse Laplace-Transformation — in der App: invlaplace(...)
+- [x] Fourier-Reihen — in der App: fourierkoeffizient(...)
+- [x] Fourier-Transformation — in der App: fouriertransformation(...)
+- [x] Z-Transformation — in der App: ztransformation(...)
+- [x] symbolische Summen — in der App: summe(...)
+- [x] symbolische Produkte — in der App: produkt(...)
+- [x] Reihenentwicklung — in der App: taylor(...)
+- [x] Residuen — in der App: residuum(...)
 - [~] komplexe Analysis — teilweise: residue(...) geht
-- [~] Vektoranalysis — nur Befehl: divergence, curl, hessian
+- [x] Vektoranalysis — in der App: gradient, divergenz, rotation, kurvenintegral, fluss
 - [ ] Tensor-/Indexnotation
 
 ## 43. Differentialgleichungen
 
-- [~] ODE erster Ordnung — nur Befehl: desolve(y'=2*y, y)
-- [~] ODE höherer Ordnung — nur Befehl: desolve mit y''
-- [~] Anfangswertprobleme — nur Befehl: desolve([…, y(0)=0], y)
-- [~] Randwertprobleme — teilweise
+- [x] ODE erster Ordnung — in der App: dgl(y' = …, y)
+- [x] ODE höherer Ordnung — in der App: dgl mit y′′
+- [x] Anfangswertprobleme — in der App: dgl([…, y(0) = …], y), lösungskurve
+- [x] Randwertprobleme — in der App: dgl([y′′ + y = 0, y(0) = 0, y(π/2) = 1], y)
 - [~] Systeme von ODEs — teilweise
-- [~] analytische Lösungen — nur Befehl: desolve
-- [~] numerische Lösungen — teilweise: odesolve, nicht geprüft
-- [ ] Richtungsfelder
-- [ ] Lösungskurven
-- [ ] Phasenporträts
-- [ ] Parameterstudien
+- [x] analytische Lösungen — in der App: dgl(...)
+- [x] numerische Lösungen — in der App: lösungskurve (Runge-Kutta)
+- [x] Richtungsfelder — in der App: richtungsfeld(...)
+- [x] Lösungskurven — in der App: lösungskurve(…, x₀, y₀)
+- [x] Phasenporträts — in der App: phasenporträt(...)
+- [x] Parameterstudien — in der App: Schieberegler in richtungsfeld und lösungskurve
 
 ## 44. Erweiterte 3D-Mathematik
 
 - [x] Vektorfelder — in der App: vektorfeld([P, Q, R])
-- [ ] Skalarfelder
+- [x] Skalarfelder — in der App: höhenlinien(f), z = f(x, y) in 3D
 - [~] Gradientfelder — teilweise: grad(...) rechnerisch
-- [~] Divergenz — nur Befehl: divergence(...)
-- [~] Rotation/Curl — nur Befehl: curl(...)
-- [ ] Fluss
+- [x] Divergenz — in der App: divergenz(...)
+- [x] Rotation/Curl — in der App: rotation(...)
+- [x] Fluss — in der App: fluss(F, Fläche, …)
 - [x] parametrische Flächen — in der App: parameterfläche(…)
-- [ ] Flächennormalen
+- [x] Flächennormalen — in der App: flächennormale(...)
 - [x] Tangentialebenen — in der App: tangentialebene(f, a, b)
-- [ ] Kurvenintegrale
-- [ ] Flächenintegrale
+- [x] Kurvenintegrale — in der App: kurvenintegral(...)
+- [x] Flächenintegrale — in der App: flächenintegral(...)
 - [ ] 3D-Ortslinien
 - [x] dynamische 3D-Simulationen — in der App: Schieberegler in der 3D-Ansicht
 
@@ -859,12 +859,12 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [~] Einheiten-Engine — teilweise: Giac
 - [x] Plotting-Engine
 - [x] Dokument-Engine — in der App: PDF-Dokumente mit Notizen
-- [ ] Skript-Engine
-- [ ] Plugin-/Erweiterungssystem
-- [ ] API
+- [x] Skript-Engine — in der App: Programme und Objekt-Skripte
+- [~] Plugin-/Erweiterungssystem — teilweise: eigene Befehle als Programme, JavaScript-API
+- [x] API — in der App: window.Mathe.api und postMessage
 - [~] persistenter Objektgraph — in der App: Objekte aus den gespeicherten Zeilen mit Stil und Reglern
-- [~] Undo/Redo-System — teilweise: in Dokumenten und Präsentationen, nicht im Rechner
-- [ ] Versions-/Dateisystem
+- [x] Undo/Redo-System — in der App: 100 Schritte im Rechner
+- [~] Versions-/Dateisystem — teilweise: Versionen je Projekt, Projektdateien, kein Ordnersystem
 
 ## 46. Kernanforderung für eine vollständige CAS-App
 
@@ -876,8 +876,8 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Änderungen werden automatisch propagiert
 - [x] 2D und 3D verwenden dieselbe mathematische Objektlogik — in der App: eine Zeile = ein Objekt, in 2D oder 3D
 - [x] CAS, Geometrie, Statistik und Tabellen greifen auf gemeinsame Objekte zu — in der App: Zellen sind CAS-Variablen, Regler steuern Diagramme
-- [ ] Jede Funktion ist über GUI und Kommando-/Eingabesystem erreichbar
-- [~] Ergebnisse sind nachvollziehbar — teilweise: Ergebnis ja, Weg nein
+- [~] Jede Funktion ist über GUI und Kommando-/Eingabesystem erreichbar — teilweise: jeder Befehl in der Befehlsliste, manche nur als Befehl
+- [~] Ergebnisse sind nachvollziehbar — teilweise: Schritte für Ableitungen, Gleichungen, Gauß, Numerik; Probe
 - [x] Fehler werden mathematisch korrekt behandelt — in der App: Absturz-Fehler behoben
 - [~] Definitionsbedingungen werden automatisch berücksichtigt — teilweise: Giac beim Lösen, keine Anzeige
 - [x] Exakte und approximierte Ergebnisse werden klar unterschieden
@@ -904,14 +904,14 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Tabellenkalkulation
 - [x] Schieberegler
 - [x] Animation
-- [ ] Skripting
+- [x] Skripting — in der App: Programme, Skripte, Knöpfe
 - [x] Interaktive Elemente — in der App: Regler, Checkboxen, ziehbare Punkte
-- [~] Datei-/Projektverwaltung — teilweise
-- [~] Import/Export — teilweise
-- [ ] Schritt-für-Schritt-Lösungen
-- [ ] Prüfungssystem
+- [x] Datei-/Projektverwaltung — in der App: Projekte, Versionen, Projektdateien
+- [x] Import/Export — in der App: Projekt, CSV, Text, Bild
+- [~] Schritt-für-Schritt-Lösungen — teilweise: Ableitungen, lineare und quadratische Gleichungen, Gauß, Newton, Bisektion
+- [x] Prüfungssystem — in der App: Prüfungsmodus
 - [x] KI-Unterstützung — in der App: Tutor, Rechnen in Notizen
-- [ ] API
+- [x] API — in der App: window.Mathe.api und postMessage
 - [x] mobile Bedienung
 - [x] Offline-Fähigkeit — in der App: Rechner komplett offline
 - [ ] Cloud-Synchronisation

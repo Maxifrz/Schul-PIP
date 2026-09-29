@@ -136,7 +136,9 @@ export function analyse(cas, f, which) {
     add('Monotonie', `\\text{streng monoton steigend auf } ${up}\\\\\\text{streng monoton fallend auf } ${down}`);
   }
 
-  if (wants('krümmung')) {
+  if (wants('krümmung') && tryG(`simplify(${d2})`) === '0') {
+    add('Krümmung', '\\text{keine: der Graph ist (stückweise) eine Gerade}');
+  } else if (wants('krümmung')) {
     const left = intervalsOf(cas, tryG(`solve(${d2}>0,x)`), latex);
     const right = intervalsOf(cas, tryG(`solve(${d2}<0,x)`), latex);
     add('Krümmung', `\\text{linksgekrümmt auf } ${left}\\\\\\text{rechtsgekrümmt auf } ${right}`);
@@ -235,6 +237,10 @@ function domainLatex(domain, cas, latex) {
 
 function intervalsOf(cas, solved, latex) {
   if (!solved) return '\\text{–}';
+  // Giac: [x] for „every x“, [] for „none“
+  const plain = String(solved).replace(/^list/, '').replace(/\s/g, '');
+  if (plain === '[x]') return '\\mathbb{D}';
+  if (plain === '[]') return '\\text{nirgends}';
   const parts = cas.intervalParts(solved);
   if (!parts) return latex(solved);
   if (!parts.length) return '\\text{nirgends}';

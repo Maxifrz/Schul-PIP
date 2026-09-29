@@ -60,6 +60,7 @@ export const COMMANDS = [
   { name: 'verschieben', aliases: ['verschiebung', 'verschiebe'], cat: 'Abbildungen', syntax: 'verschieben(Objekt, v)', text: 'Verschiebt ein Objekt um den Vektor v.', example: 'verschieben((1|1), (3|-2))', graphic: 'transform' },
   { name: 'drehen', aliases: ['drehung', 'drehe', 'rotieren'], cat: 'Abbildungen', syntax: 'drehen(Objekt, Winkel, Z)', text: 'Dreht ein Objekt um Z (sonst um den Ursprung), Winkel in Grad gegen den Uhrzeigersinn.', example: 'drehen((2|0), 90, (0|0))', graphic: 'transform' },
   { name: 'strecken', aliases: ['streckung', 'zentrischestreckung'], cat: 'Abbildungen', syntax: 'strecken(Objekt, k, Z)', text: 'Zentrische Streckung mit dem Faktor k um Z (sonst um den Ursprung).', example: 'strecken((1|2), 3, (0|0))', graphic: 'transform' },
+  { name: 'abbilden', aliases: ['affin', 'matrixabbildung', 'lineareabbildung'], cat: 'Abbildungen', syntax: 'abbilden(Objekt, M) oder abbilden(Objekt, M, v)', text: 'Affine Abbildung x ↦ M·x + v mit einer 2×2-Matrix: Scherung, Spiegelung, Drehstreckung … Für Punkte, Strecken, Geraden und Vielecke.', example: 'abbilden(polygon((0|0), (2|0), (2|1)), [[1, 1], [0, 1]])', graphic: 'transform' },
   // Raum
   { name: 'ebene', cat: 'Raum', syntax: 'ebene(A, B, C), ebene(P, n) oder ebene(2x + y − z = 4)', text: 'Ebene durch drei Punkte, durch einen Punkt mit Normalenvektor n oder aus einer Gleichung. Wert: die Koordinatenform. Auch direkt: E: 2x + y − z = 4.', example: 'ebene((1|0|0), (0|2|0), (0|0|3))', graphic: 'space' },
   { name: 'koordinatenform', cat: 'Raum', syntax: 'koordinatenform(E)', text: 'Ebene als a·x + b·y + c·z = d.', example: 'koordinatenform(ebene((0|0|0), vektor((1|2|2))))', graphic: 'space' },
@@ -218,6 +219,9 @@ export const COMMANDS = [
 
   { name: 'zellen', aliases: ['bereich'], cat: 'Tabelle', syntax: 'zellen(A1, A10) oder zellen(A1, C5)', text: 'Die Werte eines Tabellenbereichs: eine Spalte oder Zeile als Liste, mehrere als Matrix. Einzelne Zellen heißen im CAS einfach A1, B2 …', example: 'zellen(A1, A3)', noExample: true },
 
+  { name: 'abrunden', aliases: ['floor', 'gauß'], cat: 'Rechnen', syntax: 'abrunden(x)', text: 'Die größte ganze Zahl ≤ x (Gaußklammer).', example: 'abrunden(-2.5)', giac: (a) => `floor(${a[0]})` },
+  { name: 'aufrunden', aliases: ['ceil', 'ceiling'], cat: 'Rechnen', syntax: 'aufrunden(x)', text: 'Die kleinste ganze Zahl ≥ x.', example: 'aufrunden(2.1)', giac: (a) => `ceil(${a[0]})` },
+  { name: 'signum', aliases: ['vorzeichenfunktion', 'sgn'], cat: 'Rechnen', syntax: 'signum(x)', text: 'Vorzeichen: 1, 0 oder −1.', example: 'signum(-3)', giac: (a) => `sign(${a[0]})` },
   { name: 'hilfe', aliases: ['help', 'erklärung'], cat: 'Rechnen', syntax: 'hilfe(Befehl)', text: 'Zeigt Schreibweise, Erklärung und Beispiel eines Befehls; hilfe() listet die Bereiche.', example: 'hilfe(ableiten)' },
 
   // Schritt für Schritt und weitere Untersuchungen
@@ -326,6 +330,7 @@ export const COMMANDS = [
 
   // Differentialgleichungen
   { name: 'dgl', aliases: ['löse_dgl', 'desolve'], cat: 'Differentialgleichungen', syntax: 'dgl(y\' = …, y) · dgl([y\'\' + y = 0, y(0) = 0, y\'(0) = 1], y)', text: 'Löst eine Differentialgleichung, auch mit Anfangswerten.', example: 'dgl(y\'=2*y, y)', giac: (a) => `desolve(${list(a)})` },
+  { name: 'fouriertransformation', aliases: ['fourier'], cat: 'Transformationen', syntax: 'fouriertransformation(f(x), x, s)', text: 'Fourier-Transformierte einer Funktion.', example: 'fouriertransformation(exp(-x^2), x, s)', giac: (a) => `fourier(${a.join(',')})` },
   { name: 'laplace', cat: 'Transformationen', syntax: 'laplace(f(t), t, s)', text: 'Laplace-Transformierte.', example: 'laplace(sin(t), t, s)', giac: (a) => `laplace(${list(a)})` },
   { name: 'invlaplace', aliases: ['ilaplace'], cat: 'Transformationen', syntax: 'invlaplace(F(s), s, t)', text: 'Inverse Laplace-Transformation.', example: 'invlaplace(1/(s^2+1), s, t)', giac: (a) => `ilaplace(${list(a)})` },
   { name: 'ztransformation', aliases: ['ztrans'], cat: 'Transformationen', syntax: 'ztransformation(a(n), n, z)', text: 'Z-Transformation.', example: 'ztransformation(1, n, z)', giac: (a) => `ztrans(${list(a)})` },

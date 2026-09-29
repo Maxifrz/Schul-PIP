@@ -12,7 +12,7 @@ const SHAPES = new Set([
   'gerade', 'strecke', 'strahl', 'vektor', 'kreis', 'polygon', 'vieleck', 'kurve', 'polarkurve', 'funktion',
   'mittelpunkt', 'schnittpunkt', 'parallele', 'senkrechte', 'mittelsenkrechte', 'winkelhalbierende', 'höhe',
   'kreisbogen', 'kreissektor', 'schwerpunkt', 'umkreismittelpunkt', 'inkreismittelpunkt', 'höhenschnittpunkt',
-  'eulergerade', 'umkreis', 'inkreis', 'punktauf', 'ortslinie', 'spiegeln', 'verschieben', 'drehen', 'strecken',
+  'eulergerade', 'umkreis', 'inkreis', 'punktauf', 'ortslinie', 'spiegeln', 'verschieben', 'drehen', 'strecken', 'abbilden',
   // in space
   'ebene', 'kugel', 'pyramide', 'prisma', 'quader', 'würfel', 'zylinder', 'kegel', 'schnittgerade', 'lage', 'lotfußpunkt',
   'koordinatenform', 'normalenform', 'parameterform', 'hessenormalform', 'parameterfläche', 'vektorfeld', 'tangentialebene',
@@ -267,6 +267,7 @@ export class Geometry {
       case 'verschieben':
       case 'drehen':
       case 'strecken':
+      case 'abbilden':
         return this.transform(name, args);
       case 'kurve':
         need(5);
@@ -408,6 +409,14 @@ export class Geometry {
         const Z = args[2] ? this.point(args[2]) : '[0,0]';
         map = (P) => add(Z, scale(k, sub(P, Z)));
         radius = (r) => `abs(${k})*(${r})`;
+        break;
+      }
+      case 'abbilden': {
+        // x ↦ M·x + v: any affine map of the plane
+        const M = this.giac(args[1]);
+        const v = args[2] ? this.point(args[2]) : '[0,0]';
+        if (s.kind === 'circle' || s.kind === 'arc' || s.kind === 'sector') throw new Error('Kreise werden dabei zu Ellipsen; abbilden geht für Punkte, Strecken, Geraden und Vielecke.');
+        map = (P) => `[(${M})[0][0]*${c(P, 0)}+(${M})[0][1]*${c(P, 1)}+${c(v, 0)},(${M})[1][0]*${c(P, 0)}+(${M})[1][1]*${c(P, 1)}+${c(v, 1)}]`;
         break;
       }
       default:
