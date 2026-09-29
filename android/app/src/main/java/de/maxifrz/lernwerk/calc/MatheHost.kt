@@ -3,6 +3,8 @@ package de.maxifrz.lernwerk.calc
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.MutableContextWrapper
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
@@ -29,13 +31,16 @@ import java.net.URLEncoder
 /**
  * The calculator app (`cas/web/mathe.html`, built from `cas/app`) in one web view that lives as long as the app, so
  * Giac loads once. The page talks to the app through `MatheBridge.post(json)`: a key–value store for projects in
- * files/Rechner, the share sheet for exports, and it is told the colour scheme.
+ * files/Rechner, the share sheet for exports, graphics into documents, and it is told the colour scheme.
  */
 class MatheHost private constructor(private val context: Context) {
     private val main = Handler(Looper.getMainLooper())
     private var theme = "light"
     private var ready = false
     private var view: WebView? = null
+
+    /** Set by the calculator screen: asks for a document and puts the picture in; `answer` tells the page how it went. */
+    var onInsertImage: ((picture: Bitmap, answer: (String?) -> Unit) -> Unit)? = null
 
     private val wrapper = MutableContextWrapper(context)
 
@@ -111,6 +116,13 @@ class MatheHost private constructor(private val context: Context) {
             "share" -> {
                 share(body)
                 reply(id, JsonPrimitive(true))
+            }
+            "insertImage" -> {
+                val bytes = runCatching { Base64.decode(body.string("png"), Base64.DEFAULT) }.getOrNull()
+                val picture = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                val insert = onInsertImage
+                if (picture == null || insert == null) reply(id, JsonNull)
+                else insert(picture) { message -> main.post { reply(id, message?.let(::JsonPrimitive) ?: JsonNull) } }
             }
             else -> reply(id, JsonNull)
         }

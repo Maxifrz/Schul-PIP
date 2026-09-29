@@ -41,9 +41,12 @@ function lines(latex) {
 }
 
 export class CasView {
-  constructor({ engine, onChange }) {
+  constructor({ engine, onChange, onResults, onSubmitted, onStyle }) {
     this.engine = engine;
     this.onChange = onChange;
+    this.onResults = onResults || (() => {});
+    this.onSubmitted = onSubmitted || (() => {});
+    this.onStyle = onStyle || (() => {});
     this.rows = [];
     this.active = null;
     this.shortcuts = shortcuts();
@@ -55,17 +58,23 @@ export class CasView {
   // Rows
 
   addRow(content = {}, after = null) {
-    const row = { id: nextId++, mode: content.mode || 'math', latex: content.latex || '', text: content.text || '', result: null };
+    const row = { id: nextId++, mode: content.mode || 'math', latex: content.latex || '', text: content.text || '', result: null, graph: content.graph ? JSON.parse(JSON.stringify(content.graph)) : {} };
     row.el = h('div.row');
-    row.numberEl = h('div.number');
+    row.numberEl = h('span');
+    // The dot shows the colour of the row's object in the graphics; a tap shows or hides it.
+    row.dotEl = h('button.object-dot', { 'aria-label': 'In der Grafik zeigen oder ausblenden', hidden: true });
+    row.gutterEl = h('div.number', {}, row.numberEl, row.dotEl);
     row.inputEl = h('div.input');
     row.outputEl = h('div.output');
+    row.extraEl = h('div.extra');
+    row.styleButton = h('button', { title: 'Darstellung', 'aria-label': 'Darstellung', hidden: true, onclick: () => this.onStyle(row) }, '◐');
     row.actionsEl = h('div.actions', {},
+      row.styleButton,
       h('button', { title: 'Ergebnis in neue Zeile', 'aria-label': 'Ergebnis übernehmen', onclick: () => this.reuse(row) }, '↳'),
       h('button', { title: 'Formel oder Text', 'aria-label': 'Eingabeart wechseln', onclick: () => this.switchMode(row) }, 'T'),
       h('button', { title: 'Zeile löschen', 'aria-label': 'Zeile löschen', onclick: () => this.removeRow(row) }, '×'),
     );
-    row.el.append(row.numberEl, row.inputEl, row.actionsEl, row.outputEl);
+    row.el.append(row.gutterEl, row.inputEl, row.actionsEl, row.outputEl, row.extraEl);
     const index = after ? this.rows.indexOf(after) + 1 : this.rows.length;
     this.rows.splice(index, 0, row);
     const before = this.rows[index + 1];
@@ -151,6 +160,7 @@ export class CasView {
     if (!this.rows.length) this.addRow();
     this.renumber();
     this.recalculate(index);
+    this.onResults();
     this.onChange();
   }
 
@@ -158,6 +168,10 @@ export class CasView {
     this.rows.forEach((row, i) => {
       row.numberEl.textContent = String(i + 1);
     });
+  }
+
+  rowById(id) {
+    return this.rows.find((row) => row.id === id) || null;
   }
 
   activate(row) {
@@ -185,7 +199,7 @@ export class CasView {
     return row.mode === 'text' ? !row.text.trim() : !row.latex.trim();
   }
 
-  submit(row) {
+  submit(row, { focusNext = true } = {}) {
     this.suggestions.replaceChildren();
     if (this.isEmpty(row)) return;
     const wasDefinition = row.result && row.result.kind === 'definition';
@@ -193,8 +207,37 @@ export class CasView {
     if (row.result?.kind === 'definition' || wasDefinition) this.recalculate(this.rows.indexOf(row) + 1);
     let next = this.rows[this.rows.indexOf(row) + 1];
     if (!next) next = this.addRow({ mode: row.mode });
-    this.focus(next);
+    this.onSubmitted(row);
+    this.onResults();
+    if (focusNext) this.focus(next);
     this.onChange();
+  }
+
+  /** A new row from elsewhere (the input line of the graphics), calculated at once. */
+  append(content) {
+    let row = this.rows[this.rows.length - 1];
+    if (!row || !this.isEmpty(row)) row = this.addRow(content);
+    else {
+      row.mode = content.mode || 'math';
+      row.latex = content.latex || '';
+      row.text = content.text || '';
+      this.buildInput(row);
+    }
+    this.submit(row, { focusNext: false });
+    return row;
+  }
+
+  /** Scrolls to a row and marks it, when its object was tapped in the graphics. */
+  reveal(row) {
+    this.activate(row);
+    row.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  /** Sets a row's input from outside (a slider, a dragged point) without typing. */
+  setInput(row, content) {
+    if (content.latex !== undefined) row.latex = content.latex;
+    if (content.text !== undefined) row.text = content.text;
+    if (row.field) row.field.value = row.mode === 'text' ? row.text : row.latex;
   }
 
   calculate(row) {
@@ -216,6 +259,7 @@ export class CasView {
   /** Calculates every row from `index` on again, in order, so definitions reach the rows after them. */
   recalculate(index = 0) {
     for (const row of this.rows.slice(index)) if (!this.isEmpty(row)) this.calculate(row);
+    this.onResults();
   }
 
   render(row) {
@@ -307,7 +351,11 @@ export class CasView {
   // Saving
 
   serialize() {
-    return this.rows.filter((row) => !this.isEmpty(row)).map((row) => (row.mode === 'text' ? { mode: 'text', text: row.text } : { mode: 'math', latex: row.latex }));
+    return this.rows.filter((row) => !this.isEmpty(row)).map((row) => {
+      const out = row.mode === 'text' ? { mode: 'text', text: row.text } : { mode: 'math', latex: row.latex };
+      if (row.graph && Object.keys(row.graph).length) out.graph = row.graph;
+      return out;
+    });
   }
 
   load(rows) {

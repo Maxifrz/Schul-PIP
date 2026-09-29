@@ -1,5 +1,5 @@
-// The calculator app: header with the views, the CAS view, the command search and the formula keyboard; projects
-// are saved through the app around the web view.
+// The calculator app: header with the views, the CAS view and the graphics, the command search and the formula
+// keyboard; projects are saved through the app around the web view.
 
 import { MathfieldElement } from 'mathlive';
 import { h, toast, sheet, prompt, confirmSheet, toggle } from './ui.js';
@@ -7,16 +7,27 @@ import { Engine } from './engine.js';
 import { CasView } from './cas-view.js';
 import { commandPanel } from './palette.js';
 import { LAYOUTS } from './keyboard.js';
-import { store, share, reply, notifyReady } from './native.js';
+import { store, share, reply, notifyReady, insertIntoDocument, hasApp } from './native.js';
+import { toLatex } from './expr.js';
+import { Scene, styleOf, isVisible } from './graph/scene.js';
+import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
+import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
+import { styleSheet, settingsSheet, objectsSheet, exportSheet } from './graph/sheets.js';
 
 MathfieldElement.fontsDirectory = '.';
 MathfieldElement.soundsDirectory = null;
 MathfieldElement.decimalSeparator = '.';
 
+const WIDE = 980;
+
 const state = {
   engine: null,
   cas: null,
-  project: { name: null, settings: { degrees: false } },
+  graph: null,
+  scene: new Scene(),
+  animator: null,
+  project: { name: null, settings: { degrees: false }, graph: null },
+  layout: null,
   panel: null,
   dirty: false,
 };
@@ -38,7 +49,7 @@ function changed() {
 }
 
 function snapshot() {
-  return JSON.stringify({ version: 1, name: state.project.name, settings: state.project.settings, cas: state.cas.serialize() });
+  return JSON.stringify({ version: 2, name: state.project.name, settings: state.project.settings, graph: state.graph.settings, cas: state.cas.serialize() });
 }
 
 function autosave() {
@@ -59,15 +70,164 @@ function load(json) {
   if (!data) return;
   state.project = { name: data.name || null, settings: { degrees: false, ...(data.settings || {}) } };
   applySettings();
+  if (state.animator) for (const name of [...state.animator.playing.keys()]) state.animator.playing.delete(name);
   if (state.engine) for (const def of state.engine.definitions) state.engine.forget(def.name);
+  state.scene.key = null;
+  state.graph.selected = null;
+  state.graph.setSettings(data.graph || DEFAULT_SETTINGS);
   state.cas.load(data.cas || []);
   updateTitle();
 }
 
-// Header
+// Objects: after every calculation the scene follows the rows
+
+let sceneTimer = null;
+
+function refreshScene() {
+  clearTimeout(sceneTimer);
+  sceneTimer = setTimeout(() => {
+    sceneTimer = null;
+    state.scene.update(state.cas.rows, state.engine);
+    decorateRows();
+    renderStrip();
+    state.graph.special = state.graph.selected ? state.graph.computeSpecial() : [];
+    state.graph.redraw();
+  }, 0);
+}
+
+/** Dots, sliders and checkboxes in the CAS rows. */
+function decorateRows() {
+  const scene = state.scene;
+  const objects = new Map(scene.objects.map((o) => [o.row.id, o]));
+  const params = new Map([...scene.params].map(([name, p]) => [p.row.id, { name, ...p }]));
+  for (const row of state.cas.rows) {
+    const object = objects.get(row.id);
+    const param = params.get(row.id);
+    if (object) {
+      const style = styleOf(object);
+      const visible = isVisible(object);
+      row.dotEl.hidden = false;
+      row.dotEl.style.background = visible ? style.color : 'transparent';
+      row.dotEl.style.borderColor = style.color;
+      row.dotEl.onclick = () => toggleVisible(object);
+      row.styleButton.hidden = false;
+    } else {
+      row.dotEl.hidden = true;
+      row.styleButton.hidden = true;
+    }
+    const wanted = param ? param.kind + ':' + param.name : '';
+    if (row.extraEl.dataset.control !== wanted) {
+      row.extraEl.dataset.control = wanted;
+      if (!param) row.extraEl.replaceChildren();
+      else if (param.kind === 'slider') row.extraEl.replaceChildren(sliderControl(param.name, state.animator, { onSettings: openSliderSheet }));
+      else row.extraEl.replaceChildren(checkboxControl(param.name, state.animator));
+    }
+    if (param && param.kind === 'slider') {
+      row.graph = row.graph || {};
+      if (!row.graph.slider || row.graph.slider.initial === undefined) row.graph.slider = { ...(row.graph.slider || {}), initial: param.value };
+    }
+    if (param && param.kind === 'checkbox') {
+      row.graph = row.graph || {};
+      if (!row.graph.checkbox) row.graph.checkbox = { initial: param.value };
+    }
+  }
+  state.animator.prune();
+  state.animator.refreshControls();
+}
+
+function toggleVisible(object) {
+  object.row.graph = object.row.graph || {};
+  object.row.graph.visible = !isVisible(object);
+  if (!object.row.graph.visible && state.graph.selected === object.id) state.graph.select(null);
+  decorateRows();
+  state.graph.redraw();
+  changed();
+}
+
+function openStyle(row) {
+  const object = state.scene.objects.find((o) => o.row.id === row.id);
+  if (!object) return;
+  styleSheet(object, () => {
+    decorateRows();
+    state.graph.redraw();
+    changed();
+  });
+}
+
+function openSliderSheet(name) {
+  const param = state.scene.params.get(name);
+  if (!param) return;
+  sliderSheet(param.row, name, param.value, () => {
+    state.animator.refreshControls();
+    changed();
+  });
+}
+
+// Sliders, checkboxes and dragged points write their value back into their row.
+
+function nameLatex(name) {
+  return toLatex({ t: 'sym', v: name });
+}
+
+function numberText(value) {
+  const rounded = Number(Number(value).toFixed(8));
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}
+
+function writeParam(row, name, value) {
+  if (typeof value === 'boolean') {
+    const word = value ? 'wahr' : 'falsch';
+    state.cas.setInput(row, row.mode === 'text' ? { text: `${name}=${word}` } : { latex: `${nameLatex(name)}=\\mathrm{${word}}` });
+  } else {
+    state.cas.setInput(row, row.mode === 'text' ? { text: `${name}=${numberText(value)}` } : { latex: `${nameLatex(name)}=${numberText(value)}` });
+  }
+}
+
+function writePoint(row, name, x, y) {
+  const callForm = row.result && row.result.tree && row.result.tree.t === 'call';
+  if (row.mode === 'text') state.cas.setInput(row, { text: `${name}${callForm ? '' : '='}(${numberText(x)}|${numberText(y)})` });
+  else state.cas.setInput(row, { latex: `${nameLatex(name)}${callForm ? '' : '='}\\left(${numberText(x)}\\middle|${numberText(y)}\\right)` });
+}
+
+// While something moves, the rows follow a few times a second; how often depends on how long they take.
+const live = { timer: null, index: Infinity, cost: 0, last: 0 };
+
+function liveRecalculate(row) {
+  const index = state.cas.rows.indexOf(row);
+  if (index < 0) return;
+  live.index = Math.min(live.index, index);
+  if (live.timer) return;
+  const wait = Math.max(0, Math.max(150, live.cost * 4) - (performance.now() - live.last));
+  live.timer = setTimeout(runLive, wait);
+}
+
+function runLive() {
+  live.timer = null;
+  const index = live.index;
+  live.index = Infinity;
+  if (!state.engine || index === Infinity) return;
+  const start = performance.now();
+  for (const [name, param] of state.scene.params) if (param.dragging) writeParam(param.row, name, param.value);
+  for (const [name, point] of state.scene.points) if (point.dragging) writePoint(point.row, name, point.x, point.y);
+  state.cas.recalculate(index);
+  live.last = performance.now();
+  live.cost = live.last - start;
+}
+
+function settle(row) {
+  clearTimeout(live.timer);
+  live.timer = null;
+  live.index = Infinity;
+  const index = state.cas.rows.indexOf(row);
+  if (index >= 0) state.cas.recalculate(index);
+  changed();
+}
+
+// Header and layout
 
 const titleEl = h('span.caption');
 const statusEl = h('span.status', {}, h('span.dot'), h('span', {}, 'Rechenkern lädt'));
+const layoutEl = h('div.segments', { role: 'tablist' });
 
 function updateTitle() {
   titleEl.textContent = state.project.name || 'Neues Projekt';
@@ -78,6 +238,23 @@ function setStatus(kind, text) {
   statusEl.lastChild.textContent = text;
 }
 
+function layouts() {
+  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik']] : [['cas', 'CAS'], ['graph', 'Grafik']];
+}
+
+function setLayout(layout) {
+  const allowed = layouts().map(([key]) => key);
+  state.layout = allowed.includes(layout) ? layout : allowed[0];
+  mainEl.dataset.layout = state.layout;
+  layoutEl.replaceChildren(...layouts().map(([key, label]) => h('button', { role: 'tab', 'aria-selected': String(key === state.layout), onclick: () => setLayout(key) }, label)));
+  try {
+    localStorage.setItem('mathe.layout', state.layout);
+  } catch (e) {
+    // no storage: the layout is not remembered
+  }
+  requestAnimationFrame(() => state.graph && state.graph.resize());
+}
+
 function togglePanel() {
   if (state.panel) {
     state.panel.remove();
@@ -86,10 +263,12 @@ function togglePanel() {
   }
   state.panel = commandPanel({
     onInsert: (name) => {
+      if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
       state.cas.insertCommand(name);
       if (window.innerWidth <= 760) togglePanel();
     },
     onTry: (example) => {
+      if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
       state.cas.tryExample(example);
       if (window.innerWidth <= 760) togglePanel();
     },
@@ -162,9 +341,90 @@ function menu() {
       h('button', { onclick: () => { close(); openProject(); } }, 'Öffnen …'),
       h('button', { onclick: () => { close(); saveAs(); } }, 'Speichern unter …'),
       h('button', { onclick: () => { close(); exportText(); } }, 'Als Text teilen'),
+      h('button', { onclick: () => { close(); exportGraph(); } }, 'Grafik exportieren …'),
       h('button', { onclick: () => { close(); settings(); } }, 'Einstellungen'),
     ),
   ]);
+}
+
+// Graphics: tools, the strip of sliders and the input line
+
+function exportGraph() {
+  if (state.layout === 'cas') setLayout('graph');
+  requestAnimationFrame(() => exportSheet({
+    canInsert: hasApp(),
+    onShare: () => share('Grafik.png', 'image/png', state.graph.png(2), true),
+    onInsert: async () => {
+      const answer = await insertIntoDocument(state.graph.png(2));
+      if (answer) toast(answer);
+    },
+  }));
+}
+
+const playAllButton = h('button.tool', { 'aria-label': 'Alle Schieberegler abspielen', title: 'Abspielen', hidden: true, onclick: () => { state.animator.toggleAll(); updatePlayAll(); } }, '▶');
+const resetButton = h('button.tool', { 'aria-label': 'Zurücksetzen', title: 'Alles auf Anfang', hidden: true, onclick: () => state.animator.reset() }, '⟲');
+
+function updatePlayAll() {
+  const any = [...state.scene.params.values()].some((p) => p.kind === 'slider');
+  playAllButton.hidden = !any;
+  resetButton.hidden = !state.scene.params.size;
+  playAllButton.textContent = state.animator.anyPlaying ? '❚❚' : '▶';
+}
+
+function buildTools() {
+  const g = state.graph;
+  g.tools.replaceChildren(
+    h('button.tool', { 'aria-label': 'Vergrößern', title: 'Vergrößern', onclick: () => { g.zoom(0.7); g.viewChanged(); } }, '+'),
+    h('button.tool', { 'aria-label': 'Verkleinern', title: 'Verkleinern', onclick: () => { g.zoom(1 / 0.7); g.viewChanged(); } }, '−'),
+    h('button.tool', { 'aria-label': 'Standardansicht', title: 'Standardansicht', onclick: () => g.standardView() }, '⌂'),
+    playAllButton,
+    resetButton,
+    h('button.tool', { 'aria-label': 'Objekte', title: 'Objekte', onclick: () => objectsSheet(state.scene, {
+      onToggle: toggleVisible,
+      onSelect: (object) => g.select(object),
+      onStyle: (object) => openStyle(object.row),
+    }) }, '☰'),
+    h('button.tool', { 'aria-label': 'Koordinatensystem', title: 'Koordinatensystem', onclick: () => settingsSheet(g, changed) }, '⚙'),
+    h('button.tool', { 'aria-label': 'Exportieren', title: 'Exportieren', onclick: exportGraph }, '⤴'),
+  );
+}
+
+const stripEl = h('div.strip');
+
+/** Sliders and checkboxes under the graphics, for working without the CAS in view. */
+function renderStrip() {
+  const names = [...state.scene.params.entries()];
+  const key = names.map(([name, p]) => p.kind + name).join(',');
+  if (stripEl.dataset.key !== key) {
+    stripEl.dataset.key = key;
+    stripEl.replaceChildren(...names.map(([name, p]) => (p.kind === 'slider' ? sliderControl(name, state.animator, { onSettings: openSliderSheet, compact: true }) : checkboxControl(name, state.animator))));
+  }
+  updatePlayAll();
+}
+
+function buildInputLine() {
+  const field = document.createElement('math-field');
+  const line = h('div.graph-input', {}, h('span.caption', {}, 'Eingabe'), field);
+  field.mathVirtualKeyboardPolicy = 'manual';
+  field.smartFence = true;
+  field.addEventListener('focusin', () => window.mathVirtualKeyboard.show());
+  field.addEventListener('change', () => {
+    const latex = field.value.trim();
+    if (!latex) return;
+    const row = state.cas.append({ latex });
+    field.value = '';
+    if (row.result && !row.result.ok) toast(row.result.error);
+    changed();
+  });
+  setTimeout(() => {
+    try {
+      field.menuItems = [];
+    } catch (e) {
+      // menu hidden by CSS anyway
+    }
+    field.placeholder = 'f(x) = … · A(1|2) · a = 1';
+  }, 0);
+  return line;
 }
 
 const header = h('header.bar', {},
@@ -172,6 +432,7 @@ const header = h('header.bar', {},
   titleEl,
   h('span.spacer'),
   statusEl,
+  layoutEl,
   h('button.pill', { onclick: togglePanel }, 'Befehle'),
   h('button.icon-button', { onclick: menu, 'aria-label': 'Projekt' }, '⋯'),
 );
@@ -179,9 +440,62 @@ const mainEl = h('div.main');
 
 function start() {
   const app = document.getElementById('app');
-  state.cas = new CasView({ engine: engineProxy, onChange: changed });
-  mainEl.append(state.cas.el);
+  state.cas = new CasView({
+    engine: engineProxy,
+    onChange: changed,
+    onResults: refreshScene,
+    onStyle: openStyle,
+    onSubmitted: (row) => {
+      // Typing a new value makes it the one a reset returns to.
+      if (row.graph && row.graph.slider) delete row.graph.slider.initial;
+      if (row.graph && row.graph.checkbox) delete row.graph.checkbox;
+    },
+  });
+  state.graph = new GraphView({
+    scene: state.scene,
+    onViewChange: changed,
+    onSelect: (row) => {
+      if (row && state.layout !== 'graph') state.cas.reveal(row);
+    },
+    onPointMove: (name, x, y, done) => {
+      const point = state.scene.points.get(name);
+      if (!point) return;
+      if (done) {
+        writePoint(point.row, name, x, y);
+        settle(point.row);
+      } else {
+        point.dragging = true;
+        liveRecalculate(point.row);
+      }
+    },
+  });
+  state.animator = new Animator({
+    scene: state.scene,
+    onFrame: () => {
+      state.graph.redraw();
+      updatePlayAll();
+    },
+    onLive: (row) => liveRecalculate(row),
+    onSettle: (row, name, value) => {
+      writeParam(row, name, value);
+      settle(row);
+      updatePlayAll();
+    },
+  });
+  buildTools();
+  state.graph.bottom.append(stripEl, buildInputLine());
+  state.cas.el.classList.add('cas-pane');
+  state.graph.el.classList.add('graph-pane');
+  mainEl.append(state.cas.el, state.graph.el);
   app.append(header, mainEl);
+  let remembered = null;
+  try {
+    remembered = localStorage.getItem('mathe.layout');
+  } catch (e) {
+    remembered = null;
+  }
+  setLayout(remembered || (window.innerWidth >= WIDE ? 'both' : 'cas'));
+  window.addEventListener('resize', () => setLayout(state.layout));
   updateTitle();
 
   window.mathVirtualKeyboard.layouts = LAYOUTS;
@@ -194,10 +508,13 @@ function start() {
 
   store.get('current').then((json) => {
     if (json) load(json);
-    else state.cas.load([]);
+    else {
+      state.graph.setSettings(DEFAULT_SETTINGS);
+      state.cas.load([]);
+    }
     if (window.__giacReady) giacReady();
     const last = state.cas.rows[state.cas.rows.length - 1];
-    if (last) state.cas.focus(last);
+    if (last && state.layout !== 'graph') state.cas.focus(last);
   });
   notifyReady();
 }
@@ -215,6 +532,7 @@ window.Mathe = {
   reply,
   setTheme(theme) {
     document.documentElement.dataset.theme = theme;
+    if (state.graph) state.graph.redraw();
   },
   // For tests and the app: the current state
   get state() {

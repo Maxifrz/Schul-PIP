@@ -79,3 +79,11 @@ test('curve sketching', () => {
   const named = run('definitionsmenge(g)');
   assert.equal(named.rows[0].latex, '\\mathbb{D}=\\mathbb{R}\\setminus\\left\\{-1;\\ 1\\right\\}');
 });
+
+test('Giac commands with long names are calls, not products', async () => {
+  const engine = new Engine(await loadGiac());
+  const r = engine.evaluate({ text: 'eigenvals([[2,0],[0,3]])' });
+  assert.ok(r.ok, r.error);
+  assert.match(r.latex, /3/);
+  assert.equal(engine.evaluate({ text: '20%*150' }).latex, '30');
+});

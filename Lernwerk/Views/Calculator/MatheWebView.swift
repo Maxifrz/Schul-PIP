@@ -3,8 +3,8 @@ import UIKit
 import WebKit
 
 /// The calculator app (`cas/web/mathe.html`, built from `cas/app`) in a web view, with the bridge it needs: a
-/// key–value store for projects in Documents/Rechner, the share sheet for exports, and the colour scheme. The web
-/// view lives as long as the app, so Giac loads once.
+/// key–value store for projects in Documents/Rechner, the share sheet for exports, graphics into documents, and the
+/// colour scheme. The web view lives as long as the app, so Giac loads once.
 struct MatheWebView: UIViewRepresentable {
     @Environment(\.colorScheme) private var colorScheme
 
@@ -20,8 +20,18 @@ struct MatheWebView: UIViewRepresentable {
 }
 
 @MainActor
-final class MatheHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+final class MatheHost: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
     static let shared = MatheHost()
+
+    /// A graphic from the page waiting for the student to pick a document.
+    struct PendingImage: Identifiable {
+        let id: Int
+        let image: UIImage
+    }
+
+    @Published var pendingImage: PendingImage?
+    /// The request the page is waiting on; answered once, with a message or nothing.
+    private var waitingImage: Int?
 
     private(set) lazy var webView: WKWebView = makeWebView()
     private var theme = "light"
@@ -94,6 +104,13 @@ final class MatheHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         case "share":
             share(body)
             reply(id, true)
+        case "insertImage":
+            guard let id, let text = body["png"] as? String, let data = Data(base64Encoded: text), let image = UIImage(data: data) else {
+                reply(id, NSNull())
+                return
+            }
+            waitingImage = id
+            pendingImage = PendingImage(id: id, image: image)
         default:
             reply(id, NSNull())
         }
@@ -129,6 +146,26 @@ final class MatheHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var controller = webView.window?.rootViewController
         while let presented = controller?.presentedViewController { controller = presented }
         return controller
+    }
+
+    // Graphics into documents
+
+    /// Puts the graphic in as a new page after the one last read and tells the page how it went.
+    func insert(_ pending: PendingImage, into material: StudyMaterial) {
+        let after = material.lastOpenedPage
+        let message = MaterialStore.insertImagePage(pending.image, in: material, after: after)
+            ? "Als Seite \(after + 2) in „\(material.title)“ eingefügt."
+            : "„\(material.title)“ ließ sich nicht ändern."
+        waitingImage = nil
+        reply(pending.id, message)
+        pendingImage = nil
+    }
+
+    /// The chooser closed without a document.
+    func cancelPendingImage() {
+        if let id = waitingImage { reply(id, NSNull()) }
+        waitingImage = nil
+        pendingImage = nil
     }
 
     // A crashed web content process loads the page again.

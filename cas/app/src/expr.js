@@ -5,6 +5,7 @@
 // Nodes: { t: 'num', v: '3.5' } · { t: 'sym', v: 'x' } · { t: 'call', f: 'sin', args: [...] }
 //        { t: 'op', op: '+'|'-'|'*'|'/'|'^', a, b } · { t: 'neg', a } · { t: 'rel', op: '='|'<'|'>'|'<='|'>='|'!=', a, b }
 //        { t: 'list', items: [...] } · { t: 'fact', a } · { t: 'str', v } · { t: 'unit', a, unit: 'm*s^-1' }
+//        A point (1|2) is { t: 'list', items: [1, 2], point: true }; and/or are calls of 'and' and 'or'.
 
 export const MATH_FUNCTIONS = new Set([
   'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'asin', 'acos', 'atan', 'acot', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh',
@@ -61,12 +62,36 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
   };
 
   function sequence() {
-    const items = [relation()];
+    const items = [logical()];
     while (is(',')) {
       pos++;
-      items.push(relation());
+      items.push(logical());
     }
     return items.length === 1 ? items[0] : { t: 'list', items, seq: true };
+  }
+
+  const isWord = (w) => peek() && peek().k === 'id' && peek().v === w;
+
+  /** a and b, a or b: as Giac writes conditions. */
+  function logical() {
+    let left = relation();
+    while (isWord('and') || isWord('or')) {
+      const f = peek().v;
+      pos++;
+      left = call(f, [left, relation()]);
+    }
+    return left;
+  }
+
+  /** The rest of a point after its first coordinate: (1|2), (1|2|3). */
+  function pointTail(first) {
+    if (!is('|')) return first;
+    const items = [first];
+    while (is('|')) {
+      pos++;
+      items.push(additive());
+    }
+    return { t: 'list', items, point: true };
   }
 
   function relation() {
@@ -96,7 +121,8 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
   function startsFactor() {
     const token = peek();
     if (!token) return false;
-    if (token.k === 'num' || token.k === 'id') return true;
+    if (token.k === 'id') return token.v !== 'and' && token.v !== 'or';
+    if (token.k === 'num') return true;
     return token.k === 'op' && (token.v === '(' || token.v === '[');
   }
 
@@ -153,10 +179,10 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
     take('(');
     const list = [];
     if (!is(')')) {
-      list.push(relation());
+      list.push(pointTail(logical()));
       while (is(',')) {
         pos++;
-        list.push(relation());
+        list.push(logical());
       }
     }
     take(')');
@@ -220,9 +246,9 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
     }
     if (token.v === '(') {
       pos++;
-      const inner = sequence();
+      const inner = pointTail(sequence());
       take(')');
-      return inner.t === 'list' && inner.seq ? { ...inner, seq: false, paren: true } : { ...inner, paren: true };
+      return inner.t === 'list' && inner.seq ? { ...inner, seq: false, tuple: true, paren: true } : { ...inner, paren: true };
     }
     if (token.v === '[') return bracketList();
     if (token.v === '|') {
@@ -361,12 +387,24 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
   }
 
   function sequence(stop) {
-    const items = [relation(stop)];
+    const items = [logical(stop)];
     while (isOp(',') || isOp(';')) {
       pos++;
-      items.push(relation(stop));
+      items.push(logical(stop));
     }
     return items.length === 1 ? items[0] : { t: 'list', items, seq: true };
+  }
+
+  const LOGICAL = { '\\land': 'and', '\\wedge': 'and', '\\lor': 'or', '\\vee': 'or' };
+
+  function logical(stop) {
+    let left = relation(stop);
+    while (peek() && peek().k === 'cmd' && LOGICAL[peek().v] && !(stop && stop())) {
+      const f = LOGICAL[peek().v];
+      pos++;
+      left = call(f, [left, relation(stop)]);
+    }
+    return left;
   }
 
   const RELATIONS = { '=': '=', '<': '<', '>': '>', '\\le': '<=', '\\leq': '<=', '\\ge': '>=', '\\geq': '>=', '\\ne': '!=', '\\neq': '!=', '\\lt': '<', '\\gt': '>', '\\leqslant': '<=', '\\geqslant': '>=' };
@@ -420,15 +458,39 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     const token = peek();
     if (!token) return false;
     if (token.k === 'num' || token.k === 'letter') return true;
-    if (token.k === 'op') return ['(', '[', '|'].includes(token.v) && !(token.v === '|' && closingBar);
+    if (token.k === 'op') return ['(', '[', '|'].includes(token.v) && !(token.v === '|' && (closingBar || pointDepth));
     if (token.k === 'cmd') {
+      if (token.v === '\\land' || token.v === '\\lor' || token.v === '\\wedge' || token.v === '\\vee' || token.v === '\\middle') return false;
       return !['\\right', '\\cdot', '\\times', '\\div', '\\le', '\\leq', '\\ge', '\\geq', '\\ne', '\\neq', '\\lt', '\\gt', '\\to', '\\rightarrow', '\\end', '\\pm', '\\mid', '\\vert', '\\rvert', '\\rbrace', '\\rbrack', '\\coloneq'].includes(token.v)
-        && !(token.v === '\\vert' && closingBar);
+        && !(token.v === '\\vert' && (closingBar || pointDepth));
     }
     return false;
   }
 
   let closingBar = 0;
+  let pointDepth = 0;
+
+  // A bar between coordinates: (1|2), \left(1\middle|2\right), (1\mid 2)
+  const pointBar = () => isCmd('\\mid') || (isCmd('\\middle') && peek(1) && (peek(1).v === '|' || peek(1).v === '\\vert'))
+    || (!closingBar && (isOp('|') || isCmd('\\vert')));
+
+  /** What stands in round parentheses: a sequence, or a point with | between its coordinates. */
+  function parenContent(stop) {
+    pointDepth++;
+    try {
+      const until = () => stop() || pointBar();
+      const first = sequence(until);
+      if (!pointBar()) return first;
+      const items = [first];
+      while (pointBar()) {
+        pos += isCmd('\\middle') ? 2 : 1;
+        items.push(additive(until));
+      }
+      return { t: 'list', items, point: true };
+    } finally {
+      pointDepth--;
+    }
+  }
 
   function multiplicative(stop) {
     let left = unary(stop);
@@ -511,9 +573,10 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     return postfixOps(primary());
   }
 
-  function delimited(close) {
-    const inner = isCmd('\\right') ? null : sequence(() => isCmd('\\right') || isCmd('\\mright') || (close && isOp(close)));
-    return inner;
+  function delimited(close, round = false) {
+    if (isCmd('\\right')) return null;
+    const stop = () => isCmd('\\right') || isCmd('\\mright') || (close && isOp(close));
+    return round ? parenContent(stop) : sequence(stop);
   }
 
   function leftRight() {
@@ -521,7 +584,7 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     pos++;
     const open = peek();
     pos++;
-    const inner = delimited();
+    const inner = delimited(null, open.v === '(');
     if (!(isCmd('\\right') || isCmd('\\mright'))) throw new ParseError('Klammer nicht geschlossen.');
     pos++;
     const close = peek();
@@ -542,13 +605,13 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     if (node.t !== 'sym' || !isFunction(node.v)) return node;
     if (isOp('(')) {
       pos++;
-      const inner = isOp(')') ? null : sequence(() => isOp(')'));
+      const inner = isOp(')') ? null : parenContent(() => isOp(')'));
       takeOp(')');
       return call(node.v, listItems(inner));
     }
     if (isCmd('\\left') && peek(1) && peek(1).v === '(') {
       pos += 2;
-      const inner = delimited();
+      const inner = delimited(null, true);
       pos += 2;
       return call(node.v, listItems(inner));
     }
@@ -744,7 +807,7 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     if (token.k === 'op') {
       if (token.v === '(') {
         pos++;
-        const inner = sequence(() => isOp(')'));
+        const inner = parenContent(() => isOp(')'));
         takeOp(')');
         return inner.t === 'list' && inner.seq ? { ...inner, seq: false, tuple: true } : inner;
       }
@@ -929,6 +992,7 @@ export function toGiac(node, rename = (name) => name) {
     case 'str':
       return JSON.stringify(node.v);
     case 'call': {
+      if ((node.f === 'and' || node.f === 'or') && node.args.length === 2) return '(' + g(node.args[0]) + ') ' + node.f + ' (' + g(node.args[1]) + ')';
       if (node.prime) {
         let body = node.f + '(x)';
         for (let n = 0; n < node.prime; n++) body = 'diff(' + body + ',x)';
@@ -951,6 +1015,7 @@ export function toGiac(node, rename = (name) => name) {
     case 'rel':
       return g(node.a) + (node.op === '!=' ? '!=' : node.op) + g(node.b);
     case 'list':
+      if (node.point) return '[' + node.items.map(g).join(',') + ']';
       if (node.seq) return node.items.map(g).join(',');
       if (node.kind === 'set') return 'set[' + node.items.map(g).join(',') + ']';
       if (node.tuple) return '(' + node.items.map(g).join(',') + ')';
@@ -1051,17 +1116,21 @@ export function toLatex(node, options = {}) {
         case 'integrate':
           if (args.length === 4) return '\\int_{' + L(args[2]) + '}^{' + L(args[3]) + '}' + L(args[0]) + '\\,\\mathrm{d}' + L(args[1]);
           return '\\int ' + L(args[0]) + '\\,\\mathrm{d}' + L(args[1] || { t: 'sym', v: 'x' });
+        case 'and':
+        case 'or':
+          if (args.length === 2) return L(args[0]) + (node.f === 'and' ? '\\land ' : '\\lor ') + L(args[1]);
+          break;
         case 'piecewise': {
           const rows = [];
           for (let i = 0; i + 1 < args.length; i += 2) rows.push(L(args[i + 1]) + ' & \\text{für } ' + L(args[i]));
           if (args.length % 2) rows.push(L(args[args.length - 1]) + ' & \\text{sonst}');
           return '\\begin{cases}' + rows.join('\\\\') + '\\end{cases}';
         }
-        default: {
-          const name = LATEX_NAMES[node.f] || (node.f.length === 1 ? node.f : '\\operatorname{' + node.f.replace(/_/g, '\\_') + '}');
-          return name + paren(args.map(L).join(';\\ '));
-        }
+        default:
+          break;
       }
+      const name = LATEX_NAMES[node.f] || (node.f.length === 1 ? node.f : '\\operatorname{' + node.f.replace(/_/g, '\\_') + '}');
+      return name + paren(args.map(L).join(';\\ '));
     }
     case 'neg':
       return '-' + wrap(node.a, PRECEDENCE.neg + 1);
@@ -1072,6 +1141,7 @@ export function toLatex(node, options = {}) {
       return L(node.a) + names[node.op] + L(node.b);
     }
     case 'list': {
+      if (node.point) return '\\left(' + node.items.map(L).join('\\middle|') + '\\right)';
       if (node.items.length && node.items.every((item) => item.t === 'list' && !item.kind) && node.items.every((item) => item.items.length === node.items[0].items.length)) {
         return '\\begin{pmatrix}' + node.items.map((row) => row.items.map(L).join(' & ')).join('\\\\') + '\\end{pmatrix}';
       }
@@ -1258,6 +1328,18 @@ export function compile(node, variables = ['x'], scope = {}) {
         }
       }
       case 'call': {
+        if (n.f === 'piecewise' || n.f === 'when' || n.f === 'ifte') {
+          // piecewise(c1, v1, c2, v2, …, otherwise): only the branch that applies is evaluated
+          const parts = n.args.map((arg, i) => (i % 2 === 0 && i + 1 < n.args.length ? condition(arg) : build(arg)));
+          return (args) => {
+            for (let i = 0; i + 1 < parts.length; i += 2) if (parts[i](args)) return parts[i + 1](args);
+            return parts.length % 2 ? parts[parts.length - 1](args) : NaN;
+          };
+        }
+        if (n.f === 'and' || n.f === 'or') {
+          const test = condition(n);
+          return (args) => (test(args) ? 1 : 0);
+        }
         const argFns = n.args.map(build);
         const known = JS_FUNCTIONS[n.f];
         if (known) return (args) => known(...argFns.map((f) => f(args)));
@@ -1277,8 +1359,43 @@ export function compile(node, variables = ['x'], scope = {}) {
         return () => NaN;
     }
   }
+  // A condition as true/false: relations compare, and/or combine, anything else is true when not 0.
+  function condition(n) {
+    if (n.t === 'rel') {
+      const a = build(n.a);
+      const b = build(n.b);
+      const EPS = 1e-12;
+      switch (n.op) {
+        case '<': return (args) => a(args) < b(args);
+        case '>': return (args) => a(args) > b(args);
+        case '<=': return (args) => a(args) <= b(args) + EPS;
+        case '>=': return (args) => a(args) >= b(args) - EPS;
+        case '!=': return (args) => Math.abs(a(args) - b(args)) > EPS;
+        default: return (args) => Math.abs(a(args) - b(args)) <= EPS;
+      }
+    }
+    if (n.t === 'call' && (n.f === 'and' || n.f === 'or') && n.args.length === 2) {
+      const a = condition(n.args[0]);
+      const b = condition(n.args[1]);
+      return n.f === 'and' ? (args) => a(args) && b(args) : (args) => a(args) || b(args);
+    }
+    if (n.t === 'sym' && (n.v === 'true' || n.v === 'wahr')) return () => true;
+    if (n.t === 'sym' && (n.v === 'false' || n.v === 'falsch')) return () => false;
+    const value = build(n);
+    return (args) => {
+      const v = value(args);
+      return v !== 0 && !Number.isNaN(v);
+    };
+  }
   const fn = build(node);
   return (...args) => fn(args);
+}
+
+/** A condition (x > 0, a < 1 and b > 2, a checkbox's value) as a JavaScript test of the named variables. */
+export function compileCondition(node, variables = [], scope = {}) {
+  const wrapped = { t: 'call', f: 'piecewise', args: [node, num(1), num(0)] };
+  const fn = compile(wrapped, variables, scope);
+  return (...args) => fn(...args) === 1;
 }
 
 /** Every symbol a tree uses, except the given bound variables and the built-in constants. */

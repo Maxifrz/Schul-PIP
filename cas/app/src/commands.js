@@ -28,6 +28,17 @@ export const COMMANDS = [
   { name: 'rest', aliases: ['mod'], cat: 'Rechnen', syntax: 'rest(a, b)', text: 'Rest der ganzzahligen Division a : b.', example: 'rest(17, 5)', giac: (a) => `irem(${list(a)})` },
   { name: 'ganzzahldivision', aliases: ['div'], cat: 'Rechnen', syntax: 'ganzzahldivision(a, b)', text: 'Ganzzahliger Anteil von a : b.', example: 'ganzzahldivision(17, 5)', giac: (a) => `iquo(${list(a)})` },
 
+  // Grafik: objects the graphics view draws; their value is what the CAS shows (equation, length, area).
+  { name: 'gerade', cat: 'Grafik', syntax: 'gerade(A, B) oder gerade(A, m)', text: 'Gerade durch zwei Punkte oder durch einen Punkt mit Steigung m. Wert: die Geradengleichung.', example: 'gerade((1|2), (3|6))', graphic: 'line' },
+  { name: 'strecke', cat: 'Grafik', syntax: 'strecke(A, B)', text: 'Strecke von A nach B. Wert: ihre Länge.', example: 'strecke((0|0), (3|4))', graphic: 'segment' },
+  { name: 'strahl', aliases: ['halbgerade'], cat: 'Grafik', syntax: 'strahl(A, B)', text: 'Strahl von A durch B. Wert: die Gleichung der Geraden, auf der er liegt.', example: 'strahl((0|0), (1|1))', graphic: 'ray' },
+  { name: 'vektor', cat: 'Grafik', syntax: 'vektor(A, B) oder vektor(v)', text: 'Pfeil von A nach B (oder vom Ursprung). Wert: der Vektor B − A.', example: 'vektor((1|1), (4|3))', graphic: 'vector' },
+  { name: 'kreis', cat: 'Grafik', syntax: 'kreis(M, r) oder kreis(M, P)', text: 'Kreis um M mit Radius r oder durch den Punkt P. Wert: die Kreisgleichung.', example: 'kreis((1|2), 3)', graphic: 'circle' },
+  { name: 'polygon', aliases: ['vieleck', 'dreieck', 'viereck'], cat: 'Grafik', syntax: 'polygon(A, B, C, …)', text: 'Vieleck mit den Ecken A, B, C, … Wert: sein Flächeninhalt.', example: 'polygon((0|0), (4|0), (4|3))', graphic: 'polygon' },
+  { name: 'kurve', aliases: ['parameterkurve'], cat: 'Grafik', syntax: 'kurve(x(t), y(t), t, a, b)', text: 'Parameterkurve: der Punkt (x(t)|y(t)) für t von a bis b.', example: 'kurve(cos(t), sin(2t), t, 0, 2pi)', graphic: 'curve' },
+  { name: 'polarkurve', aliases: ['polar'], cat: 'Grafik', syntax: 'polarkurve(r(t), t, a, b)', text: 'Kurve in Polarkoordinaten: Abstand r(t) vom Ursprung beim Winkel t.', example: 'polarkurve(1+cos(t), t, 0, 2pi)', graphic: 'polar' },
+  { name: 'funktion', aliases: ['einschränkung'], cat: 'Grafik', syntax: 'funktion(Term, a, b)', text: 'Funktionsgraph nur zwischen x = a und x = b.', example: 'funktion(x^2, -1, 2)', graphic: 'restricted' },
+
   // Algebra
   { name: 'vereinfache', aliases: ['vereinfachen', 'simplify'], cat: 'Algebra', syntax: 'vereinfache(Term)', text: 'Fasst einen Term so weit wie möglich zusammen.', example: 'vereinfache(sin(x)^2+cos(x)^2)', giac: (a) => `simplify(${a[0]})` },
   { name: 'ausmultiplizieren', aliases: ['ausmultipliziere', 'expandiere', 'expand'], cat: 'Algebra', syntax: 'ausmultiplizieren(Term)', text: 'Löst Klammern auf.', example: 'ausmultiplizieren((x+2)^3)', giac: (a) => `expand(${a[0]})` },

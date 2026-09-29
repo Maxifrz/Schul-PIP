@@ -140,3 +140,67 @@ body { --keyboard-zindex: 20; }
   --keyboard-toolbar-background-hover: var(--hover); --keyboard-toolbar-background-selected: var(--accent-soft);
   --keycap-font-family: var(--font); --keycap-small-font-size: 13px; --keycap-extra-small-font-size: 11px;
 }
+
+/* Views side by side or one at a time */
+.main[data-layout="cas"] .graph-pane, .main[data-layout="graph"] .cas-pane { display: none; }
+.main[data-layout="both"] .cas-pane { flex: 0 0 42%; max-width: 560px; border-right: 1px solid var(--line); }
+.cas-pane { flex: 1; }
+
+/* Objects in the CAS rows */
+.row .number { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.object-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); flex: none; }
+.row .object-dot { margin-top: 2px; }
+.row .extra { grid-column: 2 / 4; padding: 0 10px; }
+.row .extra:empty { display: none; }
+.row .actions button[hidden] { display: none; }
+
+/* Sliders and checkboxes */
+.slider { display: flex; align-items: center; gap: 10px; padding: 6px 0 2px; }
+.slider .play { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line2); font-size: 11px; flex: none; }
+.slider .play[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.slider .name { font-style: italic; font-weight: 600; min-width: 12px; }
+.slider .value { font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; font-size: 14px; color: var(--ink2); }
+.slider .gear { width: 30px; height: 30px; border-radius: 8px; color: var(--muted); flex: none; }
+.range { flex: 1; min-width: 80px; accent-color: var(--accent); height: 28px; }
+.slider.compact { padding: 0; gap: 8px; min-width: 240px; flex: 1 1 260px; }
+.checkbox { display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; font-style: italic; font-weight: 600; }
+.checkbox input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* The graphics */
+.graph { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.graph-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.graph-canvas { position: absolute; inset: 0; display: block; cursor: grab; }
+.graph-canvas:active { cursor: grabbing; }
+.graph-overlay { position: absolute; top: 10px; right: 10px; pointer-events: none; }
+.graph-tools { display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+.tool { width: 38px; height: 38px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line2); font-size: 17px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: inline-flex; align-items: center; justify-content: center; }
+.tool[hidden] { display: none; }
+.tool:active { background: var(--hover); }
+.readout { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; background: var(--surface); border-radius: 6px; padding: 0 4px; }
+.readout:empty { display: none; }
+.graph-tip { position: absolute; transform: translateX(-50%); background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; padding: 5px 10px; border-radius: 999px; pointer-events: none; white-space: nowrap; font-variant-numeric: tabular-nums; display: none; }
+.graph-bottom { flex: none; border-top: 1px solid var(--line); background: var(--bg); }
+.strip { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 14px; max-height: 30vh; overflow-y: auto; }
+.strip:empty { display: none; }
+.graph-input { display: flex; align-items: center; gap: 10px; padding: 6px 14px calc(6px + var(--safe-bottom)); border-top: 1px solid var(--line-soft); }
+.graph-input math-field { flex: 1; font-size: 19px; padding: 5px 10px; border-radius: 10px; border: 1px solid var(--line2); background: var(--surface); color: var(--ink); outline: none;
+  --caret-color: var(--accent); --selection-background-color: var(--accent-soft); --primary-color: var(--accent); --placeholder-color: var(--hint); }
+.graph-input math-field::part(virtual-keyboard-toggle), .graph-input math-field::part(menu-toggle) { display: none; }
+.main[data-layout="both"] .graph-input { display: none; }
+
+/* Sheets of the graphics */
+.sheet .field.stacked { flex-direction: column; align-items: stretch; gap: 8px; }
+.sheet .hint, .hint { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 6px 0 0; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--bg); }
+.swatch[aria-pressed="true"] { border-color: var(--ink); }
+.custom-color { width: 36px; height: 30px; border: 0; background: none; padding: 0; }
+.range-field { display: flex; align-items: center; gap: 10px; width: 55%; }
+.range-value { min-width: 44px; text-align: right; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pair { display: flex; gap: 8px; width: 55%; }
+.pair input { min-width: 0; }
+.sheet input[type="text"] { font-size: 14.5px; }
+.object-list .object { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.object-list .object-name { flex: 1; text-align: left; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.object-list .object-name span { color: var(--muted); }
+.object-list .pill { height: 30px; }

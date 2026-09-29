@@ -1,44 +1,44 @@
 # CAS-Rechner: Abgleich mit der Feature-Checkliste
 
-Stand: 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
+Stand: 29.09.2026, nach Stufe 2 (Objekte, 2D-Grafik, Schieberegler, Animation) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
 
 Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) · `[~]` rechnet, aber nur per (meist englischem) Giac-Befehl ohne Taste/Hilfe, oder nur teilweise · `[!]` geht, aber mit Fehler · `[ ]` fehlt
 
 ## Zusammenfassung
 
-703 Punkte: 151 in der App, 95 nur per Befehl, 144 teilweise, 14 mit Fehler, 299 fehlen.
+703 Punkte: 251 in der App, 94 nur per Befehl, 135 teilweise, 1 mit Fehler, 222 fehlen.
 
 | Kapitel | Punkte | in der App | nur Befehl | teilweise | Fehler | fehlt |
 |---|---:|---:|---:|---:|---:|---:|
-| 1. Grundfunktionen | 18 | 14 | 1 | 1 | 2 | 0 |
+| 1. Grundfunktionen | 18 | 16 | 1 | 1 | 0 | 0 |
 | 2. CAS – Computer Algebra System | 18 | 12 | 5 | 0 | 0 | 1 |
 | 3. Gleichungen | 18 | 13 | 2 | 1 | 0 | 2 |
-| 4. Ungleichungen | 13 | 0 | 0 | 9 | 0 | 4 |
-| 5. Funktionen | 21 | 12 | 7 | 2 | 0 | 0 |
+| 4. Ungleichungen | 13 | 7 | 0 | 4 | 0 | 2 |
+| 5. Funktionen | 21 | 14 | 6 | 1 | 0 | 0 |
 | 6. Funktionsanalyse | 24 | 11 | 0 | 4 | 0 | 9 |
-| 7. Differentialrechnung | 17 | 5 | 1 | 6 | 1 | 4 |
+| 7. Differentialrechnung | 17 | 6 | 1 | 6 | 0 | 4 |
 | 8. Integralrechnung | 14 | 4 | 1 | 8 | 0 | 1 |
-| 9. Grenzwerte und Reihen | 14 | 6 | 2 | 2 | 3 | 1 |
+| 9. Grenzwerte und Reihen | 14 | 9 | 2 | 2 | 0 | 1 |
 | 10. Numerische Mathematik | 11 | 1 | 4 | 0 | 0 | 6 |
-| 11. 2D-Grafik | 25 | 5 | 0 | 3 | 0 | 17 |
-| 12. Dynamische Mathematik | 13 | 0 | 0 | 1 | 0 | 12 |
-| 13. Geometrie | 28 | 0 | 2 | 1 | 0 | 25 |
+| 11. 2D-Grafik | 25 | 25 | 0 | 0 | 0 | 0 |
+| 12. Dynamische Mathematik | 13 | 11 | 0 | 1 | 0 | 1 |
+| 13. Geometrie | 28 | 8 | 2 | 3 | 0 | 15 |
 | 14. Geometrische Transformationen | 10 | 0 | 0 | 1 | 0 | 9 |
-| 15. Analytische Geometrie | 24 | 5 | 5 | 13 | 1 | 0 |
+| 15. Analytische Geometrie | 24 | 5 | 5 | 14 | 0 | 0 |
 | 16. 3D-Rechner | 24 | 0 | 0 | 0 | 0 | 24 |
-| 17. Matrizen | 15 | 9 | 4 | 1 | 1 | 0 |
+| 17. Matrizen | 15 | 10 | 4 | 1 | 0 | 0 |
 | 18. Komplexe Zahlen | 11 | 2 | 7 | 1 | 0 | 1 |
 | 19. Folgen | 9 | 1 | 1 | 2 | 0 | 5 |
-| 20. Statistik | 21 | 4 | 4 | 4 | 1 | 8 |
-| 21. Regression | 12 | 0 | 4 | 1 | 2 | 5 |
+| 20. Statistik | 21 | 5 | 4 | 4 | 0 | 8 |
+| 21. Regression | 12 | 2 | 4 | 1 | 0 | 5 |
 | 22. Wahrscheinlichkeitsrechnung | 15 | 0 | 8 | 6 | 0 | 1 |
-| 23. Stochastische Simulationen | 9 | 0 | 0 | 1 | 1 | 7 |
+| 23. Stochastische Simulationen | 9 | 1 | 0 | 1 | 0 | 7 |
 | 24. Statistische Tests | 10 | 0 | 0 | 3 | 0 | 7 |
 | 25. Tabellenkalkulation | 14 | 0 | 0 | 0 | 0 | 14 |
 | 26. Einheiten | 15 | 1 | 12 | 2 | 0 | 0 |
-| 27. Physikalische Mathematik | 13 | 0 | 1 | 10 | 1 | 1 |
-| 28. Interaktive Benutzeroberfläche | 15 | 3 | 0 | 3 | 0 | 9 |
-| 29. Animation | 12 | 0 | 0 | 0 | 0 | 12 |
+| 27. Physikalische Mathematik | 13 | 1 | 1 | 10 | 0 | 1 |
+| 28. Interaktive Benutzeroberfläche | 15 | 13 | 0 | 2 | 0 | 0 |
+| 29. Animation | 12 | 11 | 0 | 1 | 0 | 0 |
 | 30. Skripting | 12 | 0 | 0 | 0 | 0 | 12 |
 | 31. Programmier-/Entwicklerfunktionen | 12 | 1 | 4 | 0 | 1 | 6 |
 | 32. Lernfunktionen | 11 | 0 | 0 | 6 | 0 | 5 |
@@ -47,18 +47,20 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 35. Prüfung / Exam Mode | 7 | 0 | 0 | 0 | 0 | 7 |
 | 36. Bedienkomfort | 13 | 2 | 0 | 2 | 0 | 9 |
 | 37. Mobile Funktionen | 12 | 8 | 0 | 3 | 0 | 1 |
-| 38. Erweiterte Visualisierung | 13 | 0 | 0 | 1 | 0 | 12 |
+| 38. Erweiterte Visualisierung | 13 | 11 | 0 | 0 | 0 | 2 |
 | 39. Mathematik-Eingabe | 12 | 2 | 0 | 2 | 0 | 8 |
 | 40. KI-Funktionen | 12 | 4 | 0 | 7 | 0 | 1 |
 | 41. Qualitätskontrolle der Berechnungen | 10 | 4 | 0 | 4 | 0 | 2 |
 | 42. Professionelle CAS-Funktionen | 17 | 0 | 12 | 2 | 0 | 3 |
 | 43. Differentialgleichungen | 11 | 0 | 4 | 3 | 0 | 4 |
 | 44. Erweiterte 3D-Mathematik | 13 | 0 | 2 | 1 | 0 | 10 |
-| 45. Architektur der App | 16 | 5 | 0 | 4 | 0 | 7 |
-| 46. Kernanforderung für eine vollständige CAS-App | 16 | 5 | 0 | 5 | 0 | 6 |
-| Minimaler Funktionsumfang | 28 | 9 | 2 | 6 | 0 | 11 |
+| 45. Architektur der App | 16 | 5 | 0 | 5 | 0 | 6 |
+| 46. Kernanforderung für eine vollständige CAS-App | 16 | 8 | 0 | 4 | 0 | 4 |
+| Minimaler Funktionsumfang | 28 | 14 | 2 | 4 | 0 | 8 |
 
 ## Gefundene Fehler
+
+Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.test.js`), bis auf die Rohtext-Ausgabe von `inter(...)` (9); Schnittpunkte von Graphen zeigt die Grafik mit Koordinaten.
 
 1. `20% * 150` bringt den Rechenkern zum Absturz (Giac-Ausnahme); Prozent wird nicht übersetzt.
 2. `implicitdiff(...)` bringt den Rechenkern ebenfalls zum Absturz.
@@ -76,7 +78,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [x] Grundrechenarten
 - [x] Bruchrechnung
 - [x] Dezimalrechnung
-- [!] Prozentrechnung — Fehler: „20% * 150“ bringt den Rechenkern zum Absturz; 0.2*150 geht
+- [x] Prozentrechnung — in der App: 20% * 150 = 30
 - [x] Potenzen
 - [x] Wurzeln
 - [x] Fakultät
@@ -89,7 +91,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [x] Automatische Vereinfachung — in der App: Giac vereinfacht exakt, z. B. √72 → 6√2
 - [~] Einheitenunterstützung — nur Befehl: Giac-Einheiten wie 3_m + 20_cm, convert(...); keine Taste, keine Hilfe
 - [x] Konstanten wie π und e
-- [!] Physikalische Konstanten — Fehler: _c_ wird nicht als Zahl ausgewertet angezeigt
+- [x] Physikalische Konstanten — in der App: lichtgeschwindigkeit, _c_ als Wert mit Einheit
 
 ## 2. CAS – Computer Algebra System
 
@@ -135,18 +137,18 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 
 ## 4. Ungleichungen
 
-- [~] Lineare Ungleichungen — teilweise: Lösung stimmt, aber als „x>-2 and x<2“ statt Intervall ]-2; 2[
-- [~] Quadratische Ungleichungen — teilweise: Lösung stimmt, aber als „x>-2 and x<2“ statt Intervall ]-2; 2[
-- [~] Polynom-Ungleichungen — teilweise: Lösung stimmt, aber als „x>-2 and x<2“ statt Intervall ]-2; 2[
-- [~] Bruch-Ungleichungen — teilweise: Lösung stimmt, aber als „x>-2 and x<2“ statt Intervall ]-2; 2[
+- [x] Lineare Ungleichungen — in der App: Intervall ]a; b[
+- [x] Quadratische Ungleichungen
+- [x] Polynom-Ungleichungen
+- [x] Bruch-Ungleichungen
 - [~] Wurzel-Ungleichungen — teilweise
 - [~] Exponential-Ungleichungen — teilweise
 - [~] Logarithmische Ungleichungen — teilweise
 - [~] Trigonometrische Ungleichungen — teilweise
-- [~] Betragsungleichungen — teilweise: Lösung stimmt, aber als „x>-2 and x<2“ statt Intervall ]-2; 2[
+- [x] Betragsungleichungen
 - [ ] Ungleichungssysteme — fehlt: nicht geprüft/angeboten
-- [ ] Intervalllösungen — fehlt: keine Intervallschreibweise
-- [ ] Grafische Lösungsdarstellung
+- [x] Intervalllösungen — in der App: L = ]-∞; -2] ∪ [2; ∞[
+- [x] Grafische Lösungsdarstellung — in der App: Ungleichung in x und y als gefärbte Fläche in der Grafik
 - [ ] Automatische Vorzeichenanalyse — fehlt: keine Vorzeichentabelle
 
 ## 5. Funktionen
@@ -154,8 +156,8 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [x] Funktionsdefinitionen
 - [x] Verkettete Funktionen
 - [~] Umkehrfunktionen — teilweise: über löse(y=…, x), kein eigener Befehl
-- [~] Parameterfunktionen — teilweise: Parameter als Variable definierbar, kein Schieberegler
-- [~] Stückweise definierte Funktionen — nur Befehl: piecewise(...), Ausgabe unschön
+- [x] Parameterfunktionen — in der App: a = 2 wird Schieberegler, f(x) = a·x² bewegt sich mit
+- [x] Stückweise definierte Funktionen — in der App: Fälle-Taste, Ausgabe als Fallunterscheidung, gezeichnet
 - [x] Polynomfunktionen
 - [x] Gebrochen-rationale Funktionen
 - [x] Potenzfunktionen
@@ -211,7 +213,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Produktregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
 - [~] Quotientenregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
 - [~] Kettenregel — teilweise: rechnet richtig, zeigt die Regel aber nicht
-- [!] Implizite Ableitung — Fehler: implicitdiff(...) bringt den Rechenkern zum Absturz
+- [x] Implizite Ableitung — in der App: implizit(x^2+y^2=1, x, y) = −x/y
 - [ ] Parametrische Ableitung
 - [ ] Numerische Ableitung
 - [~] Ableitungsgraph — teilweise: ableiten(f) in den Graph eintragen, nicht automatisch
@@ -249,9 +251,9 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Divergenz — teilweise: über den Grenzwert
 - [x] Geometrische Reihen
 - [~] Potenzreihen — nur Befehl: series(...)
-- [!] Taylorreihen — Fehler: taylor(...) hängt „order_size(x)“ an
-- [!] Maclaurinreihen — Fehler: wie Taylor
-- [!] Taylorpolynome — Fehler: wie Taylor
+- [x] Taylorreihen — in der App: taylor(f(x), x = a, n)
+- [x] Maclaurinreihen — in der App: taylor(f(x), x = 0, n)
+- [x] Taylorpolynome — in der App: taylor(f(x), x = a, n)
 - [ ] Restglied-/Fehlerbetrachtung
 
 ## 10. Numerische Mathematik
@@ -270,72 +272,72 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 
 ## 11. 2D-Grafik
 
-- [x] Funktionsplotter — in der App: Graph-Modus
-- [~] Mehrere Funktionen gleichzeitig — teilweise: bis zu 3 Funktionen
-- [ ] Parametrische Kurven
-- [ ] Polarkurven
-- [ ] Implizite Kurven
-- [ ] Gleichungen grafisch darstellen
-- [ ] Ungleichungen grafisch darstellen
-- [ ] Punkte
-- [ ] Geraden
-- [ ] Strecken
-- [ ] Strahlen
-- [ ] Kreise
-- [ ] Ellipsen
-- [~] Parabeln — teilweise: als Funktionsgraph
-- [ ] Hyperbeln
-- [ ] Kegelschnitte
-- [ ] Freies Zoomen — fehlt: nur x-Bereich eintippen, keine Geste
-- [ ] Verschieben des Koordinatensystems
+- [x] Funktionsplotter — in der App: Grafikansicht
+- [x] Mehrere Funktionen gleichzeitig — in der App: beliebig viele
+- [x] Parametrische Kurven — in der App: kurve(x(t), y(t), t, a, b)
+- [x] Polarkurven — in der App: polarkurve(r(t), t, a, b)
+- [x] Implizite Kurven — in der App: x² + y² = 9
+- [x] Gleichungen grafisch darstellen
+- [x] Ungleichungen grafisch darstellen — in der App: gefärbte Fläche, Rand gestrichelt wenn echt
+- [x] Punkte — in der App: A(1|2)
+- [x] Geraden — in der App: gerade(A, B), gerade(A, m), y = mx + b
+- [x] Strecken — in der App: strecke(A, B)
+- [x] Strahlen — in der App: strahl(A, B)
+- [x] Kreise — in der App: kreis(M, r), kreis(M, P)
+- [x] Ellipsen — in der App: als Gleichung
+- [x] Parabeln
+- [x] Hyperbeln — in der App: als Gleichung
+- [x] Kegelschnitte — in der App: als Gleichung
+- [x] Freies Zoomen — in der App: Pinch, Mausrad, Doppelklick, Knöpfe
+- [x] Verschieben des Koordinatensystems — in der App: Ziehen
 - [x] Raster
 - [x] Achsen
 - [x] Achsenbeschriftungen
-- [~] Dynamische Skalierung — teilweise: y-Bereich automatisch, x-Bereich per Eingabe
-- [ ] Logarithmische Achsen
-- [ ] Koordinatenanzeige — fehlt: kein Antippen/Nachfahren
+- [x] Dynamische Skalierung — in der App: Bereich frei, gleiche Einheiten wählbar
+- [x] Logarithmische Achsen
+- [x] Koordinatenanzeige — in der App: Maus zeigt x/y, Gedrückthalten fährt den Graphen nach
 - [x] Punktkoordinaten — in der App: besondere Punkte mit Koordinaten
 
 ## 12. Dynamische Mathematik
 
-- [~] Dynamische Variablen — teilweise: a = 5 definieren, Graph muss neu gezeichnet werden
-- [ ] Abhängige Objekte
-- [ ] Automatische Neuberechnung
-- [ ] Schieberegler
-- [ ] Animierte Parameter
-- [ ] Animationen
-- [ ] Abhängigkeiten zwischen Objekten
-- [ ] Dynamische Bedingungen
-- [ ] Bedingte Sichtbarkeit
-- [ ] Spuren/Trajektorien
+- [x] Dynamische Variablen
+- [x] Abhängige Objekte — in der App: Gerade durch A folgt dem gezogenen A
+- [x] Automatische Neuberechnung — in der App: CAS-Zeilen rechnen beim Ziehen mit
+- [x] Schieberegler
+- [x] Animierte Parameter
+- [x] Animationen
+- [x] Abhängigkeiten zwischen Objekten
+- [x] Dynamische Bedingungen — in der App: „Nur zeigen, wenn a > 0“
+- [x] Bedingte Sichtbarkeit
+- [x] Spuren/Trajektorien — in der App: Spur pro Objekt
 - [ ] Ortslinien
-- [ ] Interaktive Modelle
-- [ ] Reset-Funktion
+- [~] Interaktive Modelle — in der App: Schieberegler, Checkboxen, ziehbare Punkte; Konstruktionswerkzeuge folgen
+- [x] Reset-Funktion — in der App: ⟲ setzt alle Regler zurück
 
 ## 13. Geometrie
 
-- [ ] Punkte
+- [x] Punkte
 - [ ] Punkt auf Objekt
 - [~] Schnittpunkte — nur Befehl: inter(...) rechnet, Ausgabe unlesbar
-- [ ] Geraden
-- [ ] Strecken
-- [ ] Strahlen
+- [x] Geraden
+- [x] Strecken
+- [x] Strahlen
 - [ ] Parallelen
 - [ ] Senkrechten
 - [ ] Mittelsenkrechten
 - [ ] Winkelhalbierenden
 - [ ] Tangenten
-- [ ] Kreise
+- [x] Kreise
 - [ ] Kreisbögen
 - [ ] Kreissektoren
-- [ ] Polygone
-- [ ] Dreiecke
-- [ ] Vierecke
+- [x] Polygone — in der App: polygon(A, B, C, …), Wert: Fläche
+- [~] Dreiecke — in der App: als Polygon
+- [~] Vierecke — in der App: als Polygon
 - [ ] Regelmäßige Polygone
 - [~] Winkel — teilweise: über Vektoren
-- [ ] Längen
+- [x] Längen — in der App: strecke(A, B)
 - [~] Abstände — nur Befehl: distance(...)
-- [ ] Flächen
+- [x] Flächen — in der App: polygon(…)
 - [ ] Umfänge
 - [ ] Höhen
 - [ ] Schwerpunkt
@@ -377,7 +379,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Koordinatenform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Hesse-Normalform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Lagebeziehungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [!] Schnittpunkte — Fehler: inter(...) rechnet, zeigt aber „group[pnt(...)]“
+- [~] Schnittpunkte — teilweise: Schnittpunkte von Graphen in der Grafik mit Koordinaten; inter(...) zeigt noch Giac-Rohtext
 - [~] Schnittgeraden — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Abstände — nur Befehl: distance(point(...), plane(...)) korrekt
 - [~] Lotfußpunkte — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
@@ -421,7 +423,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [x] Determinante
 - [x] Inverse Matrix
 - [~] Rang — nur Befehl: rank(...)
-- [!] Eigenwerte — Fehler: eigenvals(...) rechnet, Näherungsanzeige verschluckt Werte
+- [x] Eigenwerte — in der App: eigenwerte(A)
 - [~] Eigenvektoren — nur Befehl: eigenvects(...)
 - [x] Lineare Gleichungssysteme — in der App: löse([…], [x, y])
 - [~] Gauß-Verfahren — nur Befehl: rref(...), ohne Schritte
@@ -467,7 +469,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Minimum — nur Befehl: min(...)
 - [~] Maximum — nur Befehl: max(...)
 - [~] Spannweite — teilweise: max − min von Hand
-- [!] Quartile — Fehler: quartiles(...) rechnet, Ausgabe schwer lesbar
+- [x] Quartile — in der App: quartile(Liste)
 - [~] Quantile — nur Befehl: quantile(...)
 - [x] Varianz — in der App: varianz(...)
 - [x] Standardabweichung — in der App: Taste; Achtung: Grundgesamtheit, stddevp für Stichprobe
@@ -480,10 +482,10 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 
 ## 21. Regression
 
-- [!] Lineare Regression — Fehler: linear_regression(...) rechnet, Näherungsanzeige verschluckt einen Wert
+- [x] Lineare Regression — in der App: regressionlinear(X, Y)
 - [~] Quadratische Regression — nur Befehl: polynomial_regression(..., 2)
 - [~] Polynomiale Regression — nur Befehl: polynomial_regression(...)
-- [!] Exponentielle Regression — Fehler: exakte Ausgabe riesig und unlesbar
+- [x] Exponentielle Regression — in der App: regressionexponentiell(X, Y)
 - [~] Logarithmische Regression — nur Befehl: logarithmic_regression(...)
 - [~] Potenzregression — nur Befehl: power_regression(...)
 - [ ] Sinusregression
@@ -515,7 +517,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 
 - [~] Würfelsimulation — teilweise: randvector(n, 6) zählt 0–5 statt 1–6
 - [ ] Münzwurfsimulation
-- [!] Zufallszahlen — Fehler: rand(1, 6) liefert eine Kommazahl statt einer Würfelzahl
+- [x] Zufallszahlen — in der App: zufallszahl(1, 6)
 - [ ] Zufallsexperimente
 - [ ] Monte-Carlo-Simulation
 - [ ] Wiederholte Experimente
@@ -584,41 +586,41 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Arbeit — teilweise
 - [~] Kräfte — teilweise
 - [~] Einheitenumrechnung — nur Befehl: convert(...)
-- [!] Physikalische Konstanten — Fehler: _c_ usw. werden nicht als Wert angezeigt
+- [x] Physikalische Konstanten — in der App: lichtgeschwindigkeit, _c_ als Wert mit Einheit
 - [ ] Dynamische physikalische Modelle
 
 ## 28. Interaktive Benutzeroberfläche
 
-- [ ] Schieberegler
+- [x] Schieberegler
 - [x] Eingabefelder
-- [ ] Checkboxen
+- [x] Checkboxen — in der App: zeige = wahr
 - [x] Buttons
-- [~] Dropdown-Menüs — teilweise: Grad/Bogenmaß
-- [ ] Dynamische Texte
-- [ ] Dynamische Werte
-- [ ] Bedingte Sichtbarkeit
-- [ ] Tooltips
+- [x] Dropdown-Menüs
+- [x] Dynamische Texte — in der App: Beschriftung mit {a}
+- [x] Dynamische Werte
+- [x] Bedingte Sichtbarkeit
+- [x] Tooltips — in der App: Koordinaten beim Antippen
 - [~] Kontextmenüs — teilweise: im Verlauf
-- [ ] Drag & Drop
+- [x] Drag & Drop — in der App: Punkte ziehen
 - [x] Touch-Unterstützung
 - [~] Stiftunterstützung — teilweise: in Notizen („Rechnen in Notizen“), nicht im Rechner
-- [ ] Multi-Touch
-- [ ] Zoom-Gesten
+- [x] Multi-Touch — in der App: Pinch
+- [x] Zoom-Gesten
 
 ## 29. Animation
 
-- [ ] Automatische Animation
-- [ ] Manuelle Animation
-- [ ] Animationsgeschwindigkeit
-- [ ] Animationsrichtung
-- [ ] Wiederholung
-- [ ] Start/Stopp
-- [ ] Pause
-- [ ] Reset
-- [ ] Animierte Schieberegler
-- [ ] Animierte Punkte
-- [ ] Animierte geometrische Konstruktionen
-- [ ] Animierte Funktionen
+- [x] Automatische Animation
+- [x] Manuelle Animation — in der App: Regler ziehen
+- [x] Animationsgeschwindigkeit — in der App: ¼× bis 4×
+- [x] Animationsrichtung — in der App: ↔ → ←
+- [x] Wiederholung
+- [x] Start/Stopp
+- [x] Pause
+- [x] Reset
+- [x] Animierte Schieberegler
+- [x] Animierte Punkte — in der App: P(a|f(a))
+- [~] Animierte geometrische Konstruktionen — in der App: Objekte aus animierten Punkten; Konstruktionen folgen
+- [x] Animierte Funktionen
 
 ## 30. Skripting
 
@@ -642,7 +644,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [~] Listenverarbeitung — nur Befehl: map, seq, sum
 - [~] Schleifenähnliche Konstruktionen — nur Befehl: for/while in Giac-Programmen
 - [~] Bedingungen — nur Befehl: if/else in Giac-Programmen
-- [!] Rekursion — Fehler: rekursive Programme laufen, die Definition zeigt aber eine Fehlermeldung
+- [!] Rekursion — Fehler: Programme mit { … } lassen sich im neuen Rechner noch nicht eingeben (kommt mit Skripting in Stufe 6)
 - [ ] Skripte
 - [ ] JavaScript-Integration
 - [ ] JavaScript API
@@ -738,17 +740,17 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 
 ## 38. Erweiterte Visualisierung
 
-- [ ] frei konfigurierbare Farben
-- [ ] Linienarten
-- [ ] Linienstärke
-- [ ] Punktgrößen
-- [ ] Transparenz
-- [ ] Füllungen
-- [~] Beschriftungen — teilweise: besondere Punkte beschriftet
-- [ ] dynamische Beschriftungen
-- [ ] Achsenkonfiguration
-- [ ] Rasterkonfiguration
-- [ ] logarithmische Skalierung
+- [x] frei konfigurierbare Farben
+- [x] Linienarten
+- [x] Linienstärke
+- [x] Punktgrößen
+- [x] Transparenz — in der App: Füllung 0–100 %
+- [x] Füllungen
+- [x] Beschriftungen
+- [x] dynamische Beschriftungen
+- [x] Achsenkonfiguration — in der App: Namen, Pfeile, π, log
+- [x] Rasterkonfiguration — in der App: grob/fein/aus
+- [x] logarithmische Skalierung
 - [ ] mehrere Koordinatensysteme
 - [ ] benutzerdefinierte Ansichten
 
@@ -860,7 +862,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [ ] Skript-Engine
 - [ ] Plugin-/Erweiterungssystem
 - [ ] API
-- [ ] persistenter Objektgraph
+- [~] persistenter Objektgraph — in der App: Objekte aus den gespeicherten Zeilen mit Stil und Reglern
 - [~] Undo/Redo-System — teilweise: in Dokumenten und Präsentationen, nicht im Rechner
 - [ ] Versions-/Dateisystem
 
@@ -870,40 +872,40 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 - [x] Numerische Näherungen können explizit angefordert werden — in der App: näherung(...) und ≈ bei jedem Ergebnis
 - [x] Algebraische Objekte bleiben symbolisch erhalten
 - [x] Ergebnisse können direkt weiterverwendet werden — in der App: ans, Definitionen
-- [~] Algebra und Grafik sind miteinander verbunden — teilweise: definierte f(x) im Graph nutzbar, aber getrennte Ansichten
-- [ ] Änderungen werden automatisch propagiert
+- [x] Algebra und Grafik sind miteinander verbunden — in der App: eine Zeile = ein Objekt, CAS und Grafik nebeneinander
+- [x] Änderungen werden automatisch propagiert
 - [ ] 2D und 3D verwenden dieselbe mathematische Objektlogik
 - [ ] CAS, Geometrie, Statistik und Tabellen greifen auf gemeinsame Objekte zu
 - [ ] Jede Funktion ist über GUI und Kommando-/Eingabesystem erreichbar
 - [~] Ergebnisse sind nachvollziehbar — teilweise: Ergebnis ja, Weg nein
-- [~] Fehler werden mathematisch korrekt behandelt — teilweise: zwei Befehle stürzen ab (Prozent, implicitdiff)
+- [x] Fehler werden mathematisch korrekt behandelt — in der App: Absturz-Fehler behoben
 - [~] Definitionsbedingungen werden automatisch berücksichtigt — teilweise: Giac beim Lösen, keine Anzeige
 - [x] Exakte und approximierte Ergebnisse werden klar unterschieden
 - [ ] Komplexe Konstruktionen bleiben editierbar
 - [~] Große Berechnungen werden performant verarbeitet — teilweise: Giac im Hintergrund, kein Abbruch-Knopf
-- [ ] Benutzer können eigene interaktive mathematische Modelle erstellen
+- [~] Benutzer können eigene interaktive mathematische Modelle erstellen — in der App: Regler, Checkboxen, ziehbare Punkte
 
 ## Minimaler Funktionsumfang
 
 - [x] Vollständiges CAS — in der App: Giac
 - [x] Wissenschaftlicher Rechner
-- [~] 2D-Plotter — teilweise: 3 Funktionen, ohne Zoom-Geste
+- [x] 2D-Plotter
 - [ ] 3D-Plotter
 - [ ] Dynamische Geometrie
 - [x] Differentialrechnung
 - [x] Integralrechnung
 - [x] Gleichungslöser
-- [~] Ungleichungslöser — teilweise: ohne Intervalle
+- [x] Ungleichungslöser — in der App: mit Intervallen
 - [x] Matrizen
 - [~] Vektoren — teilweise: ohne deutsche Befehle
 - [~] Statistik — teilweise: Grundwerte
 - [~] Regression — nur Befehl: nur Giac-Befehle
 - [~] Wahrscheinlichkeitsrechnung — nur Befehl: nur Giac-Befehle
 - [ ] Tabellenkalkulation
-- [ ] Schieberegler
-- [ ] Animation
+- [x] Schieberegler
+- [x] Animation
 - [ ] Skripting
-- [ ] Interaktive Elemente
+- [x] Interaktive Elemente — in der App: Regler, Checkboxen, ziehbare Punkte
 - [~] Datei-/Projektverwaltung — teilweise
 - [~] Import/Export — teilweise
 - [ ] Schritt-für-Schritt-Lösungen
