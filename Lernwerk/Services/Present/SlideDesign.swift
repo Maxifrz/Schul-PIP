@@ -123,21 +123,23 @@ enum SlideDesign {
         SlideTheme.all.map { "- \($0.id): \($0.name) – \($0.mood)" }.joined(separator: "\n")
     }
 
+    /// The designs whose subjects the text mentions, most mentions first and in catalog order on a tie; designs the
+    /// text does not touch are left out.
+    static func ranked(_ text: String) -> [String] {
+        let haystack = text.lowercased()
+        let scored: [(id: String, score: Int)] = SlideTheme.all.map { theme in
+            let keywords = theme.mood.lowercased().components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            return (theme.id, keywords.filter { !$0.isEmpty && haystack.contains($0) }.count)
+        }
+        return scored.enumerated().filter { $0.element.score > 0 }
+            .sorted { $0.element.score != $1.element.score ? $0.element.score > $1.element.score : $0.offset < $1.offset }
+            .map(\.element.id)
+    }
+
     /// The design for a topic without the AI's choice: the one whose subjects the text mentions most often, the
     /// first on a tie, Quill if none fits.
     static func suggest(_ text: String) -> String {
-        let haystack = text.lowercased()
-        var best = SlideTheme.quill.id
-        var bestScore = 0
-        for theme in SlideTheme.all {
-            let keywords = theme.mood.lowercased().components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            let score = keywords.filter { !$0.isEmpty && haystack.contains($0) }.count
-            if score > bestScore {
-                best = theme.id
-                bestScore = score
-            }
-        }
-        return best
+        ranked(text).first ?? SlideTheme.quill.id
     }
 
     /// The AI's choice if it named a design, otherwise `suggest` on the topic.
