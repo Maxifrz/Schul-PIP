@@ -5,7 +5,7 @@ import { parseLatex, parsePlain, toGiac, toLatex, ParseError, MATH_FUNCTIONS, la
 import { command, giacCall, COMMAND_NAMES } from './commands.js';
 import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
 import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
-import { STAT_COMMANDS, isWord } from './statcommands.js';
+import { STAT_COMMANDS, isWord, functionArg } from './statcommands.js';
 import { newSeed } from './stats.js';
 import { isProgram, translateProgram, mapCommandCalls } from './program.js';
 import { blockedCategories, examResult } from './exam.js';
@@ -351,10 +351,16 @@ export class Engine {
         const answer = this.cas.raw(`simplify(${text})`);
         return answer.error ? null : this.format(answer.value);
       },
-      function: (node) => {
-        const answer = this.cas.raw(this.giac(node));
+      function: (node, variables = ['x']) => {
+        const answer = this.cas.raw(this.giac(functionArg(node)));
         if (answer.error) throw new Error(answer.error);
-        return compile(parsePlain(String(answer.value)), ['x'], { value: () => undefined });
+        return compile(parsePlain(String(answer.value)), variables, { value: () => undefined });
+      },
+      text: (node) => this.format(this.cas.raw(this.giac(functionArg(node))).value || ''),
+      functionOfGiac: (text, variables = ['x']) => {
+        const answer = this.cas.raw(text);
+        if (answer.error) throw new Error(answer.error);
+        return compile(parsePlain(String(answer.value)), variables, { value: () => undefined });
       },
     };
   }

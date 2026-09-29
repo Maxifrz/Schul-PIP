@@ -7,6 +7,7 @@
 import { parsePlain, compile, compileCondition, symbols, toLatex } from '../expr.js';
 import { command } from '../commands.js';
 import { isShapeCall } from '../geometry.js';
+import { STAT_COMMANDS, functionArg } from '../statcommands.js';
 
 export const PALETTE = ['#2F6FDF', '#D9534F', '#2E9E5B', '#8E5BD9', '#E08A1E', '#1AA3B8', '#C2417F', '#5E5A50'];
 
@@ -277,12 +278,18 @@ export class Scene {
           const f = compile(tree, [], this.scope);
           return () => f();
         };
-        const fns = answers.map((answer) => {
+        const functionSlots = new Map(entry.layout.filter((slot) => slot && typeof slot === 'object').map((slot) => [slot.fn, slot.vars]));
+        const fns = answers.map((answer, i) => {
           const tree = parse(answer);
-          return tree ? valueFn(tree) : null;
+          if (!tree) return null;
+          if (functionSlots.has(i)) {
+            const f = compile(tree, functionSlots.get(i), this.scope);
+            return () => f;
+          }
+          return valueFn(tree);
         });
         if (fns.some((f) => !f)) return null;
-        return { ...base, command: entry.command, chart: entry.chart, seed: entry.seed, items: () => entry.layout.map((slot) => (typeof slot === 'string' ? slot : fns[slot]())) };
+        return { ...base, command: entry.command, chart: entry.chart, seed: entry.seed, items: () => entry.layout.map((slot) => (typeof slot === 'string' ? slot : typeof slot === 'object' ? fns[slot.fn]() : fns[slot]())) };
       }
       case 'point3': {
         const at = this.vectorFn(answers[0]);
@@ -403,9 +410,21 @@ export function classify(row, engine) {
     // A chart: numbers and lists come from Giac with sliders left free, words (binomial, links …) stay as typed.
     const layout = [];
     const requests = [];
+    const stat = STAT_COMMANDS[r.chart.command];
+    const roles = stat && stat.roles ? stat.roles(r.tree.args) : [];
     r.tree.args.forEach((arg, i) => {
-      if (r.chart.words[i]) layout.push(r.chart.words[i]);
-      else {
+      const role = roles[i] || {};
+      if (role.name && arg.t === 'sym') layout.push(arg.v);
+      else if (r.chart.words[i]) layout.push(r.chart.words[i]);
+      else if (role.fn) {
+        // A function of x (or x and y) that sliders may change: compiled, not evaluated
+        layout.push({ fn: requests.length, vars: role.fn });
+        requests.push(engine.giac(functionArg(arg)));
+      } else if (role.complex) {
+        layout.push(requests.length);
+        const z = engine.giac(arg);
+        requests.push(`[re(${z}),im(${z})]`);
+      } else {
         layout.push(requests.length);
         requests.push(engine.giac(arg));
       }

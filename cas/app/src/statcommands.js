@@ -24,6 +24,14 @@ export function isWord(node) {
 
 const wordOf = (node) => (node.t === 'str' ? node.v : node.v).toLowerCase();
 
+/** y' = x·y is given as its right side; so is f(x) = … */
+export function functionArg(node) {
+  if (node && node.t === 'rel' && node.op === '=' && ((node.a.t === 'call' && node.a.prime) || node.a.t === 'call' || node.a.t === 'sym')) return node.b;
+  return node;
+}
+
+const fmt = (v, digits = 6) => (Number.isFinite(v) ? latexNumber(String(Number(v.toPrecision(digits))), digits) : '\\text{–}');
+
 /** Reads the arguments of a call through Giac; `ctx` comes from the engine. */
 export function reader(ctx, args) {
   let i = 0;
@@ -644,6 +652,227 @@ function simulationTable({ title, outcomes, theory }) {
   const rows = theory.map(([v, p]) => [num(v), num(counts.get(v) || 0), num((counts.get(v) || 0) / n, 4), num(p, 4)]);
   return { title, table: { head: ['Ergebnis', 'absolut', 'relativ', 'Wahrscheinlichkeit'], rows }, rows: [{ label: 'Mittelwert', latex: num(S.mean(outcomes)) }] };
 }
+
+// Sequences, iterations, numerics, differential equations and complex numbers. `roles` says how the chart reads each
+// argument: a function of some variables, a variable name kept as it is, or (default) a number or list.
+
+function iterate(f, x0, n) {
+  const xs = [x0];
+  for (let k = 0; k < n; k++) {
+    const next = f(xs[k]);
+    xs.push(next);
+    if (!Number.isFinite(next) || Math.abs(next) > 1e150) break;
+  }
+  return xs;
+}
+
+export function newtonSteps(f, x0, n = 8) {
+  const h = (x) => 1e-6 * Math.max(1, Math.abs(x));
+  const steps = [{ k: 0, x: x0, fx: f(x0) }];
+  let x = x0;
+  for (let k = 1; k <= n; k++) {
+    const d = (f(x + h(x)) - f(x - h(x))) / (2 * h(x));
+    if (!Number.isFinite(d) || d === 0) break;
+    const next = x - f(x) / d;
+    steps.push({ k, x: next, fx: f(next), slope: d, from: x });
+    if (Math.abs(next - x) < 1e-13 * Math.max(1, Math.abs(x))) {
+      x = next;
+      break;
+    }
+    x = next;
+  }
+  return steps;
+}
+
+export function bisectionSteps(f, a, b, n = 12) {
+  let fa = f(a);
+  if (fa * f(b) > 0) throw new Error('f(a) und f(b) müssen verschiedene Vorzeichen haben.');
+  const steps = [];
+  for (let k = 1; k <= n; k++) {
+    const m = (a + b) / 2;
+    const fm = f(m);
+    steps.push({ k, a, b, m, fm, width: b - a });
+    if (fm === 0) break;
+    if (fa * fm < 0) b = m;
+    else {
+      a = m;
+      fa = fm;
+    }
+  }
+  return steps;
+}
+
+/** Runge–Kutta for y' = f(x, y) from (x0, y0) to x1 */
+export function rungeKutta(f, x0, y0, x1, steps = 400) {
+  const h = (x1 - x0) / steps;
+  const out = [[x0, y0]];
+  let x = x0;
+  let y = y0;
+  for (let i = 0; i < steps; i++) {
+    const k1 = f(x, y);
+    const k2 = f(x + h / 2, y + (h / 2) * k1);
+    const k3 = f(x + h / 2, y + (h / 2) * k2);
+    const k4 = f(x + h, y + h * k3);
+    y += (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+    x += h;
+    if (!Number.isFinite(y) || Math.abs(y) > 1e9) break;
+    out.push([x, y]);
+  }
+  return out;
+}
+
+const iterationTable = (xs) => ({
+  head: ['k', 'xₖ', '|xₖ − xₖ₋₁|'],
+  rows: xs.slice(0, 40).map((x, k) => [fmt(k), fmt(x, 10), k ? fmt(Math.abs(x - xs[k - 1]), 4) : '\\text{–}']),
+});
+
+Object.assign(STAT_COMMANDS, {
+  folgenplot: {
+    chart: 'sequence',
+    roles: (args) => [{ fn: [args[1] && args[1].t === 'sym' ? args[1].v : 'n'] }, { name: true }],
+    run(ctx, args) {
+      const v = args[1] && args[1].t === 'sym' ? args[1].v : 'n';
+      const a = ctx.function(args[0], [v]);
+      const r = reader(ctx, args.slice(2));
+      const from = Math.round(r.number(1));
+      const to = Math.round(r.number(from + 19));
+      const rows = [];
+      for (let k = from; k <= Math.min(to, from + 59); k++) rows.push([fmt(k), fmt(a(k), 8)]);
+      const limit = ctx.exact(`limit(${ctx.giac(args[0])},${v},inf)`);
+      return { title: 'Folge', table: { head: [v, 'aₙ'], rows }, rows: limit ? [{ label: `Grenzwert für ${v} → ∞`, latex: limit }] : [] };
+    },
+  },
+  iteration: {
+    run(ctx, args) {
+      const f = ctx.function(args[0]);
+      const r = reader(ctx, args.slice(1));
+      const xs = iterate(f, r.number(), Math.round(r.number(10)));
+      const last = xs[xs.length - 1];
+      const rows = [{ label: 'letzter Wert', latex: fmt(last, 10) }];
+      if (xs.length > 2) rows.push({ label: 'Änderung im letzten Schritt (Fehlerschätzung)', latex: fmt(Math.abs(last - xs[xs.length - 2]), 4) });
+      return { title: 'Iteration xₖ₊₁ = f(xₖ)', table: iterationTable(xs), rows };
+    },
+  },
+  spinnweb: {
+    chart: 'cobweb',
+    roles: () => [{ fn: ['x'] }],
+    run(ctx, args) {
+      const f = ctx.function(args[0]);
+      const r = reader(ctx, args.slice(1));
+      const xs = iterate(f, r.number(), Math.round(r.number(10)));
+      return { title: 'Spinnwebdiagramm (Rekursion xₖ₊₁ = f(xₖ))', table: iterationTable(xs) };
+    },
+  },
+  newtonschritte: {
+    chart: 'newton',
+    roles: () => [{ fn: ['x'] }],
+    run(ctx, args) {
+      const f = ctx.function(args[0]);
+      const r = reader(ctx, args.slice(1));
+      const steps = newtonSteps(f, r.number(), Math.round(r.number(8)));
+      return {
+        title: 'Newton-Verfahren xₖ₊₁ = xₖ − f(xₖ)/f′(xₖ)',
+        table: { head: ['k', 'xₖ', 'f(xₖ)', '|xₖ − xₖ₋₁|'], rows: steps.map((s, i) => [fmt(s.k), fmt(s.x, 12), fmt(s.fx, 4), i ? fmt(Math.abs(s.x - steps[i - 1].x), 4) : '\\text{–}']) },
+      };
+    },
+  },
+  bisektionsschritte: {
+    chart: 'bisection',
+    roles: () => [{ fn: ['x'] }],
+    run(ctx, args) {
+      const f = ctx.function(args[0]);
+      const r = reader(ctx, args.slice(1));
+      const steps = bisectionSteps(f, r.number(), r.number(), Math.round(r.number(12)));
+      const last = steps[steps.length - 1];
+      return {
+        title: 'Bisektionsverfahren',
+        table: { head: ['k', 'a', 'b', 'm', 'f(m)'], rows: steps.map((s) => [fmt(s.k), fmt(s.a, 10), fmt(s.b, 10), fmt(s.m, 10), fmt(s.fm, 4)]) },
+        rows: [{ label: 'Nullstelle liegt in', latex: `\\left[${fmt(Math.min(last.a, last.m), 10)};\\ ${fmt(Math.max(last.b, last.m), 10)}\\right]` }, { label: 'Fehler höchstens', latex: fmt(last.width / 2, 4) }],
+      };
+    },
+  },
+  richtungsfeld: {
+    chart: 'field',
+    roles: () => [{ fn: ['x', 'y'] }],
+    run(ctx, args) {
+      return { title: 'Richtungsfeld', rows: [{ label: 'Differentialgleichung', latex: "y'=" + ctx.text(args[0]) }] };
+    },
+  },
+  lösungskurve: {
+    chart: 'solution',
+    roles: () => [{ fn: ['x', 'y'] }],
+    run(ctx, args) {
+      const f = ctx.function(args[0], ['x', 'y']);
+      const r = reader(ctx, args.slice(1));
+      const x0 = r.number();
+      const y0 = r.number();
+      const curve = rungeKutta(f, x0, y0, x0 + 5, 500);
+      const rows = [];
+      for (let k = 0; k <= 5; k++) {
+        const p = curve[Math.min(curve.length - 1, k * 100)];
+        if (p) rows.push([fmt(p[0], 4), fmt(p[1], 8)]);
+      }
+      return { title: 'Lösungskurve (Runge-Kutta)', table: { head: ['x', 'y'], rows }, rows: [{ label: 'Differentialgleichung', latex: "y'=" + ctx.text(args[0]) }, { label: 'Anfangswert', latex: `y\\left(${fmt(x0)}\\right)=${fmt(y0)}` }] };
+    },
+  },
+  phasenporträt: {
+    chart: 'phase',
+    roles: () => [{ fn: ['x', 'y'] }, { fn: ['x', 'y'] }],
+    run(ctx, args) {
+      return { title: 'Phasenporträt', rows: [{ label: "x'", latex: ctx.text(args[0]) }, { label: "y'", latex: ctx.text(args[1]) }] };
+    },
+  },
+  zahlenebene: {
+    chart: 'complex',
+    roles: (args) => args.map(() => ({ complex: true })),
+    run(ctx, args) {
+      const rows = args.map((a) => {
+        const g = ctx.giac(a);
+        return { label: ctx.format(g) === '' ? g : 'z', latex: `${ctx.format(g)}:\\ |z|=${ctx.exact(`abs(${g})`)},\\ \\varphi=${ctx.exact(`arg(${g})`)}` };
+      });
+      return { title: 'Gaußsche Zahlenebene', rows };
+    },
+  },
+  rundungsfehler: {
+    run(ctx, args) {
+      const g = ctx.giac(args[0]);
+      const exact = ctx.exact(g);
+      const reference = ctx.number(`evalf(${g},40)`);
+      const rows = [4, 6, 8, 10, 12, 15].map((d) => {
+        const v = Number(Number(reference).toPrecision(d));
+        return [fmt(d), fmt(v, d), fmt(Math.abs(v - reference), 3)];
+      });
+      const float = ctx.number(`evalf(${g})`);
+      return { title: 'Rundungsfehler', table: { head: ['Stellen', 'gerundet', 'Fehler'], rows }, rows: [{ label: 'exakt', latex: exact || '\\text{–}' }, { label: 'Gleitkomma (Giac)', latex: fmt(float, 15) }] };
+    },
+  },
+  restglied: {
+    run(ctx, args) {
+      const g = ctx.giac(functionArg(args[0]));
+      const r = reader(ctx, args.slice(1));
+      const a = r.number();
+      const n = Math.round(r.number());
+      const b = r.number();
+      const taylor = ctx.exact(`convert(taylor(${g},x=${a},${n}),polynom)`);
+      const fn1 = ctx.functionOfGiac(`diff(${g},x,${n + 1})`);
+      let max = 0;
+      for (let i = 0; i <= 400; i++) {
+        const t = a + ((b - a) * i) / 400;
+        const v = Math.abs(fn1(t));
+        if (Number.isFinite(v)) max = Math.max(max, v);
+      }
+      let factorial = 1;
+      for (let k = 2; k <= n + 1; k++) factorial *= k;
+      const bound = (max * Math.abs(b - a) ** (n + 1)) / factorial;
+      const actual = Math.abs(ctx.number(`evalf(subst(${g},x=${b}))`) - ctx.number(`evalf(subst(convert(taylor(${g},x=${a},${n}),polynom),x=${b}))`));
+      return { title: `Taylorpolynom vom Grad ${n} und Restglied`, rows: [
+        { label: `Tₙ(x) um ${a}`, latex: taylor || '\\text{–}' },
+        { label: 'Restglied (Lagrange) höchstens', latex: fmt(bound, 4) },
+        { label: `tatsächlicher Fehler bei x = ${b}`, latex: fmt(actual, 4) },
+      ] };
+    },
+  },
+});
 
 /** The chart commands and what each draws */
 export const CHART_COMMANDS = new Map(Object.entries(STAT_COMMANDS).filter(([, c]) => c.chart).map(([name, c]) => [name, c.chart]));

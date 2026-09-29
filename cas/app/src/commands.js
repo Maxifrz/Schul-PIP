@@ -107,7 +107,7 @@ export const COMMANDS = [
   { name: 'nullstellen', aliases: ['nst'], cat: 'Gleichungen', syntax: 'nullstellen(Term, x)', text: 'Alle Nullstellen einer Funktion.', example: 'nullstellen(x^3-4x)', giac: (a) => `solve((${a[0]})=0,${a[1] || 'x'})` },
   { name: 'lösenumerisch', aliases: ['loesenumerisch', 'nlöse', 'fsolve'], cat: 'Gleichungen', syntax: 'lösenumerisch(Gleichung, x) · lösenumerisch(Gleichung, x = Startwert)', text: 'Löst eine Gleichung näherungsweise, wenn es keine exakte Lösung gibt.', example: 'lösenumerisch(cos(x)=x, x)', giac: (a) => `fsolve(${list(a)})` },
   { name: 'lösekomplex', aliases: ['loesekomplex', 'csolve'], cat: 'Gleichungen', syntax: 'lösekomplex(Gleichung, x)', text: 'Löst über den komplexen Zahlen.', example: 'lösekomplex(x^2+1=0, x)', giac: (a) => `csolve(${list(a)})` },
-  { name: 'lgs', aliases: ['gleichungssystem'], cat: 'Gleichungen', syntax: 'lgs([Gl1, Gl2, …], [x, y, …])', text: 'Löst ein lineares Gleichungssystem.', example: 'lgs([x+y+z=6, x-y=0, 2x+z=5], [x, y, z])', giac: (a) => `linsolve(${list(a)})` },
+  { name: 'lgs', aliases: ['gleichungssystem'], cat: 'Gleichungen', syntax: 'lgs([Gl1, Gl2, …], [x, y, …])', text: 'Löst ein lineares Gleichungssystem.', example: 'lgs([x+y+z=6, x-y=1, x+z=4], [x, y, z])', giac: (a) => `linsolve(${list(a)})` },
   { name: 'probe', aliases: ['prüfe', 'pruefe'], cat: 'Gleichungen', syntax: 'probe(Gleichung, x = Wert)', text: 'Setzt einen Wert ein und prüft, ob die Gleichung stimmt.', example: 'probe(x^2=9, x = -3)', giac: (a) => `evalb(subst(${a[0]},${a[1]}))` },
 
   // Funktionen
@@ -217,6 +217,19 @@ export const COMMANDS = [
   { name: 'residuenplot', aliases: ['residuendiagramm'], cat: 'Diagramme', syntax: 'residuenplot(X, Y, Modell)', text: 'Zeichnet die Residuen über x, mit Nulllinie.', example: 'residuenplot([1,2,3,4,5], [2,4,5,8,9], linear)' },
 
   { name: 'zellen', aliases: ['bereich'], cat: 'Tabelle', syntax: 'zellen(A1, A10) oder zellen(A1, C5)', text: 'Die Werte eines Tabellenbereichs: eine Spalte oder Zeile als Liste, mehrere als Matrix. Einzelne Zellen heißen im CAS einfach A1, B2 …', example: 'zellen(A1, A3)', noExample: true },
+
+  // Folgen, Iterationen, Numerik
+  { name: 'folgenplot', aliases: ['folgengraph', 'folgendiagramm'], cat: 'Folgen', syntax: 'folgenplot(Term, n, von, bis)', text: 'Zeichnet die Folgenglieder als Punkte (n | aₙ), mit Tabelle und Grenzwert.', example: 'folgenplot((1+1/n)^n, n, 1, 20)' },
+  { name: 'iteration', aliases: ['iteriere', 'fixpunktiteration'], cat: 'Folgen', syntax: 'iteration(f(x), Startwert, Schritte)', text: 'Folgeniteration xₖ₊₁ = f(xₖ) mit Tabelle und Fehlerschätzung aus der letzten Änderung.', example: 'iteration(cos(x), 1, 15)' },
+  { name: 'spinnweb', aliases: ['rekursionsdiagramm', 'spinnwebdiagramm', 'cobweb'], cat: 'Folgen', syntax: 'spinnweb(f(x), Startwert, Schritte)', text: 'Spinnwebdiagramm einer Rekursion xₖ₊₁ = f(xₖ): Graph von f, die Gerade y = x und der Weg der Iteration.', example: 'spinnweb(2.8x(1-x), 0.2, 30)' },
+  { name: 'newtonschritte', aliases: ['newtonverfahren'], cat: 'Numerik', syntax: 'newtonschritte(f(x), Startwert) · newtonschritte(f(x), Startwert, Schritte)', text: 'Das Newton-Verfahren Schritt für Schritt, mit den Tangenten im Bild.', example: 'newtonschritte(x^2-2, 1)' },
+  { name: 'bisektionsschritte', aliases: ['intervallhalbierung'], cat: 'Numerik', syntax: 'bisektionsschritte(f(x), a, b) · bisektionsschritte(f(x), a, b, Schritte)', text: 'Das Bisektionsverfahren Schritt für Schritt, mit den Intervallen im Bild und der Fehlerschranke.', example: 'bisektionsschritte(x^3-2, 1, 2, 10)' },
+  { name: 'rundungsfehler', aliases: ['rundungsfehleranalyse'], cat: 'Numerik', syntax: 'rundungsfehler(Term)', text: 'Der exakte Wert gegen gerundete Werte mit 4 bis 15 Stellen und ihre Fehler.', example: 'rundungsfehler(1/3 + pi)' },
+  { name: 'restglied', aliases: ['taylorfehler'], cat: 'Numerik', syntax: 'restglied(f(x), a, n, b)', text: 'Taylorpolynom vom Grad n um a, die Fehlerschranke nach Lagrange auf [a; b] und der tatsächliche Fehler bei b.', example: 'restglied(sin(x), 0, 5, 1)' },
+  { name: 'richtungsfeld', aliases: ['steigungsfeld'], cat: 'Differentialgleichungen', syntax: "richtungsfeld(y' = f(x, y))", text: 'Zeichnet das Richtungsfeld einer Differentialgleichung erster Ordnung.', example: "richtungsfeld(y' = x - y)" },
+  { name: 'lösungskurve', aliases: ['loesungskurve', 'anfangswertkurve'], cat: 'Differentialgleichungen', syntax: "lösungskurve(y' = f(x, y), x₀, y₀)", text: 'Die Lösungskurve durch (x₀ | y₀), numerisch mit Runge-Kutta, in beide Richtungen.', example: "lösungskurve(y' = x - y, 0, 1)" },
+  { name: 'phasenporträt', aliases: ['phasenportraet', 'phasendiagramm'], cat: 'Differentialgleichungen', syntax: "phasenporträt(x' = f(x, y), y' = g(x, y))", text: 'Phasenporträt eines Systems: Pfeile und einige Bahnen.', example: 'phasenporträt(y, -x - 0.3y)' },
+  { name: 'zahlenebene', aliases: ['gaußschezahlenebene', 'gausszahlenebene', 'argand'], cat: 'Komplexe Zahlen', syntax: 'zahlenebene(z₁, z₂, …)', text: 'Zeichnet komplexe Zahlen als Pfeile in der Gaußschen Zahlenebene, mit Betrag und Argument.', example: 'zahlenebene(3+4i, 1-i, -2i)' },
 
   // Programme
   { name: 'programm', aliases: ['funktion'], cat: 'Programme', syntax: 'programm name(Parameter) … ende', text: 'Ein eigener Befehl aus mehreren Zeilen (Umschalt+Eingabe oder Eingabe bis zum letzten „ende“): wenn … dann / sonst / ende, solange … ende, für k von 1 bis n … ende, wiederhole n mal … ende, zurück Wert, ausgabe Wert, lokal a, b. Rekursion ist erlaubt. Giacs Schreibweise f(n):={ … } geht auch.', example: 'programm fak(n)\n  wenn n <= 1 dann\n    zurück 1\n  ende\n  zurück n * fak(n - 1)\nende' },

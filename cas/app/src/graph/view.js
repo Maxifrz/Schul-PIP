@@ -6,7 +6,7 @@ import { h, toast } from '../ui.js';
 import { sliderSettings } from './sliders.js';
 import { TOOLS, tool as toolById } from './tools.js';
 import { styleOf, isVisible, PALETTE } from './scene.js';
-import { chartShapes } from '../charts.js';
+import { chartShapes, VIEW_CHARTS } from '../charts.js';
 import { sampleFunction, contour, specialPoints, niceStep, piStep, tickLabel, piLabel, coordinate } from './plot.js';
 import { parsePlain, compile, compileCondition } from '../expr.js';
 
@@ -705,11 +705,14 @@ export class GraphView {
   /** The shapes of a chart for the current slider values; worked out again only when they change */
   chartOf(object) {
     const items = object.items();
-    const key = JSON.stringify(items);
+    // Functions in the arguments change with the sliders; fields fill the view, so both belong to the key.
+    const sliders = items.some((i) => typeof i === 'function') ? [...this.scene.params.values()].map((p) => p.value) : [];
+    const viewBound = VIEW_CHARTS.has(object.chart) ? [this.settings.xmin, this.settings.xmax, this.settings.ymin, this.settings.ymax] : [];
+    const key = JSON.stringify([items, sliders, viewBound]);
     if (!object.cache || object.cache.key !== key) {
       let shapes = null;
       try {
-        shapes = chartShapes(object.command, object.chart, items, object.seed);
+        shapes = chartShapes(object.command, object.chart, items, object.seed, this.settings);
       } catch (e) {
         shapes = null;
       }
@@ -760,11 +763,28 @@ export class GraphView {
     for (const line of shapes.lines) {
       ctx.beginPath();
       line.points.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
-      ctx.strokeStyle = line.accent ? accent : style.color;
+      const color = line.accent ? accent : style.color;
+      ctx.strokeStyle = line.faint ? withAlpha(color, 0.45) : color;
       ctx.lineWidth = (line.bold ? style.width : line.thin ? 1 : 1.6) + (selected ? 1 : 0);
       ctx.setLineDash(line.dash ? [6, 5] : []);
       ctx.stroke();
       ctx.setLineDash([]);
+      if (line.arrow && line.points.length >= 2) {
+        // An arrow head at the end, in screen space
+        const [x1, y1] = line.points[line.points.length - 1];
+        const [x0, y0] = line.points[line.points.length - 2];
+        const ax = X(x1);
+        const ay = Y(y1);
+        const angle = Math.atan2(ay - Y(y0), ax - X(x0));
+        const size = line.bold ? 11 : 6;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - size * Math.cos(angle - 0.4), ay - size * Math.sin(angle - 0.4));
+        ctx.lineTo(ax - size * Math.cos(angle + 0.4), ay - size * Math.sin(angle + 0.4));
+        ctx.closePath();
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fill();
+      }
     }
     for (const d of shapes.dots) {
       if (!Number.isFinite(d.x) || !Number.isFinite(d.y)) continue;
@@ -772,6 +792,7 @@ export class GraphView {
         ctx.fillStyle = d.accent ? accent : style.color;
         ctx.fillRect(X(d.x) - 1.5, Y(d.y) - 1.5, 3, 3);
       } else this.dot(ctx, d.x, d.y, style.pointSize + (selected ? 1.5 : 0), d.accent ? accent : style.color, colors.bg);
+      if (d.label) this.text(ctx, d.label, X(d.x) + 8, Y(d.y) - 12, colors.ink, colors.bg);
     }
     for (const t of shapes.texts) {
       if (t.strong) this.text(ctx, t.text, X(t.x), Y(t.y), colors.ink, colors.bg, t.align || 'left');
@@ -794,7 +815,7 @@ export class GraphView {
     if (!shapes || !shapes.bounds) return;
     const b = shapes.bounds;
     const s = this.settings;
-    const pie = object.chart === 'pie' || object.chart === 'montecarlo';
+    const pie = ['pie', 'montecarlo', 'complex', 'cobweb'].includes(object.chart);
     Object.assign(s, { xmin: b.xmin, xmax: b.xmax, ymin: b.ymin, ymax: b.ymax, logX: false, logY: false });
     s.equal = pie;
     if (pie && this.width && this.height) {
