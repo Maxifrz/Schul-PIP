@@ -244,6 +244,21 @@ final class MotionTests: XCTestCase {
         }
     }
 
+    /// The mapping of "comes from" to the file's `dir`, as LibreOffice's PowerPoint import reads it. If PowerPoint plays it
+    /// differently, this is the one table to change.
+    func testTransitionDirectionsAreWrittenAsMapped() throws {
+        let expected: [(MotionDirection, String)] = [(.left, "l"), (.right, "r"), (.up, "d"), (.down, "u")]
+        for kind in [TransitionKind.push, .cover] {
+            for (direction, dir) in expected {
+                var slide = cards()
+                slide.transition = SlideTransition(kind: kind, direction: direction)
+                let root = try slideXML(Presentation(title: "T", slides: [slide]))
+                let element = try XCTUnwrap(root.first(kind == .push ? "push" : "cover"))
+                XCTAssertEqual(element.attr("dir"), dir, "\(kind) \(direction)")
+            }
+        }
+    }
+
     func testAnimatedPictureWithMissingFileIsSkipped() throws {
         var slide = cards()
         slide.elements.append(SlideElement(kind: .image, x: 100, y: 100, width: 100, height: 100, image: "missing.png", animation: ElementAnimation()))

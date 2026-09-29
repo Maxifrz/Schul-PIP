@@ -7,11 +7,12 @@ enum PptxMotion {
     static func transition(_ slide: Slide) -> String {
         guard let t = slide.transition, t.kind != .none else { return "" }
         let speed = t.seconds < 0.4 ? "fast" : (t.seconds <= 0.9 ? "med" : "slow")
-        // PowerPoint names the way the old slide leaves; new content coming from the right is dir="l".
+        // Read back with LibreOffice's PowerPoint import, this gives push and cover "from the left", "from the right", "from the
+        // top" and "from the bottom" as named. It is the one outside check there is; PowerPoint itself has not been asked.
         let dir: String
         switch t.direction {
-        case .left: dir = "r"
-        case .right: dir = "l"
+        case .left: dir = "l"
+        case .right: dir = "r"
         case .up: dir = "d"
         case .down: dir = "u"
         }
