@@ -1,12 +1,12 @@
 # CAS-Rechner: Abgleich mit der Feature-Checkliste
 
-Stand: 29.09.2026, nach Stufe 3 (dynamische Geometrie) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
+Stand: 29.09.2026, nach Stufe 4 (3D und Raumgeometrie) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
 
 Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) · `[~]` rechnet, aber nur per (meist englischem) Giac-Befehl ohne Taste/Hilfe, oder nur teilweise · `[!]` geht, aber mit Fehler · `[ ]` fehlt
 
 ## Zusammenfassung
 
-703 Punkte: 292 in der App, 87 nur per Befehl, 128 teilweise, 1 mit Fehler, 195 fehlen.
+703 Punkte: 333 in der App, 87 nur per Befehl, 118 teilweise, 1 mit Fehler, 164 fehlen.
 
 | Kapitel | Punkte | in der App | nur Befehl | teilweise | Fehler | fehlt |
 |---|---:|---:|---:|---:|---:|---:|
@@ -24,8 +24,8 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 12. Dynamische Mathematik | 13 | 13 | 0 | 0 | 0 | 0 |
 | 13. Geometrie | 28 | 27 | 0 | 1 | 0 | 0 |
 | 14. Geometrische Transformationen | 10 | 8 | 0 | 1 | 0 | 1 |
-| 15. Analytische Geometrie | 24 | 12 | 0 | 12 | 0 | 0 |
-| 16. 3D-Rechner | 24 | 0 | 0 | 0 | 0 | 24 |
+| 15. Analytische Geometrie | 24 | 24 | 0 | 0 | 0 | 0 |
+| 16. 3D-Rechner | 24 | 21 | 0 | 3 | 0 | 0 |
 | 17. Matrizen | 15 | 10 | 4 | 1 | 0 | 0 |
 | 18. Komplexe Zahlen | 11 | 2 | 7 | 1 | 0 | 1 |
 | 19. Folgen | 9 | 1 | 1 | 2 | 0 | 5 |
@@ -53,10 +53,10 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 41. Qualitätskontrolle der Berechnungen | 10 | 4 | 0 | 4 | 0 | 2 |
 | 42. Professionelle CAS-Funktionen | 17 | 0 | 12 | 2 | 0 | 3 |
 | 43. Differentialgleichungen | 11 | 0 | 4 | 3 | 0 | 4 |
-| 44. Erweiterte 3D-Mathematik | 13 | 0 | 2 | 1 | 0 | 10 |
-| 45. Architektur der App | 16 | 6 | 0 | 5 | 0 | 5 |
-| 46. Kernanforderung für eine vollständige CAS-App | 16 | 10 | 0 | 3 | 0 | 3 |
-| Minimaler Funktionsumfang | 28 | 15 | 2 | 4 | 0 | 7 |
+| 44. Erweiterte 3D-Mathematik | 13 | 4 | 2 | 1 | 0 | 6 |
+| 45. Architektur der App | 16 | 7 | 0 | 5 | 0 | 4 |
+| 46. Kernanforderung für eine vollständige CAS-App | 16 | 11 | 0 | 3 | 0 | 2 |
+| Minimaler Funktionsumfang | 28 | 17 | 2 | 3 | 0 | 6 |
 
 ## Gefundene Fehler
 
@@ -372,45 +372,45 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Winkel zwischen Vektoren — in der App: winkel(u, v)
 - [x] Orthogonalität — in der App: orthogonal(u, v)
 - [x] Parallelität — in der App: kollinear(u, v)
-- [~] Geradengleichungen — teilweise: in der Ebene gerade(A, B) als y = mx + b; im Raum mit Stufe 4
-- [~] Ebenengleichungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Parameterform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Normalenform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Koordinatenform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Hesse-Normalform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Lagebeziehungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Schnittpunkte — teilweise: in der Ebene schnittpunkt(…); im Raum mit Stufe 4
-- [~] Schnittgeraden — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Abstände — teilweise: in der Ebene abstand(P, g); im Raum distance(...)
-- [~] Lotfußpunkte — teilweise: in der Ebene über höhe(A, B, C)
-- [~] Spiegelpunkte — teilweise: in der Ebene spiegeln(P, g)
+- [x] Geradengleichungen — in der App: gerade(A, B) in Ebene und Raum, im Raum in Parameterform
+- [x] Ebenengleichungen — in der App: ebene(A, B, C), ebene(P, n), E: 2x + y − z = 4
+- [x] Parameterform — in der App: parameterform(E)
+- [x] Normalenform — in der App: normalenform(E)
+- [x] Koordinatenform — in der App: koordinatenform(E)
+- [x] Hesse-Normalform — in der App: hessenormalform(E)
+- [x] Lagebeziehungen — in der App: lage(g, h), lage(g, E), lage(E, F), lage(P, E) in Worten
+- [x] Schnittpunkte — in der App: schnittpunkt(…) in Ebene und Raum
+- [x] Schnittgeraden — in der App: schnittgerade(E, F)
+- [x] Abstände — in der App: abstand(…) zwischen Punkten, Geraden und Ebenen, auch windschief
+- [x] Lotfußpunkte — in der App: lotfußpunkt(P, g), lotfußpunkt(P, E)
+- [x] Spiegelpunkte — in der App: spiegeln(P, E), spiegeln(P, g), spiegeln(P, Q)
 
 ## 16. 3D-Rechner
 
-- [ ] 3D-Koordinatensystem
-- [ ] 3D-Punkte
-- [ ] 3D-Geraden
-- [ ] 3D-Strecken
-- [ ] Ebenen
-- [ ] Kugeln
-- [ ] Zylinder
-- [ ] Kegel
-- [ ] Prismen
-- [ ] Pyramiden
-- [ ] Polyeder
-- [ ] 3D-Funktionen
-- [ ] Parametrische Flächen
-- [ ] Implizite Flächen
-- [ ] Schnittflächen
-- [ ] Schnittkurven
-- [ ] 3D-Abstände
-- [ ] 3D-Winkel
-- [ ] 3D-Transformationen
-- [ ] Freies Drehen
-- [ ] Zoomen
-- [ ] Perspektivische Darstellung
-- [ ] Orthografische Darstellung
-- [ ] 3D-Animationen
+- [x] 3D-Koordinatensystem — in der App: 3D-Ansicht
+- [x] 3D-Punkte — in der App: A(1|2|3)
+- [x] 3D-Geraden
+- [x] 3D-Strecken
+- [x] Ebenen
+- [x] Kugeln — in der App: kugel(M, r)
+- [x] Zylinder — in der App: zylinder(M₁, M₂, r)
+- [x] Kegel — in der App: kegel(M, S, r)
+- [x] Prismen — in der App: prisma(A, B, C, …, A')
+- [x] Pyramiden — in der App: pyramide(A, B, C, …, S)
+- [x] Polyeder — in der App: quader, würfel, prisma, pyramide mit Volumen und Oberfläche
+- [x] 3D-Funktionen — in der App: f(x, y) = … und z = …
+- [x] Parametrische Flächen — in der App: parameterfläche(…)
+- [x] Implizite Flächen — in der App: x² + y² − z² = 1
+- [~] Schnittflächen — teilweise: Körper und Flächen überlagert, keine berechnete Schnittfläche
+- [~] Schnittkurven — teilweise: schnittgerade(E, F); Schnittkurven gekrümmter Flächen fehlen
+- [x] 3D-Abstände
+- [x] 3D-Winkel — in der App: winkel(g, h), winkel(g, E), winkel(E, F)
+- [~] 3D-Transformationen — teilweise: spiegeln und verschieben von Punkten
+- [x] Freies Drehen
+- [x] Zoomen
+- [x] Perspektivische Darstellung
+- [x] Orthografische Darstellung
+- [x] 3D-Animationen — in der App: Schieberegler bewegen alles im Raum
 
 ## 17. Matrizen
 
@@ -833,26 +833,26 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 
 ## 44. Erweiterte 3D-Mathematik
 
-- [ ] Vektorfelder
+- [x] Vektorfelder — in der App: vektorfeld([P, Q, R])
 - [ ] Skalarfelder
 - [~] Gradientfelder — teilweise: grad(...) rechnerisch
 - [~] Divergenz — nur Befehl: divergence(...)
 - [~] Rotation/Curl — nur Befehl: curl(...)
 - [ ] Fluss
-- [ ] parametrische Flächen
+- [x] parametrische Flächen — in der App: parameterfläche(…)
 - [ ] Flächennormalen
-- [ ] Tangentialebenen
+- [x] Tangentialebenen — in der App: tangentialebene(f, a, b)
 - [ ] Kurvenintegrale
 - [ ] Flächenintegrale
 - [ ] 3D-Ortslinien
-- [ ] dynamische 3D-Simulationen
+- [x] dynamische 3D-Simulationen — in der App: Schieberegler in der 3D-Ansicht
 
 ## 45. Architektur der App
 
 - [x] zentrale CAS-Engine — in der App: Giac 1.9 (WebAssembly)
 - [x] numerische Engine — in der App: Giac
 - [x] 2D-Rendering-Engine — in der App: Graph und Folien
-- [ ] 3D-Rendering-Engine
+- [x] 3D-Rendering-Engine — in der App: three.js (WebGL)
 - [x] Geometrie-Engine — in der App: exakt über Giac, live beim Ziehen
 - [~] Statistik-Engine — teilweise: Giac
 - [~] Wahrscheinlichkeits-Engine — teilweise: Giac
@@ -874,7 +874,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Ergebnisse können direkt weiterverwendet werden — in der App: ans, Definitionen
 - [x] Algebra und Grafik sind miteinander verbunden — in der App: eine Zeile = ein Objekt, CAS und Grafik nebeneinander
 - [x] Änderungen werden automatisch propagiert
-- [ ] 2D und 3D verwenden dieselbe mathematische Objektlogik
+- [x] 2D und 3D verwenden dieselbe mathematische Objektlogik — in der App: eine Zeile = ein Objekt, in 2D oder 3D
 - [ ] CAS, Geometrie, Statistik und Tabellen greifen auf gemeinsame Objekte zu
 - [ ] Jede Funktion ist über GUI und Kommando-/Eingabesystem erreichbar
 - [~] Ergebnisse sind nachvollziehbar — teilweise: Ergebnis ja, Weg nein
@@ -890,14 +890,14 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Vollständiges CAS — in der App: Giac
 - [x] Wissenschaftlicher Rechner
 - [x] 2D-Plotter
-- [ ] 3D-Plotter
+- [x] 3D-Plotter
 - [x] Dynamische Geometrie
 - [x] Differentialrechnung
 - [x] Integralrechnung
 - [x] Gleichungslöser
 - [x] Ungleichungslöser — in der App: mit Intervallen
 - [x] Matrizen
-- [~] Vektoren — teilweise: ohne deutsche Befehle
+- [x] Vektoren — in der App: deutsche Befehle, Ebene und Raum
 - [~] Statistik — teilweise: Grundwerte
 - [~] Regression — nur Befehl: nur Giac-Befehle
 - [~] Wahrscheinlichkeitsrechnung — nur Befehl: nur Giac-Befehle

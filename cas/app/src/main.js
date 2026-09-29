@@ -14,6 +14,7 @@ import { Scene, styleOf, isVisible } from './graph/scene.js';
 import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
 import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
 import { styleSheet, settingsSheet, objectsSheet, exportSheet } from './graph/sheets.js';
+import { SpaceView, DEFAULT_SETTINGS_3D } from './graph/view3d.js';
 
 MathfieldElement.fontsDirectory = '.';
 MathfieldElement.soundsDirectory = null;
@@ -50,7 +51,7 @@ function changed() {
 }
 
 function snapshot() {
-  return JSON.stringify({ version: 2, name: state.project.name, settings: state.project.settings, graph: state.graph.settings, cas: state.cas.serialize() });
+  return JSON.stringify({ version: 2, name: state.project.name, settings: state.project.settings, graph: state.graph.settings, space: state.space.settings, cas: state.cas.serialize() });
 }
 
 function autosave() {
@@ -76,6 +77,7 @@ function load(json) {
   state.scene.key = null;
   state.graph.selected = null;
   state.graph.setSettings(data.graph || DEFAULT_SETTINGS);
+  state.space.setSettings(data.space || DEFAULT_SETTINGS_3D);
   state.cas.load(data.cas || []);
   updateTitle();
 }
@@ -93,6 +95,7 @@ function refreshScene() {
     renderStrip();
     state.graph.special = state.graph.selected ? state.graph.computeSpecial() : [];
     state.graph.redraw();
+    state.space.redraw();
   }, 0);
 }
 
@@ -302,7 +305,7 @@ function setStatus(kind, text) {
 }
 
 function layouts() {
-  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik']] : [['cas', 'CAS'], ['graph', 'Grafik']];
+  return window.innerWidth >= WIDE ? [['both', 'Beides'], ['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D']] : [['cas', 'CAS'], ['graph', 'Grafik'], ['space', '3D']];
 }
 
 function setLayout(layout) {
@@ -315,7 +318,13 @@ function setLayout(layout) {
   } catch (e) {
     // no storage: the layout is not remembered
   }
-  requestAnimationFrame(() => state.graph && state.graph.resize());
+  requestAnimationFrame(() => {
+    if (state.graph) state.graph.resize();
+    if (state.layout === 'space' && state.space && state.space.init()) {
+      state.space.resize();
+      state.space.redraw();
+    }
+  });
 }
 
 function togglePanel() {
@@ -452,6 +461,63 @@ function buildTools() {
   );
 }
 
+/** Buttons of the 3D view */
+function buildSpaceTools() {
+  const v = state.space;
+  const projection = h('button.tool', { 'aria-label': 'Perspektive oder Parallelprojektion', title: 'Perspektive / parallel', onclick: () => {
+    v.settings.perspective = !v.settings.perspective;
+    v.useCamera();
+    projection.textContent = v.settings.perspective ? 'P' : 'O';
+    v.redraw();
+    changed();
+  } }, 'P');
+  v.tools.replaceChildren(
+    h('button.tool', { 'aria-label': 'Vergrößern', title: 'Vergrößern', onclick: () => v.zoom(0.8) }, '+'),
+    h('button.tool', { 'aria-label': 'Verkleinern', title: 'Verkleinern', onclick: () => v.zoom(1.25) }, '−'),
+    h('button.tool', { 'aria-label': 'Standardansicht', title: 'Standardansicht', onclick: () => v.resetView() }, '⌂'),
+    projection,
+    h('button.tool', { 'aria-label': 'Koordinatensystem', title: 'Koordinatensystem', onclick: () => spaceSettings() }, '⚙'),
+    h('button.tool', { 'aria-label': 'Exportieren', title: 'Exportieren', onclick: () => exportSheet({
+      canInsert: hasApp(),
+      onShare: () => share('Grafik-3D.png', 'image/png', v.png(), true),
+      onInsert: async () => {
+        const answer = await insertIntoDocument(v.png());
+        if (answer) toast(answer);
+      },
+    }) }, '⤴'),
+  );
+}
+
+function spaceSettings() {
+  const v = state.space;
+  const s = v.settings;
+  const flag = (label, key) => h('div.field', {}, label, toggle([[true, 'an'], [false, 'aus']], s[key], (value) => {
+    s[key] = value;
+    if (key === 'perspective') v.useCamera();
+    v.redraw();
+    changed();
+  }));
+  sheet((close) => [
+    h('h2', {}, '3D-Koordinatensystem'),
+    h('div.field', {}, 'Bereich', toggle([[3, '±3'], [5, '±5'], [10, '±10'], [20, '±20']], s.range, (value) => {
+      s.range = value;
+      v.labelCache.clear();
+      v.resetView();
+      changed();
+    })),
+    flag('Achsen', 'axes'),
+    flag('Gitter in der xy-Ebene', 'grid'),
+    flag('Rahmen', 'box'),
+    h('div.field', {}, 'Darstellung', toggle([[true, 'perspektivisch'], [false, 'parallel']], s.perspective, (value) => {
+      s.perspective = value;
+      v.useCamera();
+      v.redraw();
+      changed();
+    })),
+    h('div.actions', {}, h('button.pill.primary', { onclick: () => close() }, 'Fertig')),
+  ]);
+}
+
 const stripEl = h('div.strip');
 
 /** Sliders and checkboxes under the graphics, for working without the CAS in view. */
@@ -545,10 +611,12 @@ function start() {
       }
     },
   });
+  state.space = new SpaceView({ scene: state.scene, onViewChange: changed });
   state.animator = new Animator({
     scene: state.scene,
     onFrame: () => {
       state.graph.redraw();
+      state.space.redraw();
       updatePlayAll();
     },
     onLive: (row) => liveRecalculate(row),
@@ -559,10 +627,12 @@ function start() {
     },
   });
   buildTools();
+  buildSpaceTools();
   state.graph.bottom.append(stripEl, buildInputLine());
   state.cas.el.classList.add('cas-pane');
   state.graph.el.classList.add('graph-pane');
-  mainEl.append(state.cas.el, state.graph.el);
+  state.space.el.classList.add('space-pane');
+  mainEl.append(state.cas.el, state.graph.el, state.space.el);
   app.append(header, mainEl);
   let remembered = null;
   try {
@@ -586,6 +656,7 @@ function start() {
     if (json) load(json);
     else {
       state.graph.setSettings(DEFAULT_SETTINGS);
+      state.space.setSettings(DEFAULT_SETTINGS_3D);
       state.cas.load([]);
     }
     if (window.__giacReady) giacReady();
@@ -609,6 +680,7 @@ window.Mathe = {
   setTheme(theme) {
     document.documentElement.dataset.theme = theme;
     if (state.graph) state.graph.redraw();
+    if (state.space) state.space.redraw();
   },
   // For tests and the app: the current state
   get state() {

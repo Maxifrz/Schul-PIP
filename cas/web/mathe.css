@@ -214,3 +214,13 @@ body { --keyboard-zindex: 20; }
 .construct button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .construct-hint { font-size: 12.5px; color: var(--ink2); background: var(--surface); border-radius: 8px; padding: 3px 8px; border: 1px solid var(--line-soft); }
 .construct-hint:empty { display: none; }
+
+/* The 3D view */
+.space { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+.space-stage { position: absolute; inset: 0; }
+.space-stage canvas { display: block; touch-action: none; }
+.space-message { position: absolute; left: 16px; bottom: 14px; right: 60px; color: var(--muted); font-size: 13.5px; pointer-events: none; }
+.main:not([data-layout="space"]) .space-pane { display: none; }
+.main[data-layout="space"] .graph-pane { display: none; }
+@media (max-width: 979px) { .main[data-layout="space"] .cas-pane { display: none; } }
+@media (min-width: 980px) { .main[data-layout="space"] .cas-pane { flex: 0 0 42%; max-width: 560px; border-right: 1px solid var(--line); } }

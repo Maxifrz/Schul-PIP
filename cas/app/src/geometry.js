@@ -5,6 +5,7 @@
 
 import { parsePlain, toGiac } from './expr.js';
 import { command } from './commands.js';
+import { Space } from './space.js';
 
 /** Commands that make a shape, by their German name. */
 const SHAPES = new Set([
@@ -12,6 +13,10 @@ const SHAPES = new Set([
   'mittelpunkt', 'schnittpunkt', 'parallele', 'senkrechte', 'mittelsenkrechte', 'winkelhalbierende', 'höhe',
   'kreisbogen', 'kreissektor', 'schwerpunkt', 'umkreismittelpunkt', 'inkreismittelpunkt', 'höhenschnittpunkt',
   'eulergerade', 'umkreis', 'inkreis', 'punktauf', 'ortslinie', 'spiegeln', 'verschieben', 'drehen', 'strecken',
+  // in space
+  'ebene', 'kugel', 'pyramide', 'prisma', 'quader', 'würfel', 'zylinder', 'kegel', 'schnittgerade', 'lage', 'lotfußpunkt',
+  'koordinatenform', 'normalenform', 'parameterform', 'hessenormalform', 'parameterfläche', 'vektorfeld', 'tangentialebene',
+  'volumen', 'oberfläche',
 ]);
 
 /** Commands with a value but no shape of their own. */
@@ -67,6 +72,7 @@ function inradius(A, B, C) {
 export class Geometry {
   constructor(engine) {
     this.engine = engine;
+    this.space = new Space(this);
   }
 
   giac(node) {
@@ -88,7 +94,7 @@ export class Geometry {
       if (tree.t === 'call' && tree.args.length === 1 && tree.args[0].point) return tree.args[0];
       if (tree.t === 'rel') {
         const body = tree.b;
-        return body.t === 'list' && body.tuple && body.items.length === 2 ? { t: 'list', items: body.items, point: true } : body;
+        return body.t === 'list' && body.tuple && (body.items.length === 2 || body.items.length === 3) ? { t: 'list', items: body.items, point: true } : body;
       }
     } catch (e) {
       return null;
@@ -102,12 +108,16 @@ export class Geometry {
    */
   shape(node, options = {}) {
     if (!node) return null;
+    if (node.t === 'call' && this.space.isSpaceCall(node)) return this.space.shape(node, options);
+    if (node.t === 'rel' && this.space.usesZ(node)) return this.space.shape(node, options);
+    if (node.t === 'list' && node.items.length === 3 && !node.items.some((i) => i.t === 'list')) return this.space.shape(node, options);
     if (node.t === 'list' && node.point) return { kind: 'point', parts: [this.giac(node)] };
     if (node.t === 'sym') {
       const def = this.engine.defined.get(node.v);
       if (!def) return null;
-      if (def.kind === 'point') return { kind: 'point', parts: [node.v], named: node.v };
       const tree = this.definitionTree(node.v);
+      if (tree && this.space.inSpace(tree)) return this.space.shape(node, options);
+      if (def.kind === 'point') return { kind: 'point', parts: [node.v], named: node.v };
       if (tree && (isShapeCall(tree) || (tree.t === 'list' && tree.point))) {
         const inner = this.shape(tree, options);
         // A named point made by a command is referred to by its name.
@@ -409,6 +419,7 @@ export class Geometry {
 
   /** The value the CAS shows for a shape: coordinates, an equation, a length, an area, an angle. */
   value(node) {
+    if (node.t === 'call' && this.space.isSpaceCall(node)) return this.space.value(node);
     if (isMeasureCall(node)) return this.measure(node);
     const s = this.shape(node);
     if (!s) throw new Error('Unbekanntes Grafikobjekt.');

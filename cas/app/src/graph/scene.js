@@ -175,6 +175,14 @@ export class Scene {
     return () => [fx(), fy()];
   }
 
+  /** A point or vector in space from a Giac answer [x, y, z] */
+  vectorFn(answer) {
+    const tree = parse(answer);
+    if (!tree || tree.t !== 'list' || tree.items.length !== 3) return null;
+    const fns = tree.items.map((item) => compile(item, [], this.scope));
+    return () => fns.map((f) => f());
+  }
+
   numberFn(answer, variables = []) {
     const tree = parse(answer);
     if (!tree || tree.t === 'list' || tree.t === 'rel') return null;
@@ -254,6 +262,62 @@ export class Scene {
       }
       case 'locus':
         return { ...base, pointName: entry.pointName, parameter: entry.parameter };
+      case 'point3': {
+        const at = this.vectorFn(answers[0]);
+        return at ? { ...base, at } : null;
+      }
+      case 'line3':
+      case 'segment3':
+      case 'vector3': {
+        const [a, b] = answers.map((x) => this.vectorFn(x));
+        return a && b ? { ...base, a, b } : null;
+      }
+      case 'plane': {
+        const n = this.vectorFn(answers[0]);
+        const d = this.numberFn(answers[1]);
+        return n && d ? { ...base, n, d } : null;
+      }
+      case 'sphere': {
+        const center = this.vectorFn(answers[0]);
+        const radius = this.numberFn(answers[1]);
+        return center && radius ? { ...base, center, radius } : null;
+      }
+      case 'cylinder':
+      case 'cone': {
+        const a = this.vectorFn(answers[0]);
+        const b = this.vectorFn(answers[1]);
+        const radius = this.numberFn(answers[2]);
+        return a && b && radius ? { ...base, a, b, radius } : null;
+      }
+      case 'solid': {
+        const corners = answers.map((x) => this.vectorFn(x));
+        return corners.every(Boolean) ? { ...base, corners, faces: entry.faces } : null;
+      }
+      case 'curve3': {
+        const [X, Y, Z] = answers.slice(0, 3).map((x) => this.numberFn(x, [entry.variable]));
+        const from = this.numberFn(answers[3]);
+        const to = this.numberFn(answers[4]);
+        return X && Y && Z && from && to ? { ...base, X, Y, Z, from, to } : null;
+      }
+      case 'psurface': {
+        const [X, Y, Z] = answers.slice(0, 3).map((x) => this.numberFn(x, entry.variables));
+        const [u0, u1, v0, v1] = answers.slice(3).map((x) => this.numberFn(x));
+        return X && Y && Z && u0 && u1 && v0 && v1 ? { ...base, X, Y, Z, range: () => [u0(), u1(), v0(), v1()] } : null;
+      }
+      case 'surface': {
+        const f = this.numberFn(answers[0], ['x', 'y']);
+        return f ? { ...base, f } : null;
+      }
+      case 'isurface': {
+        const tree = parse(answers[0]);
+        if (!tree) return null;
+        const F = compile(tree.t === 'rel' ? { t: 'op', op: '-', a: tree.a, b: tree.b } : tree, ['x', 'y', 'z'], this.scope);
+        return { ...base, F };
+      }
+      case 'field': {
+        const [P, Q, R] = answers.map((x) => this.numberFn(x, ['x', 'y', 'z']));
+        return P && Q && R ? { ...base, P, Q, R } : null;
+      }
       case 'line':
       case 'ray':
       case 'segment': {
@@ -312,7 +376,8 @@ export function classify(row, engine) {
   /** An object made by a command: its shape tells what to draw. */
   const shaped = (name, node, extra = {}) => {
     const shape = engine.geometry.shape(node);
-    if (!shape) return null;
+    // volumen(K), normalenform(E): a number or another form of an object drawn elsewhere
+    if (!shape || shape.measure || shape.form) return null;
     switch (shape.kind) {
       case 'restricted': {
         const [body, from, to] = shape.parts;
@@ -322,20 +387,41 @@ export function classify(row, engine) {
         return { row, name, type: 'locus', pointName: shape.point, parameter: shape.parameter, requests: [], ...extra };
       case 'curve':
       case 'polar':
+      case 'curve3':
         return { row, name, type: shape.kind, variable: shape.variable, requests: shape.parts, ...extra };
+      case 'psurface':
+        return { row, name, type: 'psurface', variables: shape.variables, requests: shape.parts, ...extra };
+      case 'solid':
+        return { row, name, type: 'solid', faces: shape.faces, requests: shape.parts, ...extra };
+      case 'plane':
+        if (shape.measure) return null;
+        return { row, name, type: 'plane', requests: shape.parts, ...extra };
       default:
         return { row, name, type: shape.kind, requests: shape.parts, ...extra };
     }
   };
 
+  /** z = f(x, y) is a graph over the plane; other equations with z are planes, spheres or implicit surfaces. */
+  const zEquation = (name, node) => {
+    const zOnly = (n) => n.t === 'sym' && n.v === 'z';
+    if (zOnly(node.a) && !usesZ(node.b)) return { row, name, type: 'surface', requests: [giac(node.b)] };
+    if (zOnly(node.b) && !usesZ(node.a)) return { row, name, type: 'surface', requests: [giac(node.a)] };
+    return shaped(name, node);
+  };
+
   if (r.kind === 'definition' && r.definition) {
     const d = r.definition;
     if (d.kind === 'function') {
+      if (d.params.length === 2) {
+        const call = `${d.name}(x,y)`;
+        return { row, name: d.name, label: d.name, type: 'surface', requests: [call] };
+      }
       if (d.params.length !== 1) return null;
       const call = `${d.name}(x)`;
       return { row, name: d.name, label: d.name, type: 'function', requests: [call, `diff(${call},x)`, `diff(${call},x,2)`] };
     }
     const body = d.body;
+    if (d.kind === 'point' && body.t === 'list' && body.items.length === 3) return { row, name: d.name, type: 'point3', requests: [d.name] };
     if (d.kind === 'point' && body.t === 'list') {
       const coordinates = body.items.map(numberOf);
       const free = body.items.length === 2 && coordinates.every((c) => c !== null);
@@ -353,12 +439,14 @@ export function classify(row, engine) {
     const truth = booleanOf(body);
     if (truth !== null) return { row, name: d.name, type: 'checkbox', value: truth };
     if (isShapeCall(body)) return shaped(d.name, body);
+    if (body.t === 'rel' && usesZ(body)) return zEquation(d.name, body);
     return null;
   }
 
   const tree = r.tree;
   if (!tree) return null;
-  if (tree.t === 'list' && tree.point) return { row, type: 'point', requests: [giac(tree)], label: '' };
+  if (tree.t === 'list' && tree.point) return { row, type: tree.items.length === 3 ? 'point3' : 'point', requests: [giac(tree)], label: '' };
+  if (tree.t === 'rel' && tree.op === '=' && usesZ(tree)) return zEquation(null, tree);
   if (isShapeCall(tree)) return shaped(null, tree);
   if (tree.t === 'rel' && ['=', '<', '>', '<=', '>='].includes(tree.op)) {
     const used = symbols(tree);
@@ -388,6 +476,15 @@ export function classify(row, engine) {
   }
   return null;
 }
+
+function usesZ(node) {
+  if (!node) return false;
+  if (node.t === 'sym') return node.v === 'z';
+  return ['a', 'b'].some((k) => usesZ(node[k])) || (node.args || []).some(usesZ) || (node.items || []).some(usesZ);
+}
+
+/** Objects that belong in the 3D view */
+export const SPACE_TYPES = new Set(['point3', 'line3', 'segment3', 'vector3', 'plane', 'sphere', 'solid', 'cylinder', 'cone', 'curve3', 'psurface', 'isurface', 'surface', 'field']);
 
 /** The style of a row's object: its own settings over the defaults. */
 export function styleOf(object) {

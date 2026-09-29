@@ -48,7 +48,7 @@ export class Engine {
     const transform = (n) => {
       if (!n || typeof n !== 'object') return n;
       if (n.t === 'call' && !n.prime && command(n.f) && !this.defined.has(n.f)) {
-        if (isShapeCall(n) || isMeasureCall(n)) return { t: 'raw', v: this.geometry.value(n) };
+        if (isShapeCall(n) || isMeasureCall(n) || this.geometry.space.isSpaceCall(n)) return { t: 'raw', v: this.geometry.value(n) };
         const args = n.args.map((a) => this.giac(a));
         return { t: 'raw', v: giacCall(n.f, args) };
       }
@@ -157,7 +157,9 @@ export class Engine {
       const kind = this.shapeKind(body0);
       let shown = definition.kind === 'point' ? this.formatPoint(body) : (equation ? '\\colon\\ ' : '=') + (columns ? this.formatVector(body) : this.format(body));
       if (kind === 'points') shown = '=' + this.formatPoints(body);
-      if (kind === 'angle') shown += '^{\\circ}';
+      if (kind === 'angle' || this.isSpaceAngle(body0)) shown += '^{\\circ}';
+      const space = this.formatSpace(body0, body);
+      if (space) shown = (space.startsWith('\\vec') || /[^<>!:]=/.test(space) ? '\\colon\\ ' : '=') + space;
       return {
         ok: true,
         kind: 'definition',
@@ -170,7 +172,15 @@ export class Engine {
       };
     }
     const kind = tree.t === 'list' && tree.point ? 'point' : this.shapeKind(tree);
-    if (kind === 'point') return { ok: true, kind: 'value', tree, latex: this.formatPoint(answer.exact), approxLatex: this.approxPoint(answer), giac };
+    const space = this.formatSpace(tree, answer.exact);
+    if (space) return { ok: true, kind: 'value', tree, latex: space, approxLatex: null, giac };
+    if (this.isSpaceAngle(tree)) {
+      const approx = this.approx(answer);
+      // An angle that is no nice number reads better as its decimal value.
+      if (approx && /a(cos|sin|tan)/.test(answer.exact)) return { ok: true, kind: 'value', tree, latex: '\\approx ' + approx + '^{\\circ}', approxLatex: null, giac };
+      return { ok: true, kind: 'value', tree, latex: this.format(answer.exact) + '^{\\circ}', approxLatex: approx ? approx + '^{\\circ}' : null, giac };
+    }
+    if (kind === 'point' || kind === 'point3') return { ok: true, kind: 'value', tree, latex: this.formatPoint(answer.exact), approxLatex: this.approxPoint(answer), giac };
     if (kind === 'points') return { ok: true, kind: 'value', tree, latex: this.formatPoints(answer.exact), approxLatex: null, giac };
     if (kind === 'angle') {
       const approx = this.approx(answer);
@@ -213,14 +223,14 @@ export class Engine {
     }
     if (left.t === 'sym' && !UNKNOWNS.has(left.v) && !CONSTANTS.has(left.v) && !command(left.v)) {
       // A = (1, 2) is a point too
-      const bodyTree = tree.b.t === 'list' && tree.b.tuple && tree.b.items.length === 2 ? { t: 'list', items: tree.b.items, point: true } : tree.b;
+      const bodyTree = tree.b.t === 'list' && tree.b.tuple && (tree.b.items.length === 2 || tree.b.items.length === 3) ? { t: 'list', items: tree.b.items, point: true } : tree.b;
       const body = this.giac(bodyTree);
       // a = a + 1 is an equation in a
       if (new RegExp(`(^|[^A-Za-z0-9_])${left.v}([^A-Za-z0-9_(]|$)`).test(body)) return null;
       let kind = bodyTree.t === 'list' && bodyTree.point ? 'point' : 'variable';
       if (kind === 'variable' && isShapeCall(bodyTree)) {
         const shape = this.geometry.shape(bodyTree);
-        if (shape && shape.kind === 'point') kind = 'point';
+        if (shape && (shape.kind === 'point' || shape.kind === 'point3')) kind = 'point';
       }
       return { kind, name: left.v, body, bodyTree, giac: `${left.v}:=${body}` };
     }
@@ -266,6 +276,57 @@ export class Engine {
     } catch (e) {
       return null;
     }
+  }
+
+  isSpaceAngle(node) {
+    return Boolean(node && node.t === 'call' && command(node.f)?.name === 'winkel' && node.args.length === 2 && this.geometry.space.isSpaceCall(node));
+  }
+
+  /** Lines in space in parametric form, planes in the form asked for; null for everything else. */
+  formatSpace(node, exact) {
+    if (!node || node.t !== 'call' || !this.geometry.space.isSpaceCall(node)) return null;
+    let shape;
+    try {
+      shape = this.geometry.space.shape(node);
+    } catch (e) {
+      return null;
+    }
+    if (!shape) return null;
+    const column = (text) => this.formatVector(this.cas.raw(`normal(${text})`).value);
+    if (shape.kind === 'line3') {
+      const [P, u] = shape.parts;
+      return `\\vec{x}=${column(P)}+t\\cdot ${column(u)}`;
+    }
+    if (shape.kind === 'plane' && shape.form && shape.form !== 'koordinatenform') {
+      const [n, d] = shape.parts;
+      const raw = (text) => this.cas.raw(`normal(${text})`).value;
+      // A point of the plane: on the axis of the largest usable coordinate
+      const axis = [0, 1, 2].find((i) => raw(`(${n})[${i}]`) !== '0') ?? 2;
+      const P = `[${[0, 1, 2].map((i) => (i === axis ? `(${d})/((${n})[${i}])` : '0')).join(',')}]`;
+      if (shape.form === 'normalenform') return `\\left(\\vec{x}-${column(P)}\\right)\\cdot ${column(n)}=0`;
+      if (shape.form === 'hessenormalform') {
+        const length = this.format(raw(`sqrt(((${n})[0])^2+((${n})[1])^2+((${n})[2])^2)`));
+        const lhs = this.format(raw(`((${n})[0])*x+((${n})[1])*y+((${n})[2])*z-(${d})`));
+        return `\\frac{${lhs}}{${length}}=0`;
+      }
+      // Parameter form: two directions in the plane
+      const e = ['[1,0,0]', '[0,1,0]', '[0,0,1]'];
+      const directions = e.map((v) => `cross(${n},${v})`).filter((v) => raw(v).replace(/list/, '') !== '[0,0,0]');
+      const [u, w] = directions;
+      return `\\vec{x}=${column(P)}+r\\cdot ${column(u)}+s\\cdot ${column(w)}`;
+    }
+    return null;
+  }
+
+  /** A point as plain text for sentences: (1 | 2 | 3) */
+  formatPointText(exact) {
+    try {
+      const tree = parsePlain(String(exact).replace(/^list\[/, '['));
+      if (tree.t === 'list') return '(' + tree.items.map((i) => toGiac(i).replace(/\./g, ',')).join(' | ') + ')';
+    } catch (e) {
+      // not a point
+    }
+    return String(exact);
   }
 
   /** Several points, as intersections come: S₁(1 | 2), S₂(…) — or "keine" */

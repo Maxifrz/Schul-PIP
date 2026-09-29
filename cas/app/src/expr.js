@@ -28,7 +28,7 @@ export class ParseError extends Error {}
 
 // Plain text
 
-const PLAIN_TOKEN = /\s*(?:(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)|(<=|>=|!=|==|:=|->|[-+*/^()[\]{},;=<>!'|%.]))/y;
+const PLAIN_TOKEN = /\s*(?:(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)|(<=|>=|!=|==|:=|->|[-+*/^()[\]{},;=<>!'|%.:]))/y;
 
 function tokenizePlain(text) {
   const tokens = [];
@@ -96,11 +96,22 @@ export function parsePlain(text, { isFunction = () => true } = {}) {
 
   function relation() {
     let left = additive();
+    // E: 2x + y − z = 4 — a named equation
+    if (is(':') && left.t === 'sym') {
+      pos++;
+      return { t: 'rel', op: '=', a: left, b: relation() };
+    }
     const token = peek();
     if (token && token.k === 'op' && ['=', '<', '>', '<=', '>=', '!=', '=='].includes(token.v)) {
       pos++;
       const right = additive();
       left = { t: 'rel', op: token.v === '==' ? '=' : token.v, a: left, b: right };
+      // E = 2x + y − z = 4 names the equation too
+      if (token.v === '=' && left.a.t === 'sym' && (is('=') || is('<') || is('>') || is('<=') || is('>='))) {
+        const second = peek().v;
+        pos++;
+        left = { t: 'rel', op: '=', a: left.a, b: { t: 'rel', op: second, a: right, b: additive() } };
+      }
     }
     return left;
   }
@@ -421,6 +432,11 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
 
   function relation(stop) {
     let left = additive(stop);
+    // E: 2x + y − z = 4
+    if (left.t === 'sym' && ((isOp(':') && !isOp('=', 1)) || isCmd('\\colon'))) {
+      pos++;
+      return { t: 'rel', op: '=', a: left, b: relation(stop) };
+    }
     const relationToken = relationOp();
     if (relationToken) {
       pos += relationToken === ':=' && isOp(':') ? 2 : 1;
@@ -432,6 +448,16 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
       }
       const right = additive(stop);
       left = { t: 'rel', op: operator, a: left, b: right };
+      const next = relationOp();
+      if (operator === '=' && left.a.t === 'sym' && next && next !== ':=') {
+        pos++;
+        let op2 = next;
+        if ((op2 === '<' || op2 === '>') && isOp('=')) {
+          pos++;
+          op2 += '=';
+        }
+        left = { t: 'rel', op: '=', a: left.a, b: { t: 'rel', op: op2, a: right, b: additive(stop) } };
+      }
     }
     return left;
   }
@@ -461,7 +487,7 @@ export function parseLatex(latex, { names = [], isFunction = (name) => MATH_FUNC
     if (token.k === 'op') return ['(', '[', '|'].includes(token.v) && !(token.v === '|' && (closingBar || pointDepth));
     if (token.k === 'cmd') {
       if (token.v === '\\land' || token.v === '\\lor' || token.v === '\\wedge' || token.v === '\\vee' || token.v === '\\middle') return false;
-      return !['\\right', '\\cdot', '\\times', '\\div', '\\le', '\\leq', '\\ge', '\\geq', '\\ne', '\\neq', '\\lt', '\\gt', '\\to', '\\rightarrow', '\\end', '\\pm', '\\mid', '\\vert', '\\rvert', '\\rbrace', '\\rbrack', '\\coloneq'].includes(token.v)
+      return !['\\right', '\\cdot', '\\times', '\\div', '\\le', '\\leq', '\\ge', '\\geq', '\\ne', '\\neq', '\\lt', '\\gt', '\\to', '\\rightarrow', '\\end', '\\pm', '\\mid', '\\vert', '\\rvert', '\\rbrace', '\\rbrack', '\\coloneq', '\\colon'].includes(token.v)
         && !(token.v === '\\vert' && (closingBar || pointDepth));
     }
     return false;
