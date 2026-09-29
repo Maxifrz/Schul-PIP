@@ -116,7 +116,7 @@ enum ComponentSelector {
             log.append("Unbekannte Komponente „\(named)“.")
         }
         let form = form(of: draft, role: role, hasImage: image != nil)
-        if let best = candidates(for: form, recent: recent).first(where: { $0.covers(draft) && $0.fits(draft, image: image) }) {
+        if let best = candidates(for: form, recent: recent, limit: ComponentRegistry.all.count).first(where: { $0.covers(draft) && $0.fits(draft, image: image) }) {
             log.append("Nehme „\(best.id)“.")
             return ComponentChoice(componentID: best.id, params: best.resolvedParams(draft.params), log: log)
         }

@@ -246,9 +246,12 @@ extension LayoutKit {
         heading(draft.title) + [bulletBox(draft.bullets, margin, contentTop, contentWidth, contentBottom - contentTop, 28)]
     }
 
-    static func buildImageText(_ draft: SlideDraft, image: PlacedImage?) -> [SlideElement] {
-        var elements = heading(draft.title) + [picture(image, margin, contentTop, 420, contentBottom - contentTop)]
-        if !draft.bullets.isEmpty { elements.append(bulletBox(draft.bullets, 516, contentTop, 380, contentBottom - contentTop, 24)) }
+    /// `mirrored` puts the picture on the right and the text on the left.
+    static func buildImageText(_ draft: SlideDraft, image: PlacedImage?, mirrored: Bool = false) -> [SlideElement] {
+        let pictureX = mirrored ? SlideSize.width - margin - 420 : margin
+        let textX = mirrored ? margin : 516
+        var elements = heading(draft.title) + [picture(image, pictureX, contentTop, 420, contentBottom - contentTop)]
+        if !draft.bullets.isEmpty { elements.append(bulletBox(draft.bullets, textX, contentTop, 380, contentBottom - contentTop, 24)) }
         return elements
     }
 

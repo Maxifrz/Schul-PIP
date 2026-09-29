@@ -88,7 +88,7 @@ final class ComponentRegistryTests: XCTestCase {
     }
 
     func testSlotContractViolations() {
-        let contract = SlotContract(field: .items, min: 2, max: 3, maxChars: 10)
+        let contract = SlotContract(field: .items, min: 2, max: 3, maxChars: 10, maxTitle: 10)
         XCTAssertNotNil(contract.violation(SlideDraft(layout: .cards, items: [DraftItem(title: "a")]), image: nil))
         XCTAssertNotNil(contract.violation(SlideDraft(layout: .cards, items: Array(repeating: DraftItem(title: "a"), count: 4)), image: nil))
         XCTAssertNotNil(contract.violation(SlideDraft(layout: .cards, items: [DraftItem(title: "a"), DraftItem(title: "sehr sehr langer Titel")]), image: nil))

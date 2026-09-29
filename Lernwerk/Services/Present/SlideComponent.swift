@@ -23,6 +23,8 @@ enum ContentTag: String, CaseIterable {
 /// The part of a draft a component counts entries in.
 enum SlotField: String {
     case none, bullets, items, tableRows, chartPoints
+    /// The two columns of a comparison: the longer side counts, both must have entries.
+    case columns
 }
 
 /// The kinds of content a draft can hold, apart from its title, notes and sources. A component lists the ones it draws.
@@ -46,16 +48,24 @@ extension SlideDraft {
     }
 }
 
-/// What a component can take: how many entries, whether it needs a picture or numbers, and how long one slot's text may
-/// be. Content outside the contract is never squeezed in: the registry falls back to another component.
-struct SlotContract: Equatable {
+/// What a component can take: how many entries, whether it needs a picture or numbers, which kinds of content must be
+/// there, how long one slot's text may be, and any limit of its own. Content outside the contract is never squeezed
+/// in: the registry falls back to another component.
+struct SlotContract {
     var field: SlotField = .none
     var min = 0
     var max = Int.max
     var needsImage = false
+    /// At least one digit in the numbers the slide shows: the value, the entries' titles or the chart.
     var needsNumbers = false
-    /// Characters per slot (one bullet, one card text, one table cell).
+    /// Kinds of content the draft must have, like a definition's term.
+    var requires: Set<DraftPart> = []
+    /// Characters per slot text (one bullet, one card text, one table cell).
     var maxChars = 1000
+    /// Characters of an entry's title, for components that show titles bigger than texts.
+    var maxTitle = 1000
+    /// Limits the fields above cannot express; returns why the draft does not fit, or nil.
+    var extra: ((SlideDraft) -> String?)?
 
     func count(_ draft: SlideDraft) -> Int {
         switch field {
@@ -64,6 +74,7 @@ struct SlotContract: Equatable {
         case .items: return draft.items.count
         case .tableRows: return draft.table.count
         case .chartPoints: return Swift.min(draft.chart?.labels.count ?? 0, draft.chart?.values.count ?? 0)
+        case .columns: return Swift.max(draft.left.count, draft.right.count)
         }
     }
 
@@ -72,26 +83,44 @@ struct SlotContract: Equatable {
         switch field {
         case .none: return []
         case .bullets: return draft.bullets
-        case .items: return draft.items.flatMap { [$0.title, $0.text] }
+        case .items: return draft.items.map(\.text)
         case .tableRows: return draft.table.flatMap { $0 }
         case .chartPoints: return draft.chart?.labels ?? []
+        case .columns: return draft.left + draft.right
         }
+    }
+
+    private static func length(_ text: String) -> Int { text.trimmingCharacters(in: .whitespacesAndNewlines).count }
+
+    /// A helper for `extra`: a message if `text` is longer than `limit`.
+    static func tooLong(_ name: String, _ text: String, _ limit: Int) -> String? {
+        length(text) > limit ? "\(name) zu lang (\(length(text)) Zeichen, höchstens \(limit))" : nil
     }
 
     /// Why the draft does not fit, or nil. A `placeholder` (the editor's "new slide") may lack the picture.
     func violation(_ draft: SlideDraft, image: PlacedImage?, placeholder: Bool = false) -> String? {
         if needsImage && image == nil && !placeholder { return "Bild fehlt" }
-        if needsNumbers && field == .none && draft.value.isBlank { return "Zahl fehlt" }
+        if !requires.isSubset(of: draft.parts) {
+            return "Inhalt fehlt (\(requires.subtracting(draft.parts).map(\.rawValue).sorted().joined(separator: ", ")))"
+        }
+        if needsNumbers {
+            let numbers = [draft.value] + draft.items.map(\.title) + (draft.chart?.values.map { String($0) } ?? [])
+            if !numbers.contains(where: { $0.contains(where: \.isNumber) }) { return "Zahlen fehlen" }
+        }
         if field != .none {
             let n = count(draft)
             if n < min { return "zu wenige Einträge (\(n), mindestens \(min))" }
             if n > max { return "zu viele Einträge (\(n), höchstens \(max))" }
             if field == .tableRows, (draft.table.first ?? []).isEmpty { return "Kopfzeile fehlt" }
-            if let longest = slots(draft).map({ $0.trimmingCharacters(in: .whitespacesAndNewlines).count }).max(), longest > maxChars {
+            if field == .columns, draft.left.isEmpty || draft.right.isEmpty { return "eine Spalte ist leer" }
+            if let longest = slots(draft).map(Self.length).max(), longest > maxChars {
                 return "Text zu lang (\(longest) Zeichen, höchstens \(maxChars))"
             }
+            if field == .items, let longest = draft.items.map({ Self.length($0.title) }).max(), longest > maxTitle {
+                return "Titel zu lang (\(longest) Zeichen, höchstens \(maxTitle))"
+            }
         }
-        return nil
+        return extra?(draft)
     }
 }
 

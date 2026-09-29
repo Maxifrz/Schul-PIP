@@ -64,7 +64,7 @@ enum DeckRhythm {
                 let form = ComponentSelector.form(of: slide.draft, role: slide.role, hasImage: slide.image != nil)
                 let recent = slides[max(0, index - 2)..<index].map(\.componentID)
                 let following = index + 1 < slides.count ? slides[index + 1].componentID : nil
-                let alternative = ComponentSelector.candidates(for: form, recent: recent).first {
+                let alternative = ComponentSelector.candidates(for: form, recent: recent, limit: ComponentRegistry.all.count).first {
                     $0.id != id && $0.id != following && $0.covers(slide.draft) && $0.fits(slide.draft, image: slide.image)
                 }
                 if let alternative {

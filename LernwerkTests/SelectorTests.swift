@@ -235,8 +235,16 @@ final class SelectorTests: XCTestCase {
         XCTAssertEqual(two.slides.map(\.componentID), ["title", "cards", "cards", "process"])
     }
 
+    func testRhythmBreaksARunOfBulletSlidesWithAChecklist() {
+        let slides = [choice(.title)] + (0..<4).map { _ in choice(.bullets, bullets: ["Eins", "Zwei", "Drei"]) }
+        let ids = DeckRhythm.refine(slides, deckTitle: "X").slides.map(\.componentID)
+        XCTAssertEqual(ids[1...2].map { $0 }, ["bullets", "bullets"])
+        XCTAssertNotEqual(ids[3], "bullets")
+        XCTAssertEqual(ids[3], "checklist")
+    }
+
     func testRhythmKeepsARunItCannotBreakAndSaysSo() {
-        // Bullets have no other component that draws them yet, so the run stays and is logged.
+        // One bullet is too few for a checklist, so nothing else draws it: the run stays and is logged.
         let slides = [choice(.title)] + (0..<3).map { _ in choice(.bullets) }
         let result = DeckRhythm.refine(slides, deckTitle: "X")
         if result.slides.map(\.componentID) == slides.map(\.componentID) {
