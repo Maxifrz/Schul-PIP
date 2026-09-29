@@ -8,7 +8,8 @@ import { CasView } from './cas-view.js';
 import { commandPanel } from './palette.js';
 import { LAYOUTS } from './keyboard.js';
 import { store, share, reply, notifyReady, insertIntoDocument, hasApp } from './native.js';
-import { toLatex } from './expr.js';
+import { toLatex, parsePlain } from './expr.js';
+import { nextName } from './graph/tools.js';
 import { Scene, styleOf, isVisible } from './graph/scene.js';
 import { GraphView, DEFAULT_SETTINGS } from './graph/view.js';
 import { Animator, sliderControl, checkboxControl, sliderSheet } from './graph/sliders.js';
@@ -189,6 +190,67 @@ function writePoint(row, name, x, y) {
   else state.cas.setInput(row, { latex: `${nameLatex(name)}${callForm ? '' : '='}\\left(${numberText(x)}\\middle|${numberText(y)}\\right)` });
 }
 
+/** A point on an object moved: punktauf(g, 1.5) */
+function writeGlider(row, name, t) {
+  const tree = row.result && row.result.tree;
+  const body = tree && (tree.t === 'rel' ? tree.b : null);
+  if (!body || body.t !== 'call') return;
+  const call = { t: 'call', f: body.f, args: [body.args[0], { t: 'num', v: numberText(t) }] };
+  const text = `${name}=${body.f}(${plainOf(body.args[0])},${numberText(t)})`;
+  if (row.mode === 'text') state.cas.setInput(row, { text });
+  else state.cas.setInput(row, { latex: `${nameLatex(name)}=${toLatex(call)}` });
+}
+
+/** A tree as the text a student would type: points as (1|2) */
+function plainOf(node) {
+  if (node.t === 'list' && node.point) return '(' + node.items.map(plainOf).join('|') + ')';
+  if (node.t === 'call') return `${node.f}(${node.args.map(plainOf).join(',')})`;
+  if (node.t === 'sym' || node.t === 'num') return node.v;
+  return toLatexFree(node);
+}
+
+function toLatexFree(node) {
+  // Fallback for anything else: Giac-style text, which the text parser reads too
+  return String(state.engine.giac(node));
+}
+
+// Constructions from the graphics become rows.
+
+function takenNames() {
+  const taken = new Set(state.engine ? state.engine.defined.keys() : []);
+  for (const o of state.scene.objects) if (o.name) taken.add(o.name);
+  for (const name of state.scene.params.keys()) taken.add(name);
+  return taken;
+}
+
+function createPoint(x, y) {
+  if (!state.engine) return null;
+  const name = nextName('point', takenNames());
+  state.cas.append({ latex: `${nameLatex(name)}\\left(${numberText(x)}\\middle|${numberText(y)}\\right)` });
+  changed();
+  return name;
+}
+
+function construct(tool, picks) {
+  if (!state.engine) return;
+  let kind = tool.kind;
+  if (kind === 'same') {
+    const first = state.scene.objects.find((o) => o.name === picks[0]);
+    kind = first && first.type === 'point' ? 'point' : first && first.type === 'polygon' ? 'polygon' : 'object';
+  }
+  const name = nextName(kind, takenNames());
+  const text = `${name}=${tool.build(picks)}`;
+  let latex;
+  try {
+    latex = toLatex(parsePlain(text, { isFunction: (n) => state.engine.isFunction(n) }));
+  } catch (e) {
+    latex = null;
+  }
+  const row = state.cas.append(latex ? { latex } : { mode: 'text', text });
+  if (row.result && !row.result.ok) toast(row.result.error);
+  changed();
+}
+
 // While something moves, the rows follow a few times a second; how often depends on how long they take.
 const live = { timer: null, index: Infinity, cost: 0, last: 0 };
 
@@ -209,6 +271,7 @@ function runLive() {
   const start = performance.now();
   for (const [name, param] of state.scene.params) if (param.dragging) writeParam(param.row, name, param.value);
   for (const [name, point] of state.scene.points) if (point.dragging) writePoint(point.row, name, point.x, point.y);
+  for (const [name, glider] of state.scene.gliders) if (glider.dragging) writeGlider(glider.row, name, glider.t);
   state.cas.recalculate(index);
   live.last = performance.now();
   live.cost = live.last - start;
@@ -456,6 +519,19 @@ function start() {
     onViewChange: changed,
     onSelect: (row) => {
       if (row && state.layout !== 'graph') state.cas.reveal(row);
+    },
+    onCreatePoint: createPoint,
+    onConstruct: construct,
+    onGliderMove: (name, t, done) => {
+      const glider = state.scene.gliders.get(name);
+      if (!glider) return;
+      if (done) {
+        writeGlider(glider.row, name, t);
+        settle(glider.row);
+      } else {
+        glider.dragging = true;
+        liveRecalculate(glider.row);
+      }
     },
     onPointMove: (name, x, y, done) => {
       const point = state.scene.points.get(name);

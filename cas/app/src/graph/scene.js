@@ -1,10 +1,12 @@
 // The objects of a project: every CAS row that can be drawn (functions, points, equations, inequalities, lines,
-// circles, curves …), the sliders (a = 2) and checkboxes (zeige = wahr) that move them. Giac works each object out
-// once with the sliders left as unknowns; the result is compiled to JavaScript, so dragging a slider or playing an
-// animation redraws at full speed without asking Giac again.
+// circles, constructions, curves …) and what moves them: sliders (a = 2), checkboxes (zeige = wahr), points given
+// by numbers that can be dragged, and points on objects. Giac works each object out once with all of these left as
+// unknowns; the result is compiled to JavaScript, so dragging or animating redraws everything that depends on it
+// at full speed without asking Giac again.
 
 import { parsePlain, compile, compileCondition, symbols, toLatex } from '../expr.js';
 import { command } from '../commands.js';
+import { isShapeCall } from '../geometry.js';
 
 export const PALETTE = ['#2F6FDF', '#D9534F', '#2E9E5B', '#8E5BD9', '#E08A1E', '#1AA3B8', '#C2417F', '#5E5A50'];
 
@@ -34,10 +36,8 @@ function booleanOf(node) {
   return null;
 }
 
-function graphicOf(node) {
-  if (!node || node.t !== 'call' || node.prime) return null;
-  const found = command(node.f);
-  return found && found.graphic ? found.graphic : null;
+function isGlider(node) {
+  return node && node.t === 'call' && command(node.f)?.name === 'punktauf';
 }
 
 /** Plain Giac text → tree, or null when Giac answered something that is no formula. */
@@ -56,6 +56,7 @@ function parse(text) {
 function structureOf(row, entry) {
   const input = row.mode === 'text' ? row.text : row.latex;
   if (entry && (entry.type === 'slider' || entry.type === 'checkbox' || (entry.type === 'point' && entry.free))) return `${row.mode}:${entry.name}=#`;
+  if (entry && entry.glider) return `${row.mode}:${entry.name}=#${entry.object}`;
   return `${row.mode}:${input}`;
 }
 
@@ -66,12 +67,20 @@ export class Scene {
     this.params = new Map();
     /** name → { x, y, row } for points given by numbers, which can be dragged */
     this.points = new Map();
+    /** name → { t, row, mode } for points on objects, which can be dragged along them */
+    this.gliders = new Map();
     this.key = null;
     this.version = 0;
     this.scope = {
       value: (name) => {
         const param = this.params.get(name);
         if (param) return param.kind === 'checkbox' ? (param.value ? 1 : 0) : param.value;
+        const coordinate = /^(.+)__([xyt])$/.exec(name);
+        if (coordinate) {
+          if (coordinate[2] === 't') return this.gliders.get(coordinate[1])?.t;
+          const point = this.points.get(coordinate[1]);
+          return point ? point[coordinate[2]] : undefined;
+        }
         return undefined;
       },
     };
@@ -90,6 +99,7 @@ export class Scene {
     // Values of sliders, checkboxes and free points always come from the rows.
     const params = new Map();
     const points = new Map();
+    const gliders = new Map();
     for (const e of entries) {
       if (e.type === 'slider') {
         // A slider being dragged or animated is ahead of its row.
@@ -102,9 +112,14 @@ export class Scene {
         const previous = this.points.get(e.name);
         points.set(e.name, previous && previous.dragging ? previous : { x: e.coordinates[0], y: e.coordinates[1], row: e.row });
       }
+      if (e.glider) {
+        const previous = this.gliders.get(e.name);
+        gliders.set(e.name, previous && previous.dragging ? previous : { t: e.t, row: e.row, mode: e.glider.mode });
+      }
     }
     this.params = params;
     this.points = points;
+    this.gliders = gliders;
 
     if (key === this.key) {
       // Same objects; rows may be new objects after a reload, so point at the current ones.
@@ -119,8 +134,11 @@ export class Scene {
   }
 
   build(entries, engine) {
-    const free = [...this.params.keys()];
-    const answers = engine.withFreeNames(free, () => entries.map((e) => (e.requests || []).map((request) => {
+    // Everything that moves becomes an unknown while Giac works the objects out.
+    const free = [...this.params.keys()].map((name) => ({ name }));
+    for (const name of this.points.keys()) free.push({ name, symbols: [name + '__x', name + '__y'], assign: `${name}:=[${name}__x,${name}__y]` });
+    for (const e of entries) if (e.glider) free.push({ name: e.name, symbols: [e.name + '__t'], assign: `${e.name}:=${e.gliderGiac}` });
+    const answers = engine.withFree(free, () => entries.map((e) => (e.requests || []).map((request) => {
       if (request && request.live) return request;
       const answer = engine.cas.raw(request);
       return answer.error ? null : answer.value;
@@ -212,8 +230,30 @@ export class Scene {
       case 'point': {
         const at = entry.free ? this.pointFn({ live: entry.name }) : this.pointFn(answers[0]);
         if (!at) return null;
-        return { ...base, at, free: Boolean(entry.free) };
+        const object = { ...base, at, free: Boolean(entry.free) };
+        if (entry.glider) {
+          // Where the point would be for another t, to follow the finger along the object
+          const tree = parse(answers[0]);
+          const [fx, fy] = tree.items.map((item) => compile(item, [entry.name + '__t'], this.scope));
+          object.glider = { mode: entry.glider.mode, atT: (t) => [fx(t), fy(t)] };
+        }
+        return object;
       }
+      case 'points': {
+        const tree = parse(answers[0]);
+        if (!tree || tree.t !== 'list') return null;
+        const list = tree.items.every((i) => i.t === 'list') ? tree.items : [tree];
+        const fns = list.filter((i) => i.items.length === 2).map((i) => i.items.map((item) => compile(item, [], this.scope)));
+        return { ...base, all: () => fns.map(([fx, fy]) => [fx(), fy()]) };
+      }
+      case 'arc':
+      case 'sector':
+      case 'angle': {
+        const [A, B, C] = answers.map((a) => this.pointFn(a));
+        return A && B && C ? { ...base, parts: [A, B, C] } : null;
+      }
+      case 'locus':
+        return { ...base, pointName: entry.pointName, parameter: entry.parameter };
       case 'line':
       case 'ray':
       case 'segment': {
@@ -236,13 +276,8 @@ export class Scene {
       }
       case 'circle': {
         const center = this.pointFn(answers[0]);
-        if (!center) return null;
-        const through = this.pointFn(answers[1]);
-        if (through) {
-          return { ...base, center, radius: () => { const [a, b] = center(); const [c, d] = through(); return Math.hypot(c - a, d - b); } };
-        }
         const radius = this.numberFn(answers[1]);
-        return radius ? { ...base, center, radius } : null;
+        return center && radius ? { ...base, center, radius } : null;
       }
       case 'polygon': {
         const corners = answers.map((a) => this.pointFn(a));
@@ -273,35 +308,23 @@ export function classify(row, engine) {
   const r = row.result;
   if (!r || !r.ok || r.kind === 'analysis') return null;
   const giac = (node) => engine.giac(node);
-  const freePoint = (node) => node && node.t === 'sym' && engine.defined.get(node.v)?.kind === 'point' && isFreePoint(engine, node.v);
-  const pointRequest = (node) => (freePoint(node) ? { live: node.v } : giac(node));
 
-  const graphic = (name, node, extra = {}) => {
-    const kind = graphicOf(node);
-    const args = node.args;
-    switch (kind) {
-      case 'line':
-      case 'ray':
-      case 'segment':
-      case 'vector':
-      case 'circle':
-        return { row, name, type: kind, requests: args.map((a, i) => (i < 2 ? pointRequest(a) : giac(a))), ...extra };
-      case 'polygon':
-        return { row, name, type: 'polygon', requests: args.map(pointRequest), ...extra };
-      case 'curve': {
-        const variable = args[2] && args[2].t === 'sym' ? args[2].v : 't';
-        return { row, name, type: 'curve', variable, requests: [giac(args[0]), giac(args[1]), giac(args[3]), giac(args[4])], ...extra };
-      }
-      case 'polar': {
-        const variable = args[1] && args[1].t === 'sym' ? args[1].v : 't';
-        return { row, name, type: 'polar', variable, requests: [giac(args[0]), giac(args[2]), giac(args[3])], ...extra };
-      }
+  /** An object made by a command: its shape tells what to draw. */
+  const shaped = (name, node, extra = {}) => {
+    const shape = engine.geometry.shape(node);
+    if (!shape) return null;
+    switch (shape.kind) {
       case 'restricted': {
-        const body = giac(args[0]);
-        return { row, name, type: 'function', restricted: true, requests: [body, `diff(${body},x)`, `diff(${body},x,2)`, giac(args[1]), giac(args[2])], ...extra };
+        const [body, from, to] = shape.parts;
+        return { row, name, type: 'function', restricted: true, requests: [body, `diff(${body},x)`, `diff(${body},x,2)`, from, to], ...extra };
       }
+      case 'locus':
+        return { row, name, type: 'locus', pointName: shape.point, parameter: shape.parameter, requests: [], ...extra };
+      case 'curve':
+      case 'polar':
+        return { row, name, type: shape.kind, variable: shape.variable, requests: shape.parts, ...extra };
       default:
-        return null;
+        return { row, name, type: shape.kind, requests: shape.parts, ...extra };
     }
   };
 
@@ -312,24 +335,31 @@ export function classify(row, engine) {
       const call = `${d.name}(x)`;
       return { row, name: d.name, label: d.name, type: 'function', requests: [call, `diff(${call},x)`, `diff(${call},x,2)`] };
     }
-    if (d.kind === 'point') {
-      const coordinates = d.body.items.map(numberOf);
-      const free = d.body.items.length === 2 && coordinates.every((c) => c !== null);
+    const body = d.body;
+    if (d.kind === 'point' && body.t === 'list') {
+      const coordinates = body.items.map(numberOf);
+      const free = body.items.length === 2 && coordinates.every((c) => c !== null);
       return { row, name: d.name, type: 'point', free, coordinates, requests: [d.name] };
     }
-    const body = d.body;
+    if (isGlider(body)) {
+      // A point on an object: its place t is the number in the row; while Giac works, t is the unknown P__t.
+      const t = body.args[1] ? numberOf(body.args[1]) : 0;
+      if (t === null) return shaped(d.name, body);
+      const shape = engine.geometry.shape(body, { parameter: d.name + '__t' });
+      return { row, name: d.name, type: 'point', glider: shape.glider, t, object: engine.giac(body.args[0]), gliderGiac: shape.parts[0], requests: [d.name] };
+    }
     const value = numberOf(body);
     if (value !== null) return { row, name: d.name, type: 'slider', value };
     const truth = booleanOf(body);
     if (truth !== null) return { row, name: d.name, type: 'checkbox', value: truth };
-    if (graphicOf(body)) return graphic(d.name, body);
+    if (isShapeCall(body)) return shaped(d.name, body);
     return null;
   }
 
   const tree = r.tree;
   if (!tree) return null;
   if (tree.t === 'list' && tree.point) return { row, type: 'point', requests: [giac(tree)], label: '' };
-  if (graphicOf(tree)) return graphic(null, tree);
+  if (isShapeCall(tree)) return shaped(null, tree);
   if (tree.t === 'rel' && ['=', '<', '>', '<=', '>='].includes(tree.op)) {
     const used = symbols(tree);
     if (![...used].some((s) => COORDINATES.has(s))) return null;
@@ -357,18 +387,6 @@ export function classify(row, engine) {
     return { row, type: 'expression', label: '', defaultVisible: false, requests: [r.giac, `diff(${r.giac},x)`, `diff(${r.giac},x,2)`] };
   }
   return null;
-}
-
-function isFreePoint(engine, name) {
-  const def = engine.defined.get(name);
-  if (!def || def.kind !== 'point') return false;
-  try {
-    const tree = engine.parse(def.input);
-    const body = tree.t === 'call' ? tree.args[0] : tree.b;
-    return body && body.items.length === 2 && body.items.every((item) => numberOf(item) !== null);
-  } catch (e) {
-    return false;
-  }
 }
 
 /** The style of a row's object: its own settings over the defaults. */

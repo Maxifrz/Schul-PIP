@@ -2,7 +2,9 @@
 // zoom; tap a graph to see its special points, hold to trace it, drag a free point to move it. Exports a PNG on
 // white for documents.
 
-import { h } from '../ui.js';
+import { h, toast } from '../ui.js';
+import { sliderSettings } from './sliders.js';
+import { TOOLS, tool as toolById } from './tools.js';
 import { styleOf, isVisible } from './scene.js';
 import { sampleFunction, contour, specialPoints, niceStep, piStep, tickLabel, piLabel, coordinate } from './plot.js';
 import { parsePlain, compile, compileCondition } from '../expr.js';
@@ -20,12 +22,17 @@ const SUBSCRIPTS = '₀₁₂₃₄₅₆₇₈₉';
 const sub = (n) => String(n).split('').map((d) => SUBSCRIPTS[d]).join('');
 
 export class GraphView {
-  constructor({ scene, onViewChange, onSelect, onPointMove, onStyle }) {
+  constructor({ scene, onViewChange, onSelect, onPointMove, onGliderMove, onStyle, onCreatePoint, onConstruct }) {
     this.scene = scene;
     this.onViewChange = onViewChange || (() => {});
     this.onSelect = onSelect || (() => {});
     this.onPointMove = onPointMove || (() => {});
     this.onStyle = onStyle || (() => {});
+    this.onGliderMove = onGliderMove || (() => {});
+    this.onCreatePoint = onCreatePoint || (() => null);
+    this.onConstruct = onConstruct || (() => {});
+    this.tool = 'move';
+    this.picks = [];
     this.settings = { ...DEFAULT_SETTINGS };
     this.selected = null;
     this.special = [];
@@ -44,8 +51,11 @@ export class GraphView {
     this.tooltip = h('div.graph-tip');
     this.tools = h('div.graph-tools');
     this.overlay = h('div.graph-overlay', {}, this.tools);
+    this.toolbar = h('div.construct');
+    this.hint = h('div.construct-hint');
     this.bottom = h('div.graph-bottom');
-    this.stage = h('div.graph-stage', {}, this.canvas, this.readout, this.tooltip, this.overlay);
+    this.stage = h('div.graph-stage', {}, this.canvas, this.readout, this.tooltip, this.overlay, h('div.construct-bar', {}, this.toolbar, this.hint));
+    this.renderToolbar();
     this.el = h('section.graph', {}, this.stage, this.bottom);
 
     this.bindPointers();
@@ -550,6 +560,108 @@ export class GraphView {
         }
         return;
       }
+      case 'points': {
+        const r = style.pointSize + (selected ? 1.5 : 0);
+        const all = object.all().filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+        all.forEach(([x, y], i) => {
+          this.dot(ctx, x, y, r, style.color, colors.bg);
+          if (style.label && object.name) this.text(ctx, all.length > 1 ? object.name + sub(i + 1) : object.name, this.px(x) + r + 4, this.py(y) - r - 4, colors.ink, colors.bg);
+        });
+        return;
+      }
+      case 'arc':
+      case 'sector': {
+        const [M, A, B] = object.parts.map((p) => p());
+        if (![...M, ...A, ...B].every(Number.isFinite)) return;
+        const r = Math.hypot(A[0] - M[0], A[1] - M[1]);
+        const a0 = Math.atan2(A[1] - M[1], A[0] - M[0]);
+        const a1 = Math.atan2(B[1] - M[1], B[0] - M[0]);
+        const rx = Math.abs(this.px(M[0] + r) - this.px(M[0]));
+        const ry = Math.abs(this.py(M[1] + r) - this.py(M[1]));
+        ctx.beginPath();
+        if (object.type === 'sector') ctx.moveTo(this.px(M[0]), this.py(M[1]));
+        ctx.ellipse(this.px(M[0]), this.py(M[1]), rx, ry, 0, -a0, -a1, true);
+        if (object.type === 'sector') {
+          ctx.closePath();
+          ctx.fillStyle = withAlpha(style.color, style.fill);
+          ctx.fill();
+        }
+        this.stroke(ctx, style, selected);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+      }
+      case 'angle': {
+        const [A, B, C] = object.parts.map((p) => p());
+        if (![...A, ...B, ...C].every(Number.isFinite)) return;
+        // Screen angles: the y axis points down
+        const X = this.px(B[0]);
+        const Y = this.py(B[1]);
+        const aA = Math.atan2(this.py(A[1]) - Y, this.px(A[0]) - X);
+        const aC = Math.atan2(this.py(C[1]) - Y, this.px(C[0]) - X);
+        let sweep = aC - aA;
+        while (sweep > Math.PI) sweep -= 2 * Math.PI;
+        while (sweep <= -Math.PI) sweep += 2 * Math.PI;
+        const r = 28;
+        const degrees = angleDegrees(A, B, C);
+        ctx.fillStyle = withAlpha(style.color, Math.max(style.fill, 0.18));
+        ctx.beginPath();
+        if (Math.abs(degrees - 90) < 1e-6) {
+          // A right angle: a square with a dot
+          const u = [Math.cos(aA) * r * 0.6, Math.sin(aA) * r * 0.6];
+          const v = [Math.cos(aC) * r * 0.6, Math.sin(aC) * r * 0.6];
+          ctx.moveTo(X, Y);
+          ctx.lineTo(X + u[0], Y + u[1]);
+          ctx.lineTo(X + u[0] + v[0], Y + u[1] + v[1]);
+          ctx.lineTo(X + v[0], Y + v[1]);
+          ctx.closePath();
+          ctx.fill();
+          this.stroke(ctx, { ...style, width: Math.min(style.width, 2) }, selected);
+          ctx.stroke();
+          ctx.fillStyle = style.color;
+          ctx.beginPath();
+          ctx.arc(X + (u[0] + v[0]) / 2, Y + (u[1] + v[1]) / 2, 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.moveTo(X, Y);
+          ctx.arc(X, Y, r, aA, aA + sweep, sweep < 0);
+          ctx.closePath();
+          ctx.fill();
+          this.stroke(ctx, { ...style, width: Math.min(style.width, 2) }, selected);
+          ctx.beginPath();
+          ctx.arc(X, Y, r, aA, aA + sweep, sweep < 0);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        if (style.label) {
+          const mid = aA + sweep / 2;
+          const name = object.name ? greek(object.name) + ' = ' : '';
+          const text = this.caption(object, style) || name + coordinate(degrees, 1) + '°';
+          this.text(ctx, text, X + Math.cos(mid) * (r + 22), Y + Math.sin(mid) * (r + 14), style.color, colors.bg, 'center');
+        }
+        return;
+      }
+      case 'locus': {
+        const path = this.locusPath(object);
+        if (!path) return;
+        this.stroke(ctx, style, selected);
+        ctx.beginPath();
+        let last = null;
+        for (const point of path) {
+          if (!point) {
+            last = null;
+            continue;
+          }
+          const X = this.px(point[0]);
+          const Y = this.py(point[1]);
+          if (last && Math.hypot(X - last[0], Y - last[1]) < (this.width + this.height) / 3) ctx.lineTo(X, Y);
+          else ctx.moveTo(X, Y);
+          last = [X, Y];
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+      }
       case 'curve': {
         const from = object.from();
         const to = object.to();
@@ -582,6 +694,177 @@ export class GraphView {
         return;
       }
       default:
+    }
+  }
+
+  /** The path of a point while a slider or a point on an object runs through its range. */
+  locusPath(object) {
+    const P = this.scene.objects.find((o) => o.name === object.pointName && o.type === 'point');
+    if (!P) return null;
+    const param = this.scene.params.get(object.parameter);
+    const glider = this.scene.gliders.get(object.parameter);
+    let range;
+    let set;
+    let saved;
+    if (param && param.kind === 'slider') {
+      const s = sliderSettings(param.row, param.value);
+      range = [s.min, s.max];
+      saved = param.value;
+      set = (v) => {
+        param.value = v;
+      };
+    } else if (glider) {
+      const s = this.settings;
+      range = { unit: [0, 1], angle: [0, 2 * Math.PI], x: [s.xmin, s.xmax], y: [s.ymin, s.ymax], line: [-20, 20], ray: [0, 20] }[glider.mode] || [0, 1];
+      saved = glider.t;
+      set = (v) => {
+        glider.t = v;
+      };
+    } else return null;
+    const path = [];
+    const n = 400;
+    try {
+      for (let i = 0; i <= n; i++) {
+        set(range[0] + ((range[1] - range[0]) * i) / n);
+        const [x, y] = P.at();
+        path.push(Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null);
+      }
+    } finally {
+      set(saved);
+    }
+    return path;
+  }
+
+  // Construction tools
+
+  renderToolbar() {
+    this.toolbar.replaceChildren(...TOOLS.map((t) => h('button', {
+      'aria-pressed': String(t.id === this.tool),
+      onclick: () => this.setTool(t.id),
+    }, t.label)));
+    const t = toolById(this.tool);
+    const step = Math.min(this.picks.length, (t.hint || []).length - 1);
+    this.hint.textContent = this.tool === 'move' ? '' : Array.isArray(t.hint) ? t.hint[Math.max(0, step)] : t.hint;
+  }
+
+  setTool(id) {
+    this.tool = id;
+    this.picks = [];
+    this.canvas.style.cursor = id === 'move' ? '' : 'crosshair';
+    this.renderToolbar();
+    this.redraw();
+  }
+
+  /** A tap while a construction tool is on. */
+  toolTap(at) {
+    const t = toolById(this.tool);
+    const need = t.repeat ? 'point' : t.picks[this.picks.length];
+    const target = this.hit(at[0], at[1]);
+    let pick = null;
+    if (need === 'point') {
+      if (target && target.type === 'point' && target.name) pick = target.name;
+      else pick = this.onCreatePoint(...this.snapped(at));
+      if (t.id === 'point') {
+        this.picks = [];
+        this.renderToolbar();
+        return;
+      }
+      if (t.repeat && this.picks.length >= 3 && pick === this.picks[0]) {
+        this.onConstruct(t, [...this.picks]);
+        this.picks = [];
+        this.renderToolbar();
+        return;
+      }
+    } else if (need === 'object') {
+      if (target && target.type !== 'point' && target.name) pick = target.name;
+      else {
+        toast('Tippe auf eine benannte Gerade, einen Kreis oder einen Graphen.');
+        return;
+      }
+    } else if (need === 'any') {
+      if (target && target.name) pick = target.name;
+      else {
+        toast('Tippe auf ein benanntes Objekt.');
+        return;
+      }
+    } else if (need === 'glider') {
+      if (!target || target.type === 'point' || !target.name) {
+        toast('Tippe auf eine Gerade, eine Strecke, einen Kreis oder einen Graphen.');
+        return;
+      }
+      pick = { name: target.name, t: roundNumber(this.gliderStart(target, at)) };
+    }
+    if (pick === null) return;
+    this.picks.push(pick);
+    if (!t.repeat && this.picks.length === t.picks.length) {
+      this.onConstruct(t, [...this.picks]);
+      this.picks = [];
+    }
+    this.renderToolbar();
+    this.redraw();
+  }
+
+  snapped(at) {
+    let x = this.wx(at[0]);
+    let y = this.wy(at[1]);
+    if (this.settings.snap) {
+      const step = niceStep(this.settings.xmax - this.settings.xmin, this.width / 90) / 2;
+      x = Math.round(x / step) * step;
+      y = Math.round(y / step) * step;
+    }
+    return [roundNumber(x), roundNumber(y)];
+  }
+
+  /** Where a new point on an object starts: the tapped x on a graph or sloped line, the angle on a circle … */
+  gliderStart(object, at) {
+    const x = this.wx(at[0]);
+    const y = this.wy(at[1]);
+    if (object.type === 'circle') {
+      const [cx, cy] = object.center();
+      return Math.atan2(y - cy, x - cx);
+    }
+    if (object.type === 'segment' || object.type === 'ray' || object.type === 'vector') {
+      const [ax, ay] = object.p();
+      const [bx, by] = object.q();
+      const len = (bx - ax) ** 2 + (by - ay) ** 2 || 1;
+      const t = ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len;
+      return object.type === 'ray' ? Math.max(0, t) : Math.max(0, Math.min(1, t));
+    }
+    if (object.type === 'line') {
+      const [ax, ay] = object.p();
+      const [bx, by] = object.q();
+      if (Math.abs(bx - ax) < 1e-12) return y;
+      const len = (bx - ax) ** 2 + (by - ay) ** 2 || 1;
+      // A line through two points is walked from its first point; the tool writes x for graphs
+      return ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len;
+    }
+    return x;
+  }
+
+  /** The place t on its object nearest to the finger. */
+  gliderT(object, at) {
+    const g = object.glider;
+    const x = this.wx(at[0]);
+    const y = this.wy(at[1]);
+    switch (g.mode) {
+      case 'x':
+        return x;
+      case 'y':
+        return y;
+      case 'angle': {
+        const [ax, ay] = g.atT(0);
+        const [bx, by] = g.atT(Math.PI);
+        return Math.atan2(y - (ay + by) / 2, x - (ax + bx) / 2);
+      }
+      default: {
+        const [ax, ay] = g.atT(0);
+        const [bx, by] = g.atT(1);
+        const len = (bx - ax) ** 2 + (by - ay) ** 2 || 1;
+        let t = ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len;
+        if (g.mode === 'unit') t = Math.max(0, Math.min(1, t));
+        if (g.mode === 'ray') t = Math.max(0, t);
+        return t;
+      }
     }
   }
 
@@ -867,6 +1150,19 @@ export class GraphView {
         });
         return best;
       }
+      case 'points':
+        return Math.min(Infinity, ...o.all().map(([x, y]) => Math.hypot(this.px(x) - px, this.py(y) - py)));
+      case 'arc':
+      case 'sector':
+      case 'angle': {
+        const [M, A] = o.parts.map((p) => p());
+        if (o.type === 'angle') {
+          const [, B] = o.parts.map((p) => p());
+          return Math.max(0, Math.hypot(this.px(B[0]) - px, this.py(B[1]) - py) - 30);
+        }
+        const r = Math.abs(this.px(M[0] + Math.hypot(A[0] - M[0], A[1] - M[1])) - this.px(M[0]));
+        return Math.abs(Math.hypot(px - this.px(M[0]), py - this.py(M[1])) - r);
+      }
       case 'curve': {
         let best = Infinity;
         const from = o.from();
@@ -933,7 +1229,13 @@ export class GraphView {
       return;
     }
     const target = this.hit(at[0], at[1]);
-    if (target && target.type === 'point' && target.free) {
+    if (target && target.type === 'point' && target.glider && this.tool === 'move') {
+      this.gesture = { kind: 'glider', object: target, start: at, moved: false };
+      const g = this.scene.gliders.get(target.name);
+      if (g) g.dragging = true;
+      return;
+    }
+    if (target && target.type === 'point' && target.free && this.tool === 'move') {
       this.gesture = { kind: 'point', object: target, start: at, moved: false };
       const p = this.scene.points.get(target.name);
       if (p) p.dragging = true;
@@ -995,6 +1297,14 @@ export class GraphView {
       this.traceTo(at[0]);
       return;
     }
+    if (g.kind === 'glider') {
+      if (Math.hypot(at[0] - g.start[0], at[1] - g.start[1]) > 3) g.moved = true;
+      const glider = this.scene.gliders.get(g.object.name);
+      if (glider) glider.t = this.gliderT(g.object, at);
+      this.onGliderMove(g.object.name, glider ? glider.t : 0, false);
+      this.redraw();
+      return;
+    }
     if (g.kind === 'point') {
       if (Math.hypot(at[0] - g.start[0], at[1] - g.start[1]) > 3) g.moved = true;
       let x = this.wx(at[0]);
@@ -1042,6 +1352,15 @@ export class GraphView {
       this.redraw();
       return;
     }
+    if (g.kind === 'glider') {
+      const glider = this.scene.gliders.get(g.object.name);
+      if (glider) {
+        glider.dragging = false;
+        if (g.moved && !cancelled) this.onGliderMove(g.object.name, roundNumber(glider.t), true);
+      }
+      if (!g.moved) this.select(g.object);
+      return;
+    }
     if (g.kind === 'point') {
       const p = this.scene.points.get(g.object.name);
       if (p) {
@@ -1058,6 +1377,10 @@ export class GraphView {
       }
       if (cancelled) return;
       const at = this.local(e);
+      if (this.tool !== 'move') {
+        this.toolTap(at);
+        return;
+      }
       // A tapped special point shows its coordinates.
       const special = this.special.find((p) => Math.hypot(this.px(p.x) - at[0], this.py(p.y) - at[1]) < HIT);
       if (special) {
@@ -1090,6 +1413,26 @@ export class GraphView {
 }
 
 const FONT = "'Work Sans', -apple-system, system-ui, sans-serif";
+
+const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', phi: 'φ', psi: 'ψ', omega: 'ω', theta: 'θ', rho: 'ρ', sigma: 'σ', tau: 'τ', mu: 'μ', lambda: 'λ' };
+
+function greek(name) {
+  const [base, index] = String(name).split('_');
+  return (GREEK[base] || base) + (index ? sub(index) : '');
+}
+
+/** The angle ABC in degrees, between 0 and 180 */
+function angleDegrees(A, B, C) {
+  const u = [A[0] - B[0], A[1] - B[1]];
+  const v = [C[0] - B[0], C[1] - B[1]];
+  const cos = (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v));
+  return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
+}
+
+/** A number for a row: no float noise */
+function roundNumber(value) {
+  return Number(Number(value).toFixed(6));
+}
 
 function logLabel(value) {
   const e = Math.round(Math.log10(value));

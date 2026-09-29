@@ -17,7 +17,7 @@ after(() => setImmediate(() => process.exit(0)));
 
 test('every example in the command catalog works', () => {
   const failed = [];
-  for (const c of COMMANDS) {
+  for (const c of COMMANDS.filter((c) => !c.noExample)) {
     const r = run(c.example);
     if (!r.ok) failed.push(`${c.name}: ${c.example} → ${r.error}`);
   }

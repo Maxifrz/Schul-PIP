@@ -1,12 +1,12 @@
 # CAS-Rechner: Abgleich mit der Feature-Checkliste
 
-Stand: 29.09.2026, nach Stufe 2 (Objekte, 2D-Grafik, Schieberegler, Animation) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
+Stand: 29.09.2026, nach Stufe 3 (dynamische Geometrie) des neuen Rechners; zuerst geprüft am 28.09.2026, Commit f29962d. Geprüft am Code und mit rund 150 Beispielaufgaben gegen den echten Rechenkern (Giac 1.9 über `cas/web/cas.js`, wie in der App).
 
 Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) · `[~]` rechnet, aber nur per (meist englischem) Giac-Befehl ohne Taste/Hilfe, oder nur teilweise · `[!]` geht, aber mit Fehler · `[ ]` fehlt
 
 ## Zusammenfassung
 
-703 Punkte: 251 in der App, 94 nur per Befehl, 135 teilweise, 1 mit Fehler, 222 fehlen.
+703 Punkte: 292 in der App, 87 nur per Befehl, 128 teilweise, 1 mit Fehler, 195 fehlen.
 
 | Kapitel | Punkte | in der App | nur Befehl | teilweise | Fehler | fehlt |
 |---|---:|---:|---:|---:|---:|---:|
@@ -21,10 +21,10 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 9. Grenzwerte und Reihen | 14 | 9 | 2 | 2 | 0 | 1 |
 | 10. Numerische Mathematik | 11 | 1 | 4 | 0 | 0 | 6 |
 | 11. 2D-Grafik | 25 | 25 | 0 | 0 | 0 | 0 |
-| 12. Dynamische Mathematik | 13 | 11 | 0 | 1 | 0 | 1 |
-| 13. Geometrie | 28 | 8 | 2 | 3 | 0 | 15 |
-| 14. Geometrische Transformationen | 10 | 0 | 0 | 1 | 0 | 9 |
-| 15. Analytische Geometrie | 24 | 5 | 5 | 14 | 0 | 0 |
+| 12. Dynamische Mathematik | 13 | 13 | 0 | 0 | 0 | 0 |
+| 13. Geometrie | 28 | 27 | 0 | 1 | 0 | 0 |
+| 14. Geometrische Transformationen | 10 | 8 | 0 | 1 | 0 | 1 |
+| 15. Analytische Geometrie | 24 | 12 | 0 | 12 | 0 | 0 |
 | 16. 3D-Rechner | 24 | 0 | 0 | 0 | 0 | 24 |
 | 17. Matrizen | 15 | 10 | 4 | 1 | 0 | 0 |
 | 18. Komplexe Zahlen | 11 | 2 | 7 | 1 | 0 | 1 |
@@ -38,7 +38,7 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 26. Einheiten | 15 | 1 | 12 | 2 | 0 | 0 |
 | 27. Physikalische Mathematik | 13 | 1 | 1 | 10 | 0 | 1 |
 | 28. Interaktive Benutzeroberfläche | 15 | 13 | 0 | 2 | 0 | 0 |
-| 29. Animation | 12 | 11 | 0 | 1 | 0 | 0 |
+| 29. Animation | 12 | 12 | 0 | 0 | 0 | 0 |
 | 30. Skripting | 12 | 0 | 0 | 0 | 0 | 12 |
 | 31. Programmier-/Entwicklerfunktionen | 12 | 1 | 4 | 0 | 1 | 6 |
 | 32. Lernfunktionen | 11 | 0 | 0 | 6 | 0 | 5 |
@@ -54,9 +54,9 @@ Legende: `[x]` in der App nutzbar (Taste, deutscher Befehl oder Graph-Ansicht) �
 | 42. Professionelle CAS-Funktionen | 17 | 0 | 12 | 2 | 0 | 3 |
 | 43. Differentialgleichungen | 11 | 0 | 4 | 3 | 0 | 4 |
 | 44. Erweiterte 3D-Mathematik | 13 | 0 | 2 | 1 | 0 | 10 |
-| 45. Architektur der App | 16 | 5 | 0 | 5 | 0 | 6 |
-| 46. Kernanforderung für eine vollständige CAS-App | 16 | 8 | 0 | 4 | 0 | 4 |
-| Minimaler Funktionsumfang | 28 | 14 | 2 | 4 | 0 | 8 |
+| 45. Architektur der App | 16 | 6 | 0 | 5 | 0 | 5 |
+| 46. Kernanforderung für eine vollständige CAS-App | 16 | 10 | 0 | 3 | 0 | 3 |
+| Minimaler Funktionsumfang | 28 | 15 | 2 | 4 | 0 | 7 |
 
 ## Gefundene Fehler
 
@@ -310,53 +310,53 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Dynamische Bedingungen — in der App: „Nur zeigen, wenn a > 0“
 - [x] Bedingte Sichtbarkeit
 - [x] Spuren/Trajektorien — in der App: Spur pro Objekt
-- [ ] Ortslinien
-- [~] Interaktive Modelle — in der App: Schieberegler, Checkboxen, ziehbare Punkte; Konstruktionswerkzeuge folgen
+- [x] Ortslinien — in der App: ortslinie(P, a)
+- [x] Interaktive Modelle — in der App: Regler, Checkboxen, ziehbare Punkte, Konstruktionswerkzeuge
 - [x] Reset-Funktion — in der App: ⟲ setzt alle Regler zurück
 
 ## 13. Geometrie
 
 - [x] Punkte
-- [ ] Punkt auf Objekt
-- [~] Schnittpunkte — nur Befehl: inter(...) rechnet, Ausgabe unlesbar
+- [x] Punkt auf Objekt — in der App: punktauf(Objekt, Wert), ziehbar entlang des Objekts
+- [x] Schnittpunkte — in der App: schnittpunkt(g, h), Werkzeug „Schnitt“
 - [x] Geraden
 - [x] Strecken
 - [x] Strahlen
-- [ ] Parallelen
-- [ ] Senkrechten
-- [ ] Mittelsenkrechten
-- [ ] Winkelhalbierenden
-- [ ] Tangenten
+- [x] Parallelen — in der App: parallele(g, P)
+- [x] Senkrechten — in der App: senkrechte(g, P)
+- [x] Mittelsenkrechten — in der App: mittelsenkrechte(A, B)
+- [x] Winkelhalbierenden — in der App: winkelhalbierende(A, B, C)
+- [~] Tangenten — teilweise: tangente(f, a) an Graphen; Kreistangenten noch nicht
 - [x] Kreise
-- [ ] Kreisbögen
-- [ ] Kreissektoren
+- [x] Kreisbögen — in der App: kreisbogen(M, A, B)
+- [x] Kreissektoren — in der App: kreissektor(M, A, B)
 - [x] Polygone — in der App: polygon(A, B, C, …), Wert: Fläche
-- [~] Dreiecke — in der App: als Polygon
-- [~] Vierecke — in der App: als Polygon
-- [ ] Regelmäßige Polygone
-- [~] Winkel — teilweise: über Vektoren
+- [x] Dreiecke — in der App: polygon(A, B, C), Werkzeug „Vieleck“
+- [x] Vierecke
+- [x] Regelmäßige Polygone — in der App: vieleck(A, B, n)
+- [x] Winkel — in der App: winkel(A, B, C) mit Bogen und Gradzahl
 - [x] Längen — in der App: strecke(A, B)
-- [~] Abstände — nur Befehl: distance(...)
+- [x] Abstände — in der App: abstand(A, B), abstand(P, g)
 - [x] Flächen — in der App: polygon(…)
-- [ ] Umfänge
-- [ ] Höhen
-- [ ] Schwerpunkt
-- [ ] Inkreismittelpunkt
-- [ ] Umkreismittelpunkt
-- [ ] Eulergerade
+- [x] Umfänge — in der App: umfang(…)
+- [x] Höhen — in der App: höhe(A, B, C)
+- [x] Schwerpunkt
+- [x] Inkreismittelpunkt
+- [x] Umkreismittelpunkt
+- [x] Eulergerade
 
 ## 14. Geometrische Transformationen
 
-- [ ] Translation
-- [ ] Rotation
-- [ ] Spiegelung an einer Geraden
-- [ ] Spiegelung an einem Punkt
-- [ ] Streckung
-- [ ] Zentrische Streckung
+- [x] Translation — in der App: verschieben(Objekt, v)
+- [x] Rotation — in der App: drehen(Objekt, Winkel, Z)
+- [x] Spiegelung an einer Geraden — in der App: spiegeln(Objekt, g)
+- [x] Spiegelung an einem Punkt — in der App: spiegeln(Objekt, P)
+- [x] Streckung — in der App: strecken(Objekt, k, Z)
+- [x] Zentrische Streckung
 - [ ] Affine Transformationen
 - [~] Transformation mit Matrizen — teilweise: Matrix · Vektor rechnet, ohne Darstellung
-- [ ] Transformationen animieren
-- [ ] Original und Bild gleichzeitig darstellen
+- [x] Transformationen animieren — in der App: Winkel oder Faktor als Schieberegler
+- [x] Original und Bild gleichzeitig darstellen
 
 ## 15. Analytische Geometrie
 
@@ -365,25 +365,25 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Vektoraddition
 - [x] Vektorsubtraktion
 - [x] Skalarmultiplikation
-- [~] Betrag eines Vektors — nur Befehl: norm(...)
-- [~] Einheitsvektoren — nur Befehl: normalize(...)
-- [~] Skalarprodukt — nur Befehl: dot(...)
-- [~] Kreuzprodukt — nur Befehl: cross(...)
-- [~] Winkel zwischen Vektoren — teilweise: Formel von Hand
-- [~] Orthogonalität — teilweise: über dot(...)=0
-- [~] Parallelität — teilweise: von Hand
-- [~] Geradengleichungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
+- [x] Betrag eines Vektors — in der App: länge(v), betrag(v)
+- [x] Einheitsvektoren — in der App: einheitsvektor(v)
+- [x] Skalarprodukt — in der App: skalarprodukt(u, v)
+- [x] Kreuzprodukt — in der App: kreuzprodukt(u, v)
+- [x] Winkel zwischen Vektoren — in der App: winkel(u, v)
+- [x] Orthogonalität — in der App: orthogonal(u, v)
+- [x] Parallelität — in der App: kollinear(u, v)
+- [~] Geradengleichungen — teilweise: in der Ebene gerade(A, B) als y = mx + b; im Raum mit Stufe 4
 - [~] Ebenengleichungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Parameterform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Normalenform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Koordinatenform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Hesse-Normalform — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
 - [~] Lagebeziehungen — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Schnittpunkte — teilweise: Schnittpunkte von Graphen in der Grafik mit Koordinaten; inter(...) zeigt noch Giac-Rohtext
+- [~] Schnittpunkte — teilweise: in der Ebene schnittpunkt(…); im Raum mit Stufe 4
 - [~] Schnittgeraden — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Abstände — nur Befehl: distance(point(...), plane(...)) korrekt
-- [~] Lotfußpunkte — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
-- [~] Spiegelpunkte — teilweise: Giac-Geometriebefehle (line, plane, …) rechnen, Ausgabe ist aber unlesbar
+- [~] Abstände — teilweise: in der Ebene abstand(P, g); im Raum distance(...)
+- [~] Lotfußpunkte — teilweise: in der Ebene über höhe(A, B, C)
+- [~] Spiegelpunkte — teilweise: in der Ebene spiegeln(P, g)
 
 ## 16. 3D-Rechner
 
@@ -619,7 +619,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Reset
 - [x] Animierte Schieberegler
 - [x] Animierte Punkte — in der App: P(a|f(a))
-- [~] Animierte geometrische Konstruktionen — in der App: Objekte aus animierten Punkten; Konstruktionen folgen
+- [x] Animierte geometrische Konstruktionen
 - [x] Animierte Funktionen
 
 ## 30. Skripting
@@ -853,7 +853,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] numerische Engine — in der App: Giac
 - [x] 2D-Rendering-Engine — in der App: Graph und Folien
 - [ ] 3D-Rendering-Engine
-- [ ] Geometrie-Engine
+- [x] Geometrie-Engine — in der App: exakt über Giac, live beim Ziehen
 - [~] Statistik-Engine — teilweise: Giac
 - [~] Wahrscheinlichkeits-Engine — teilweise: Giac
 - [~] Einheiten-Engine — teilweise: Giac
@@ -881,9 +881,9 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Fehler werden mathematisch korrekt behandelt — in der App: Absturz-Fehler behoben
 - [~] Definitionsbedingungen werden automatisch berücksichtigt — teilweise: Giac beim Lösen, keine Anzeige
 - [x] Exakte und approximierte Ergebnisse werden klar unterschieden
-- [ ] Komplexe Konstruktionen bleiben editierbar
+- [x] Komplexe Konstruktionen bleiben editierbar — in der App: jede Konstruktion ist eine CAS-Zeile
 - [~] Große Berechnungen werden performant verarbeitet — teilweise: Giac im Hintergrund, kein Abbruch-Knopf
-- [~] Benutzer können eigene interaktive mathematische Modelle erstellen — in der App: Regler, Checkboxen, ziehbare Punkte
+- [x] Benutzer können eigene interaktive mathematische Modelle erstellen
 
 ## Minimaler Funktionsumfang
 
@@ -891,7 +891,7 @@ Alle neun sind seit Stufe 1 behoben und durch Tests abgedeckt (`cas/test/cas.tes
 - [x] Wissenschaftlicher Rechner
 - [x] 2D-Plotter
 - [ ] 3D-Plotter
-- [ ] Dynamische Geometrie
+- [x] Dynamische Geometrie
 - [x] Differentialrechnung
 - [x] Integralrechnung
 - [x] Gleichungslöser

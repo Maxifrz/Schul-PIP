@@ -4,6 +4,7 @@
 import { parseLatex, parsePlain, toGiac, toLatex, ParseError, MATH_FUNCTIONS, latexNumber } from './expr.js';
 import { command, giacCall, COMMAND_NAMES } from './commands.js';
 import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
+import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
 
 /** Letters that stay unknowns: "x = 3" is an equation, not a definition. */
 const UNKNOWNS = new Set(['x', 'y', 'z', 't', 'n', 'k', 's']);
@@ -16,6 +17,7 @@ export class Engine {
     this.cas = cas;
     /** name → { kind: 'function' | 'variable' | 'point', params, giac, input } in the order they were made */
     this.defined = new Map();
+    this.geometry = new Geometry(this);
   }
 
   get names() {
@@ -46,8 +48,7 @@ export class Engine {
     const transform = (n) => {
       if (!n || typeof n !== 'object') return n;
       if (n.t === 'call' && !n.prime && command(n.f) && !this.defined.has(n.f)) {
-        const found = command(n.f);
-        if (found.graphic) return { t: 'raw', v: this.graphicGiac(found.graphic, n.args) };
+        if (isShapeCall(n) || isMeasureCall(n)) return { t: 'raw', v: this.geometry.value(n) };
         const args = n.args.map((a) => this.giac(a));
         return { t: 'raw', v: giacCall(n.f, args) };
       }
@@ -61,111 +62,30 @@ export class Engine {
   }
 
   /**
-   * The value of a graphics object as Giac text: a line's equation, a segment's length, a polygon's area. Points are
-   * worked out first, so a vertical line becomes x = … instead of a division by zero.
+   * Runs `fn` while the things that move are unknowns: sliders (a), free points (A becomes [A__x, A__y]) and points
+   * on objects (P on its object at P__t). Every definition is made again around them, so what `fn` asks Giac comes
+   * back as a formula in a, A__x, P__t … Afterwards everything is as before.
+   * `free`: [{ name, symbols: [unknowns], assign: Giac text that stands in for the definition or null }]
    */
-  graphicGiac(kind, args) {
-    const value = (node) => {
-      const answer = this.cas.raw(this.giac(node));
-      if (answer.error) throw new Error(answer.error);
-      return answer.value;
-    };
-    const point = (node) => {
-      const text = value(node);
-      let tree;
-      try {
-        tree = parsePlain(text.replace(/^list\[/, '['));
-      } catch (e) {
-        tree = null;
-      }
-      if (!tree || tree.t !== 'list' || tree.items.length !== 2) throw new Error('Hier wird ein Punkt erwartet, z. B. (1|2).');
-      return tree.items.map((item) => '(' + toGiac(item) + ')');
-    };
-    const isZero = (text) => this.cas.raw(`normal(${text})`).value === '0';
-    const need = (n) => {
-      if (args.length < n) throw new Error('Hier fehlen Angaben.');
-    };
-    switch (kind) {
-      case 'line':
-      case 'ray': {
-        need(2);
-        const [p0, p1] = point(args[0]);
-        let slope;
-        const second = value(args[1]);
-        if (/^(list)?\[/.test(second)) {
-          const [q0, q1] = point(args[1]);
-          if (isZero(`${q0}-${p0}`)) return `x=${p0}`;
-          slope = `(${q1}-${p1})/(${q0}-${p0})`;
-        } else {
-          slope = `(${second})`;
-        }
-        return `y=normal(${slope}*(x-${p0})+${p1})`;
-      }
-      case 'segment': {
-        need(2);
-        const [p0, p1] = point(args[0]);
-        const [q0, q1] = point(args[1]);
-        return `normal(sqrt((${q0}-${p0})^2+(${q1}-${p1})^2))`;
-      }
-      case 'vector': {
-        need(1);
-        if (args.length === 1) {
-          const [v0, v1] = point(args[0]);
-          return `[${v0},${v1}]`;
-        }
-        const [p0, p1] = point(args[0]);
-        const [q0, q1] = point(args[1]);
-        return `[normal(${q0}-${p0}),normal(${q1}-${p1})]`;
-      }
-      case 'circle': {
-        need(2);
-        const [m0, m1] = point(args[0]);
-        const second = value(args[1]);
-        let square;
-        if (/^(list)?\[/.test(second)) {
-          const [q0, q1] = point(args[1]);
-          square = `normal((${q0}-${m0})^2+(${q1}-${m1})^2)`;
-        } else {
-          square = `(${second})^2`;
-        }
-        const shift = (v, c) => (isZero(c) ? `${v}^2` : `(${v}-${c})^2`);
-        return `${shift('x', m0)}+${shift('y', m1)}=${square}`;
-      }
-      case 'polygon': {
-        need(3);
-        const corners = args.map(point);
-        const terms = corners.map(([a0, a1], k) => {
-          const [b0, b1] = corners[(k + 1) % corners.length];
-          return `${a0}*${b1}-${b0}*${a1}`;
-        });
-        return `normal(abs(${terms.join('+')})/2)`;
-      }
-      case 'curve':
-        need(5);
-        return `[${this.giac(args[0])},${this.giac(args[1])}]`;
-      case 'polar':
-        need(4);
-        return this.giac(args[0]);
-      case 'restricted':
-        need(3);
-        return this.giac(args[0]);
-      default:
-        throw new Error('Unbekanntes Grafikobjekt.');
-    }
-  }
-
-  /**
-   * Runs `fn` while the named values (slider parameters) are unknowns: every definition is made again without them,
-   * so what `fn` asks Giac comes back in terms of a, b, … Afterwards everything is as before.
-   */
-  withFreeNames(names, fn) {
-    if (!names.length) return fn();
+  withFree(free, fn) {
+    if (!free.length) return fn();
+    const byName = new Map(free.map((f) => [f.name, f]));
     const defs = [...this.defined.entries()];
-    for (const name of names) this.cas.raw(`purge(${name})`);
-    for (const [name, def] of defs) if (!names.includes(name) && def.giac) this.cas.evaluate(def.giac);
+    const purge = (name) => this.cas.raw(`purge(${name})`);
+    for (const f of free) {
+      purge(f.name);
+      for (const symbol of f.symbols || []) purge(symbol);
+    }
+    for (const [name, def] of defs) {
+      const f = byName.get(name);
+      if (f) {
+        if (f.assign) this.cas.raw(f.assign);
+      } else if (def.giac) this.cas.evaluate(def.giac);
+    }
     try {
       return fn();
     } finally {
+      for (const f of free) for (const symbol of f.symbols || []) purge(symbol);
       for (const [, def] of defs) if (def.giac) this.cas.evaluate(def.giac);
     }
   }
@@ -234,7 +154,10 @@ export class Engine {
       const columns = body0 && body0.t === 'call' && ['vektor', 'kurve'].includes(command(body0.f)?.name);
       // g: y = 2x + 1 — an object whose value is an equation gets a colon, as in school books
       const equation = definition.kind === 'variable' && /[^<>!:]=[^=]/.test(String(body));
-      const shown = definition.kind === 'point' ? this.formatPoint(body) : (equation ? '\\colon\\ ' : '=') + (columns ? this.formatVector(body) : this.format(body));
+      const kind = this.shapeKind(body0);
+      let shown = definition.kind === 'point' ? this.formatPoint(body) : (equation ? '\\colon\\ ' : '=') + (columns ? this.formatVector(body) : this.format(body));
+      if (kind === 'points') shown = '=' + this.formatPoints(body);
+      if (kind === 'angle') shown += '^{\\circ}';
       return {
         ok: true,
         kind: 'definition',
@@ -242,12 +165,16 @@ export class Engine {
         definition: { name: definition.name, kind: definition.kind, params: definition.params || [], body: definition.bodyTree },
         tree,
         latex: head + (definition.kind === 'function' && /[{};]/.test(definition.body) ? '\\text{ ist als Programm definiert}' : shown),
-        approxLatex: definition.kind === 'variable' ? this.approx(answer) : definition.kind === 'point' ? this.approxPoint(answer) : null,
+        approxLatex: kind === 'points' ? null : definition.kind === 'variable' ? ((v) => (v && kind === 'angle' ? v + '^{\\circ}' : v))(this.approx(answer)) : definition.kind === 'point' ? this.approxPoint(answer) : null,
         giac,
       };
     }
-    if (tree.t === 'list' && tree.point) {
-      return { ok: true, kind: 'value', tree, latex: this.formatPoint(answer.exact), approxLatex: this.approxPoint(answer), giac };
+    const kind = tree.t === 'list' && tree.point ? 'point' : this.shapeKind(tree);
+    if (kind === 'point') return { ok: true, kind: 'value', tree, latex: this.formatPoint(answer.exact), approxLatex: this.approxPoint(answer), giac };
+    if (kind === 'points') return { ok: true, kind: 'value', tree, latex: this.formatPoints(answer.exact), approxLatex: null, giac };
+    if (kind === 'angle') {
+      const approx = this.approx(answer);
+      return { ok: true, kind: 'value', tree, latex: this.format(answer.exact) + '^{\\circ}', approxLatex: approx ? approx + '^{\\circ}' : null, giac };
     }
 
     const solving = /^\s*(solve|csolve|linsolve)\(/.test(giac);
@@ -290,7 +217,11 @@ export class Engine {
       const body = this.giac(bodyTree);
       // a = a + 1 is an equation in a
       if (new RegExp(`(^|[^A-Za-z0-9_])${left.v}([^A-Za-z0-9_(]|$)`).test(body)) return null;
-      const kind = bodyTree.t === 'list' && bodyTree.point ? 'point' : 'variable';
+      let kind = bodyTree.t === 'list' && bodyTree.point ? 'point' : 'variable';
+      if (kind === 'variable' && isShapeCall(bodyTree)) {
+        const shape = this.geometry.shape(bodyTree);
+        if (shape && shape.kind === 'point') kind = 'point';
+      }
       return { kind, name: left.v, body, bodyTree, giac: `${left.v}:=${body}` };
     }
     return null;
@@ -298,7 +229,8 @@ export class Engine {
 
   /** Giac's answer as LaTeX; text that is no formula shows as text. */
   format(exact, digits) {
-    const text = String(exact);
+    const text = String(exact).replace(/^"+|"+$/g, (q) => (String(exact).length > 2 ? '' : q));
+    if (/^"+[^"]*"+$/.test(String(exact))) return '\\text{' + text.replace(/[\\{}]/g, '') + '}';
     if (text === 'true' || text === 'false') return text === 'true' ? '\\text{wahr}' : '\\text{falsch}';
     const unit = /^(.*)_\(([^()]*)\)$/.exec(text) || /^(.*?)_([A-Za-zΩµ]+)$/.exec(text);
     try {
@@ -324,6 +256,32 @@ export class Engine {
       // not a point after all
     }
     return this.format(exact);
+  }
+
+  /** The kind of shape a command makes (point, points, line …), or null. */
+  shapeKind(node) {
+    if (!node || !isShapeCall(node)) return null;
+    try {
+      return this.geometry.shape(node)?.kind || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** Several points, as intersections come: S₁(1 | 2), S₂(…) — or "keine" */
+  formatPoints(exact) {
+    let tree;
+    try {
+      tree = parsePlain(String(exact).replace(/\blist\[/g, '['));
+    } catch (e) {
+      return this.format(exact);
+    }
+    const items = tree.t === 'list' ? tree.items : [];
+    const points = items.filter((item) => item.t === 'list' && item.items.length === 2);
+    if (!points.length) return '\\text{keine Schnittpunkte}';
+    const one = (p) => toLatex({ t: 'list', items: p.items, point: true });
+    if (points.length === 1) return one(points[0]);
+    return points.map((p, i) => `S_{${i + 1}}${one(p)}`).join(',\\ ');
   }
 
   /** [1, 2] as a column vector */
