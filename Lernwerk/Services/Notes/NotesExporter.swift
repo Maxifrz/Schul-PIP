@@ -62,20 +62,15 @@ enum NotesExporter {
             let frame = annotation.frame
             switch annotation.kind {
             case .text:
-                let paragraph = NSMutableParagraphStyle()
-                paragraph.alignment = annotation.align.textAlignment
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .font: annotation.textFont,
-                    .foregroundColor: QuillUIColor.hex(annotation.color),
-                    .paragraphStyle: paragraph,
-                ]
-                NSAttributedString(string: annotation.text, attributes: attributes).draw(in: frame.insetBy(dx: 4, dy: 4))
+                NoteRichText.display(annotation.text, look: NoteRichText.Look(annotation)).draw(in: frame.insetBy(dx: 4, dy: 4))
                 if annotation.boxed {
                     QuillUIColor.hex(0x9A968B).setStroke()
                     let border = UIBezierPath(roundedRect: frame, cornerRadius: 4)
                     border.lineWidth = 1
                     border.stroke()
                 }
+            case .table:
+                NoteTableLayout.draw(annotation, in: frame)
             case .image:
                 guard let name = annotation.image, let image = MaterialStore.noteImage(name) else { continue }
                 image.draw(in: frame)

@@ -126,6 +126,17 @@ final class NoteEditorModel: ObservableObject {
 
     func trueScale() { controller?.setTrueScale() }
 
+    // Typed notes
+
+    /// A new text in the middle of the page in view.
+    func newText() { controller?.newText() }
+
+    /// Heading, list or checkbox for the lines being typed.
+    func format(_ block: NoteBlock) { controller?.format(block) }
+
+    /// A table on the page in view, or below the text being typed.
+    func insertTable() { controller?.insertTable() }
+
     func fitWidth() { controller?.fitWidth() }
 
     func undo() { controller?.undo() }

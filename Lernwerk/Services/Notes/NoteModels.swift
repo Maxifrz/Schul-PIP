@@ -62,7 +62,7 @@ enum NoteTextAlign: String, CaseIterable, Codable {
 /// the page's drawing canvas, like the ink.
 struct PageAnnotation: Codable, Equatable, Identifiable {
     enum Kind: String, Codable {
-        case text, image, sticker
+        case text, image, sticker, table
     }
 
     var id = UUID().uuidString
@@ -82,6 +82,12 @@ struct PageAnnotation: Codable, Equatable, Identifiable {
     var image: String?
     /// A size of its own instead of the style's, like a calculated result written as large as the line before it.
     var fontSize: CGFloat?
+    /// The cells of a table, row by row.
+    var cells: [[String]]?
+    /// Whether a table's first row is a header; nil counts as yes.
+    var header: Bool?
+
+    var hasHeader: Bool { header ?? true }
 
     var textSize: CGFloat { fontSize ?? style.size }
 

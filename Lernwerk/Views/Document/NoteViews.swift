@@ -226,17 +226,21 @@ final class PageOverlayView: UIView {
     }
 }
 
-/// A text, picture or sticker on a page. Pictures and stickers move by dragging; texts by their handle at the top
-/// left; everything resizes with the handle at the bottom right. A long press offers delete and duplicate.
+/// A text, picture, sticker or table on a page. Pictures and stickers move by dragging; texts and tables by their
+/// handle at the top left; everything resizes with the handle at the bottom right. A long press offers duplicate and
+/// delete, and for tables rows and columns.
 final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteractionDelegate {
     private(set) var annotation: PageAnnotation
     weak var controller: NotesController?
     private(set) var textView: UITextView?
+    private var tableGrid: TableGridView?
     private var imageView: UIImageView?
     private var label: UILabel?
     private let moveHandle = UIView()
     private let resizeHandle = UIView()
     private var startFrame: CGRect = .zero
+
+    private var look: NoteRichText.Look { NoteRichText.Look(annotation) }
 
     init(annotation: PageAnnotation, controller: NotesController) {
         self.annotation = annotation
@@ -251,8 +255,29 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             textView.textContainerInset = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
             textView.textContainer.lineFragmentPadding = 0
             textView.delegate = self
+            textView.inputAccessoryView = NoteFormatBar(
+                onBlock: { [weak self] block in self?.applyBlock(block) },
+                onTable: { [weak self] in
+                    guard let self else { return }
+                    self.controller?.insertTable(below: self)
+                },
+                onDone: { [weak self] in self?.textView?.resignFirstResponder() }
+            )
             addSubview(textView)
             self.textView = textView
+        case .table:
+            let grid = TableGridView()
+            grid.onBegin = { [weak self] in
+                guard let self else { return }
+                self.controller?.didBeginEditing(self)
+            }
+            grid.onChange = { [weak self] _ in self?.fitTable() }
+            grid.onEnd = { [weak self] cells in
+                guard let self else { return }
+                self.controller?.didEndEditingTable(self, cells: cells)
+            }
+            addSubview(grid)
+            tableGrid = grid
         case .image:
             let imageView = UIImageView()
             imageView.contentMode = .scaleAspectFill
@@ -300,6 +325,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
     override func layoutSubviews() {
         super.layoutSubviews()
         textView?.frame = bounds
+        tableGrid?.frame = bounds
         imageView?.frame = bounds
         label?.frame = bounds
         moveHandle.frame = CGRect(x: -9, y: -9, width: 18, height: 18)
@@ -312,13 +338,24 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
         switch annotation.kind {
         case .text:
             guard let textView else { break }
-            if textView.text != annotation.text { textView.text = annotation.text }
-            textView.font = annotation.textFont
-            textView.textColor = QuillUIColor.hex(annotation.color)
-            textView.textAlignment = annotation.align.textAlignment
+            if textView.isFirstResponder {
+                // Being typed: the markers stay visible and the caret stays where it is.
+                if textView.text != annotation.text {
+                    let selection = textView.selectedRange
+                    textView.attributedText = NoteRichText.editing(annotation.text, look: look)
+                    textView.selectedRange = NSRange(location: min(selection.location, (annotation.text as NSString).length), length: 0)
+                } else {
+                    NoteRichText.restyle(textView.textStorage, look: look)
+                }
+                updateTypingAttributes()
+            } else {
+                textView.attributedText = NoteRichText.display(annotation.text, look: look)
+            }
             layer.borderWidth = annotation.boxed ? 1 : 0
             layer.borderColor = QuillUIColor.hex(0x9A968B).cgColor
             layer.cornerRadius = annotation.boxed ? 4 : 0
+        case .table:
+            tableGrid?.configure(annotation.cells ?? NoteTable.blank(), header: annotation.hasHeader, look: look)
         case .image:
             imageView?.image = annotation.image.flatMap(MaterialStore.noteImage)
         case .sticker:
@@ -338,19 +375,33 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
     }
 
     func showHandles(_ visible: Bool) {
-        moveHandle.isHidden = !visible || annotation.kind != .text
+        moveHandle.isHidden = !visible || !(annotation.kind == .text || annotation.kind == .table)
         resizeHandle.isHidden = !visible
     }
 
     func beginEditing() {
-        textView?.becomeFirstResponder()
+        if annotation.kind == .table {
+            tableGrid?.beginEditing()
+        } else {
+            textView?.becomeFirstResponder()
+        }
     }
+
+    /// What is typed now: the text with its markers, or nil for anything but a text.
+    var currentText: String? { textView?.text }
 
     /// Grows or shrinks a text to fit what is typed.
     func fitText() {
         guard let textView else { return }
         let size = textView.sizeThatFits(CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
         let height = max(annotation.textSize * 1.6, size.height)
+        if abs(height - frame.height) > 0.5 { frame.size.height = height }
+    }
+
+    /// A table is as high as its rows.
+    func fitTable() {
+        guard let tableGrid else { return }
+        let height = NoteTableLayout.totalHeight(tableGrid.cells, width: bounds.width, header: annotation.hasHeader, look: look)
         if abs(height - frame.height) > 0.5 { frame.size.height = height }
     }
 
@@ -380,7 +431,7 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             let translation = gesture.translation(in: superview)
             var size = CGSize(width: max(40, startFrame.width + translation.x), height: max(24, startFrame.height + translation.y))
             switch annotation.kind {
-            case .text:
+            case .text, .table:
                 size.height = startFrame.height
             case .image, .sticker:
                 // Pictures and stickers keep their proportions.
@@ -388,6 +439,10 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
             }
             frame = CGRect(origin: startFrame.origin, size: size)
             if annotation.kind == .text { fitText() }
+            if annotation.kind == .table {
+                layoutIfNeeded()
+                fitTable()
+            }
             if annotation.kind == .sticker, Stickers.color(for: annotation.text) == nil {
                 label?.font = .systemFont(ofSize: max(12, size.height * 0.8))
             }
@@ -401,15 +456,118 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
     // Text
 
     func textViewDidBeginEditing(_ textView: UITextView) {
+        guard textView === self.textView else { return }
+        // A text at rest shows bullets and numbers; while it is typed, its markers show.
+        textView.attributedText = NoteRichText.editing(annotation.text, look: look)
+        textView.selectedRange = NSRange(location: (annotation.text as NSString).length, length: 0)
+        updateTypingAttributes()
         controller?.didBeginEditing(self)
     }
 
     func textViewDidChange(_ textView: UITextView) {
+        guard textView === self.textView else { return }
+        if textView.markedTextRange == nil {
+            let renumbered = NoteMarkup.renumbered(textView.text)
+            if renumbered != textView.text { replaceKeepingCaret(with: renumbered) }
+            NoteRichText.restyle(textView.textStorage, look: look)
+            updateTypingAttributes()
+        }
         fitText()
     }
 
     func textViewDidEndEditing(_ textView: UITextView) {
+        guard textView === self.textView else { return }
         controller?.didEndEditing(self, text: textView.text ?? "")
+    }
+
+    /// Enter continues a list with the next marker, and ends it on an empty item.
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        guard textView === self.textView, text == "\n" else { return true }
+        let string = textView.text as NSString
+        let lineRange = string.lineRange(for: NSRange(location: range.location, length: 0))
+        let line = string.substring(with: lineRange).trimmingCharacters(in: .newlines)
+        let lineLength = (line as NSString).length
+        let parsed = NoteMarkup.parseLine(line)
+        let column = range.location - lineRange.location
+        // Only after the marker; inside it Enter is an ordinary line break.
+        guard column >= (parsed.prefix as NSString).length else { return true }
+        switch NoteMarkup.continuation(afterLine: line) {
+        case .none:
+            return true
+        case let .marker(marker):
+            textView.textStorage.replaceCharacters(in: range, with: "\n" + marker)
+            textView.selectedRange = NSRange(location: range.location + 1 + (marker as NSString).length, length: 0)
+            textViewDidChange(textView)
+            return false
+        case .endList:
+            guard range.length == 0, column == lineLength else { return true }
+            textView.textStorage.replaceCharacters(in: NSRange(location: lineRange.location, length: lineLength), with: "")
+            textView.selectedRange = NSRange(location: lineRange.location, length: 0)
+            textViewDidChange(textView)
+            return false
+        }
+    }
+
+    /// Puts a heading, list marker or checkbox in front of the lines the selection touches.
+    func applyBlock(_ block: NoteBlock) {
+        guard let textView, textView.isFirstResponder else { return }
+        let string = textView.text as NSString
+        let full = string.lineRange(for: textView.selectedRange)
+        var chunk = string.substring(with: full)
+        let trailingNewline = chunk.hasSuffix("\n")
+        if trailingNewline { chunk.removeLast() }
+        let lines = chunk.components(separatedBy: "\n")
+        let removing = NoteMarkup.parseLine(lines[0]).block.sameKind(as: block)
+        var isCheck = false
+        if case .check = block { isCheck = true }
+        let changed = lines.map { line -> String in
+            let parsed = NoteMarkup.parseLine(line)
+            if isCheck, case .check = parsed.block { return NoteMarkup.setBlock(block, on: line) }
+            if removing { return parsed.block.sameKind(as: block) ? parsed.content : line }
+            return NoteMarkup.marker(for: block) + parsed.content
+        }
+        let replacement = changed.joined(separator: "\n") + (trailingNewline ? "\n" : "")
+        textView.textStorage.replaceCharacters(in: full, with: replacement)
+        let end = full.location + (replacement as NSString).length - (trailingNewline ? 1 : 0)
+        textView.selectedRange = NSRange(location: max(full.location, end), length: 0)
+        textViewDidChange(textView)
+    }
+
+    /// The text as new, with the caret kept in its line: renumbering only changes the numbers in front of lines.
+    private func replaceKeepingCaret(with newText: String) {
+        guard let textView else { return }
+        let oldLines = textView.text.components(separatedBy: "\n")
+        let newLines = newText.components(separatedBy: "\n")
+        let caret = textView.selectedRange.location
+        var start = 0
+        var newStart = 0
+        var target = (newText as NSString).length
+        if oldLines.count == newLines.count {
+            for (index, oldLine) in oldLines.enumerated() {
+                let oldLength = (oldLine as NSString).length
+                let newLength = (newLines[index] as NSString).length
+                if caret <= start + oldLength {
+                    let column = caret - start
+                    let oldPrefix = (NoteMarkup.parseLine(oldLine).prefix as NSString).length
+                    let shifted = column >= oldPrefix ? column + (newLength - oldLength) : min(column, newLength)
+                    target = newStart + min(max(shifted, 0), newLength)
+                    break
+                }
+                start += oldLength + 1
+                newStart += newLength + 1
+            }
+        }
+        textView.textStorage.replaceCharacters(in: NSRange(location: 0, length: (textView.text as NSString).length), with: newText)
+        textView.selectedRange = NSRange(location: target, length: 0)
+    }
+
+    /// Text typed next looks like the line the caret is in.
+    private func updateTypingAttributes() {
+        guard let textView else { return }
+        let string = textView.text as NSString
+        let lineRange = string.lineRange(for: NSRange(location: min(textView.selectedRange.location, string.length), length: 0))
+        let line = NoteMarkup.parseLine(string.substring(with: lineRange).trimmingCharacters(in: .newlines))
+        textView.typingAttributes = NoteRichText.typingAttributes(for: line, look: look)
     }
 
     // Menu
@@ -417,11 +575,22 @@ final class AnnotationView: UIView, UITextViewDelegate, UIContextMenuInteraction
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
         guard controller?.tool.editsAnnotations == true else { return nil }
         let id = annotation.id
+        let isTable = annotation.kind == .table
+        let hasHeader = annotation.hasHeader
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            UIMenu(children: [
-                UIAction(title: "Duplizieren", image: UIImage(systemName: "plus.square.on.square")) { _ in self?.controller?.duplicateAnnotation(id) },
-                UIAction(title: "Löschen", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in self?.controller?.deleteAnnotation(id) },
-            ])
+            var items: [UIMenuElement] = []
+            if isTable {
+                items.append(UIMenu(title: "Tabelle", image: UIImage(systemName: "tablecells"), children: [
+                    UIAction(title: "Zeile hinzufügen", image: UIImage(systemName: "plus.rectangle")) { _ in self?.controller?.editTable(id, .addRow) },
+                    UIAction(title: "Spalte hinzufügen", image: UIImage(systemName: "plus.rectangle.portrait")) { _ in self?.controller?.editTable(id, .addColumn) },
+                    UIAction(title: "Letzte Zeile entfernen", image: UIImage(systemName: "minus.rectangle")) { _ in self?.controller?.editTable(id, .removeRow) },
+                    UIAction(title: "Letzte Spalte entfernen", image: UIImage(systemName: "minus.rectangle.portrait")) { _ in self?.controller?.editTable(id, .removeColumn) },
+                    UIAction(title: "Kopfzeile", image: UIImage(systemName: hasHeader ? "checkmark" : "rectangle.tophalf.filled"), state: hasHeader ? .on : .off) { _ in self?.controller?.toggleTableHeader(id) },
+                ]))
+            }
+            items.append(UIAction(title: "Duplizieren", image: UIImage(systemName: "plus.square.on.square")) { _ in self?.controller?.duplicateAnnotation(id) })
+            items.append(UIAction(title: "Löschen", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in self?.controller?.deleteAnnotation(id) })
+            return UIMenu(children: items)
         }
     }
 }

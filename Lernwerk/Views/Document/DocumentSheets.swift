@@ -236,8 +236,16 @@ struct DocumentSearchSheet: View {
             context.extend(atEnd: 70)
             found.append(SearchHit(page: document.index(for: page), snippet: Self.clean(context.string ?? text), selection: selection))
         }
-        for note in controller.notes.annotations where note.kind == .text && note.text.localizedStandardContains(text) {
-            found.append(SearchHit(page: note.page, snippet: Self.clean(note.text), selection: nil))
+        for note in controller.notes.annotations {
+            let content: String
+            switch note.kind {
+            case .text: content = NoteMarkup.plain(note.text)
+            case .table: content = NoteTable.plain(note.cells ?? [])
+            default: continue
+            }
+            if content.localizedStandardContains(text) {
+                found.append(SearchHit(page: note.page, snippet: Self.clean(content), selection: nil))
+            }
         }
         hits = found.sorted { $0.page < $1.page }
         searched = true

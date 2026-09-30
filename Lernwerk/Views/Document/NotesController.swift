@@ -35,6 +35,9 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     private var changeSnapshot: [PageAnnotation]?
     private weak var editingView: AnnotationView?
     private var newTextID: String?
+    /// The text or table being typed in, kept when its page's view is recycled so typing can go on.
+    private var editingAnnotationID: String?
+    private var keyboardInset: CGFloat = 0
 
     private(set) var zoomActive = false
     private var zoomTarget: (page: Int, rect: CGRect)?
@@ -72,6 +75,8 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         container.zoomPanel.onNewLine = { [weak self] in self?.zoomNewLine() }
         container.zoomPanel.onClose = { [weak self] in self?.onZoomClosed?() }
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: container.pdfView)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         for name in [Notification.Name.NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
             NotificationCenter.default.addObserver(self, selector: #selector(undoChanged), name: name, object: nil)
         }
@@ -236,12 +241,20 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         overlay.reload(notes.annotations(on: index), editingID: nil)
         overlays[index] = overlay
         configure(overlay)
+        // The page's view was recycled while typing (the keyboard came up, the page scrolled): go on where it was.
+        if let id = editingAnnotationID, overlay.annotationViews[id] != nil {
+            DispatchQueue.main.async { [weak overlay] in overlay?.annotationViews[id]?.beginEditing() }
+        }
         return overlay
     }
 
     func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) {
         guard let overlay = overlayView as? PageOverlayView else { return }
         drawings[overlay.pageIndex] = overlay.canvas.drawing
+        // What was typed so far is not lost with the view.
+        if let view = editingView, overlay.annotationViews[view.annotation.id] === view {
+            keepTyped(in: view)
+        }
         overlays[overlay.pageIndex] = nil
     }
 
@@ -364,6 +377,11 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
             container.endEditing(true)
             return
         }
+        beginText(at: point, on: overlay)
+    }
+
+    /// A new text where the page was tapped, or a text box in the textbox tool, with the keyboard up.
+    private func beginText(at point: CGPoint, on overlay: PageOverlayView) {
         let style = settings.textStyle
         let boxed = tool == .textBox
         let width = boxed
@@ -384,19 +402,97 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         )
         changeSnapshot = notes.annotations
         newTextID = annotation.id
+        editingAnnotationID = annotation.id
         notes.annotations.append(annotation)
         overlay.reload(notes.annotations(on: overlay.pageIndex), editingID: nil)
         overlay.annotationViews[annotation.id]?.beginEditing()
     }
 
+    /// A new text in the middle of what is visible: for when tapping the page is not at hand, as with a keyboard
+    /// and no finger free.
+    func newText() {
+        container.endEditing(true)
+        let page = currentPage
+        guard let overlay = overlays[page], overlay.bounds.width > 0 else { return }
+        let visible = overlay.convert(CGPoint(x: container.pdfView.bounds.midX, y: container.pdfView.bounds.midY), from: container.pdfView)
+        let point = CGPoint(x: max(24, overlay.bounds.width * 0.1), y: min(max(visible.y, 40), max(40, overlay.bounds.height - 60)))
+        beginText(at: point, on: overlay)
+    }
+
+    /// Heading, list or checkbox for the lines being typed.
+    func format(_ block: NoteBlock) {
+        // Without a text being typed, the button starts one.
+        if editingView == nil { newText() }
+        editingView?.applyBlock(block)
+    }
+
+    /// A table of three by three cells below the text being typed, or in the middle of what is visible.
+    func insertTable(below view: AnnotationView? = nil) {
+        var page = currentPage
+        var origin: CGPoint?
+        var width: CGFloat?
+        if let view {
+            page = view.annotation.page
+            origin = CGPoint(x: view.frame.minX, y: view.frame.maxY + 10)
+            width = view.frame.width
+        }
+        // Ends typing, which saves the text before the table is added.
+        container.endEditing(true)
+        let size = overlays[page]?.bounds.size ?? notes.canvasSizes[page] ?? document.page(at: page)?.bounds(for: .cropBox).size ?? CGSize(width: 595, height: 842)
+        let tableWidth = min(max(width ?? 0, size.width * 0.6), size.width - 32)
+        var position = origin ?? CGPoint(x: (size.width - tableWidth) / 2, y: size.height / 2)
+        if origin == nil, let overlay = overlays[page] {
+            let visible = overlay.convert(CGPoint(x: container.pdfView.bounds.midX, y: container.pdfView.bounds.midY), from: container.pdfView)
+            position.y = min(max(visible.y - 60, 20), max(20, size.height - 140))
+        }
+        position.x = min(max(16, position.x), max(16, size.width - tableWidth - 16))
+        var annotation = PageAnnotation(page: page, kind: .table, x: position.x, y: position.y, width: tableWidth, height: 0)
+        annotation.cells = NoteTable.blank()
+        annotation.color = settings.textColor
+        annotation.height = NoteTableLayout.totalHeight(annotation.cells ?? [], width: tableWidth, header: true, look: NoteRichText.Look(annotation))
+        commitAnnotations(notes.annotations + [annotation], previous: notes.annotations, name: "Tabelle")
+        editingAnnotationID = annotation.id
+        overlays[page]?.annotationViews[annotation.id]?.beginEditing()
+    }
+
+    func editTable(_ id: String, _ edit: NoteTable.Edit) {
+        guard let index = notes.annotations.firstIndex(where: { $0.id == id }), let cells = notes.annotations[index].cells else { return }
+        var updated = notes.annotations
+        let changed = NoteTable.applying(edit, to: cells)
+        updated[index].cells = changed
+        updated[index].height = NoteTableLayout.totalHeight(changed, width: updated[index].width, header: updated[index].hasHeader, look: NoteRichText.Look(updated[index]))
+        commitAnnotations(updated, previous: notes.annotations, name: "Tabelle")
+    }
+
+    func toggleTableHeader(_ id: String) {
+        guard let index = notes.annotations.firstIndex(where: { $0.id == id }) else { return }
+        var updated = notes.annotations
+        updated[index].header = !updated[index].hasHeader
+        updated[index].height = NoteTableLayout.totalHeight(updated[index].cells ?? [], width: updated[index].width, header: updated[index].hasHeader, look: NoteRichText.Look(updated[index]))
+        commitAnnotations(updated, previous: notes.annotations, name: "Tabelle")
+    }
+
+    /// What was typed in the view is put in the notes without an undo step; the step follows when typing ends.
+    private func keepTyped(in view: AnnotationView) {
+        guard let index = notes.annotations.firstIndex(where: { $0.id == view.annotation.id }) else { return }
+        if let text = view.currentText { notes.annotations[index].text = text }
+        notes.annotations[index].frame = view.frame
+    }
+
     func didBeginEditing(_ view: AnnotationView) {
         editingView = view
+        editingAnnotationID = view.annotation.id
+        revealEditing()
         if newTextID != view.annotation.id { changeSnapshot = notes.annotations }
         onEditingChange?(true)
     }
 
     func didEndEditing(_ view: AnnotationView, text: String) {
+        // A view whose page was recycled while typing reports its end when it leaves the window; typing goes on in the
+        // page's new view and the text was kept when the old one went.
+        if view.window == nil, editingAnnotationID == view.annotation.id { return }
         editingView = nil
+        editingAnnotationID = nil
         onEditingChange?(false)
         let id = view.annotation.id
         let previous = changeSnapshot ?? notes.annotations
@@ -421,6 +517,55 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
             updated[index].align = view.annotation.align
         }
         commitAnnotations(updated, previous: previous, name: "Text")
+    }
+
+    /// The table's cells and size when typing in it is over: one undo step.
+    func didEndEditingTable(_ view: AnnotationView, cells: [[String]]) {
+        editingView = nil
+        editingAnnotationID = nil
+        onEditingChange?(false)
+        let id = view.annotation.id
+        let previous = changeSnapshot ?? notes.annotations
+        changeSnapshot = nil
+        var updated = notes.annotations
+        guard let index = updated.firstIndex(where: { $0.id == id }) else { return }
+        if updated[index].cells == cells, updated[index].frame == view.frame { return }
+        updated[index].cells = cells
+        updated[index].frame = view.frame
+        commitAnnotations(updated, previous: previous, name: "Tabelle")
+    }
+
+    // The keyboard
+
+    /// The keyboard covers the bottom of the pages: they get room to scroll above it, and the text being typed in
+    /// scrolls into view. The page view itself keeps its size, so nothing is zoomed or recycled by the keyboard.
+    @objc private func keyboardChanged(_ notification: Notification) {
+        var inset: CGFloat = 0
+        if notification.name == UIResponder.keyboardWillChangeFrameNotification,
+           let end = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue,
+           let window = container.window {
+            let local = container.convert(end, from: window.screen.coordinateSpace)
+            inset = max(0, container.bounds.maxY - max(local.minY, container.bounds.minY))
+        }
+        keyboardInset = inset
+        guard let scroll = pageScrollView else { return }
+        scroll.contentInset.bottom = inset
+        scroll.verticalScrollIndicatorInsets.bottom = inset
+        revealEditing()
+    }
+
+    private var pageScrollView: UIScrollView? {
+        container.pdfView.subviews.compactMap { $0 as? UIScrollView }.first
+    }
+
+    /// Scrolls so the text or table being typed in is above the keyboard.
+    private func revealEditing() {
+        guard keyboardInset > 0 || editingView != nil, let view = editingView, let scroll = pageScrollView else { return }
+        DispatchQueue.main.async { [weak view, weak scroll] in
+            guard let view, let scroll, view.superview != nil else { return }
+            let rect = scroll.convert(view.bounds, from: view).insetBy(dx: 0, dy: -24)
+            scroll.scrollRectToVisible(rect, animated: true)
+        }
     }
 
     /// Style, color and alignment from the toolbar go to the text being edited.
