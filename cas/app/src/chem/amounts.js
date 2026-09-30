@@ -23,7 +23,7 @@ export function resolve(input) {
     parsed = parseFormula(text);
   } catch (e) {
     if (byName) parsed = byName.parsed;
-    else if (e instanceof ChemError && ['CHEM_UNKNOWN_ELEMENT', 'CHEM_INVALID_CHARGE'].includes(e.code)) throw e;
+    else if (e instanceof ChemError && (['CHEM_UNKNOWN_ELEMENT', 'CHEM_INVALID_CHARGE'].includes(e.code) || (e.code === 'CHEM_FORMULA_INVALID' && /Klammer/.test(e.message)))) throw e;
     else fail('CHEM_UNKNOWN_SUBSTANCE', `„${text}“ ist weder eine Formel noch ein Stoff der Datenbank.`, { substance: text });
   }
   const entry = byName;

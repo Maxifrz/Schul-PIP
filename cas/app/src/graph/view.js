@@ -704,6 +704,7 @@ export class GraphView {
   /** The path of a point while a slider or a point on an object runs through its range. */
   /** The shapes of a chart for the current slider values; worked out again only when they change */
   chartOf(object) {
+    if (object.shapes) return object.shapes;
     const items = object.items();
     // Functions in the arguments change with the sliders; fields fill the view, so both belong to the key.
     const sliders = items.some((i) => typeof i === 'function') ? [...this.scene.params.values()].map((p) => p.value) : [];

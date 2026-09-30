@@ -12,12 +12,12 @@ export function commandPanel({ onInsert, onTry, onClose, hidden = new Set(), fav
   const results = h('div.commands');
 
   const renderChips = () => {
-    chips.replaceChildren(
+    chips.replaceChildren(...[
       h('button', { 'aria-pressed': String(category === null), onclick: () => { category = null; render(); } }, 'Alle'),
       favorites.size ? h('button', { 'aria-pressed': String(category === '★'), onclick: () => { category = '★'; render(); } }, '★ Favoriten') : null,
       recent.length ? h('button', { 'aria-pressed': String(category === 'zuletzt'), onclick: () => { category = 'zuletzt'; render(); } }, 'Zuletzt') : null,
       ...CATEGORIES.filter((c) => !hidden.has(c)).map((c) => h('button', { 'aria-pressed': String(category === c), onclick: () => { category = category === c ? null : c; render(); } }, c)),
-    );
+    ].filter(Boolean));
   };
 
   const render = () => {
@@ -25,7 +25,7 @@ export function commandPanel({ onInsert, onTry, onClose, hidden = new Set(), fav
     const inCategory = (c) => !category || (category === '★' ? favorites.has(c.name) : category === 'zuletzt' ? recent.includes(c.name) : c.cat === category);
     let found = (query ? searchCommands(query) : COMMANDS).filter((c) => !hidden.has(c.cat) && inCategory(c));
     if (category === 'zuletzt' && !query) found = recent.map((name) => found.find((c) => c.name === name)).filter(Boolean);
-    results.replaceChildren(
+    results.replaceChildren(...[
       ...found.map((c) => h('div.command', {},
         h('div.name', {}, c.name, h('button.star', {
           'aria-label': favorites.has(c.name) ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten',
@@ -46,7 +46,7 @@ export function commandPanel({ onInsert, onTry, onClose, hidden = new Set(), fav
         ),
       )),
       found.length ? null : h('p', { style: { color: 'var(--muted)' } }, 'Kein Befehl gefunden.'),
-    );
+    ].filter(Boolean));
   };
 
   search.addEventListener('input', () => {

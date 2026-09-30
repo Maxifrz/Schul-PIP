@@ -7,6 +7,10 @@ import { convertLatexToMarkup } from 'mathlive';
 import { h, toast } from './ui.js';
 import { commandTemplate } from './keyboard.js';
 import { COMMANDS, searchCommands } from './commands.js';
+import { toText } from './chem/result.js';
+import { isReaction } from './chem/reaction.js';
+import { chemLatexToText } from './chem/latex.js';
+import { formatNumber } from './chem/format.js';
 
 let nextId = 1;
 
@@ -69,6 +73,7 @@ export class CasView {
     row.inputEl = h('div.input');
     row.outputEl = h('div.output');
     row.extraEl = h('div.extra');
+    row.chemBarEl = h('div.chem-bar', { hidden: true });
     row.styleButton = h('button', { title: 'Darstellung', 'aria-label': 'Darstellung', hidden: true, onclick: () => this.onStyle(row) }, '◐');
     row.actionsEl = h('div.actions', {},
       row.styleButton,
@@ -76,7 +81,7 @@ export class CasView {
       h('button', { title: 'Formel oder Text', 'aria-label': 'Eingabeart wechseln', onclick: () => this.switchMode(row) }, 'T'),
       h('button', { title: 'Zeile löschen', 'aria-label': 'Zeile löschen', onclick: () => this.removeRow(row) }, '×'),
     );
-    row.el.append(row.gutterEl, row.inputEl, row.actionsEl, row.outputEl, row.extraEl);
+    row.el.append(row.gutterEl, row.inputEl, row.actionsEl, row.outputEl, row.extraEl, row.chemBarEl);
     const index = after ? this.rows.indexOf(after) + 1 : this.rows.length;
     this.rows.splice(index, 0, row);
     const before = this.rows[index + 1];
@@ -104,6 +109,7 @@ export class CasView {
       area.addEventListener('input', () => {
         row.text = area.value;
         paint();
+        this.updateChemBar(row);
       });
       area.addEventListener('scroll', () => {
         shade.scrollTop = area.scrollTop;
@@ -147,6 +153,7 @@ export class CasView {
       row.repaint = paint;
       row.inputEl.append(h('div.code', {}, shade, area));
       requestAnimationFrame(paint);
+      this.updateChemBar(row);
       return;
     }
     const field = document.createElement('math-field');
@@ -170,6 +177,7 @@ export class CasView {
     field.addEventListener('input', () => {
       row.latex = field.value;
       this.suggest(row);
+      this.updateChemBar(row);
     });
     field.addEventListener('change', () => this.submit(row));
     field.addEventListener('move-out', (e) => {
@@ -181,6 +189,45 @@ export class CasView {
       }
     });
     row.field = field;
+    this.updateChemBar(row);
+  }
+
+  /**
+   * The reaction editor: while a row holds a reaction equation (typed bare or inside ausgleichen(…)), buttons offer what
+   * can be done with it — balance, stoichiometry, redox, thermodynamics.
+   */
+  updateChemBar(row) {
+    const bar = row.chemBarEl;
+    if (!bar) return;
+    const text = row.mode === 'text' ? row.text : chemLatexToText(row.latex || '');
+    let equation = null;
+    const trimmed = text.trim();
+    const call = /^[A-Za-zÄÖÜäöüß]+\s*\(([\s\S]*)\)$/.exec(trimmed);
+    const candidate = call ? call[1].split(';')[0].trim() : trimmed;
+    if (candidate && /->|→|⇌|<=>|⇄|=>|<->/.test(candidate) && isReaction(candidate)) equation = candidate;
+    if (!equation) {
+      bar.replaceChildren();
+      bar.hidden = true;
+      return;
+    }
+    if (bar.dataset.equation === equation) return;
+    bar.dataset.equation = equation;
+    const run = (command) => {
+      const next = this.append({ mode: 'text', text: `${command}(${equation})` });
+      this.focus(next);
+    };
+    bar.replaceChildren(
+      h('span.label', {}, 'Reaktion'),
+      h('button', { type: 'button', onclick: () => run('ausgleichen') }, 'Ausgleichen'),
+      h('button', { type: 'button', onclick: () => {
+        const next = this.addRow({ mode: 'text', text: `stöchiometrie(${equation}; ` }, row);
+        this.focus(next);
+        this.onChange();
+      } }, 'Stöchiometrie'),
+      h('button', { type: 'button', onclick: () => run('redox') }, 'Redox'),
+      h('button', { type: 'button', onclick: () => run('reaktionsenthalpie') }, 'Thermodynamik'),
+    );
+    bar.hidden = false;
   }
 
   switchMode(row) {
@@ -325,8 +372,10 @@ export class CasView {
           h('tbody', {}, ...r.table.rows.map((cells) => h('tr', {}, ...cells.map((cell) => h('td', {}, math(cell)))))));
         grid.append(h('div.table-wrap', {}, table));
       }
-      for (const item of r.rows) grid.append(h('div.label', {}, item.label), h('div', {}, math(item.latex)));
-      row.outputEl.replaceChildren(grid);
+      for (const item of r.rows) grid.append(h('div.label', {}, item.label), h('div' + (item.warning ? '.chem-warning' : ''), {}, item.text !== undefined && (item.warning || item.plain || item.label === 'Annahme' || item.label === 'Quelle') ? h('span.chem-text', {}, item.text) : math(item.latex)));
+      if (r.steps && r.steps.length) grid.append(this.stepsView(r, math));
+      if (r.actions && r.actions.length || r.chemResult) grid.append(this.chemActions(row, r));
+      row.outputEl.replaceChildren(...[r.understood ? h('div.understood', {}, 'verstanden als ', h('code', {}, r.understood)) : null, grid].filter(Boolean));
       return;
     }
     row.outputEl.replaceChildren(...[
@@ -334,11 +383,51 @@ export class CasView {
       r.printed ? h('div.printed', {}, h('div.label', {}, 'Ausgabe'), ...r.printed.map((line) => h('div', {}, math(line)))) : null,
       h('div', {}, h('span.arrow', {}, '→'), math(r.latex), r.verified === true ? h('span.check', { title: 'Jede Lösung wurde eingesetzt und erfüllt die Gleichung.' }, '✓ Probe') : r.verified === false ? h('span.check.bad', {}, 'Probe stimmt nicht') : null),
       r.approxLatex ? h('div.approx', {}, math('\\approx ' + r.approxLatex.replace(/^L=/, 'L\\approx'))) : null,
+      r.chemParts ? h('div.approx', {}, 'eingesetzt: ' + r.chemParts.map((p) => `${p.call} = ${formatNumber(p.value, { sig: 6 })}${p.unit ? ' ' + p.unit : ''}`).join('; ')) : null,
     ].filter(Boolean));
+  }
+
+  /** The working of a chemistry result, folded away until it is wanted */
+  stepsView(r, math) {
+    return h('details.chem-steps', {}, h('summary', {}, 'Rechenweg'),
+      ...r.steps.map((step, i) => h('div.chem-step', {}, h('div.label', {}, `${i + 1}. ${step.label}`), h('div', {}, ...step.lines.map((line) => h('div', {}, math(line.latex)))))));
+  }
+
+  /** Buttons that continue with a chemistry result: the next calculation, copying the working as text */
+  chemActions(row, r) {
+    const bar = h('div.chem-actions', {});
+    for (const action of r.actions || []) {
+      if (!action.insert) continue;
+      bar.append(h('button', { type: 'button', onclick: () => {
+        if (action.run) {
+          const next = this.append({ mode: 'text', text: action.insert });
+          this.focus(next);
+        } else {
+          const next = this.addRow({ mode: 'text', text: action.insert }, row);
+          this.focus(next);
+          this.onChange();
+        }
+      } }, action.label));
+    }
+    if (r.chemResult) {
+      bar.append(h('button', { type: 'button', onclick: () => {
+        const text = toText(r.chemResult);
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Rechenweg kopiert.'), () => toast('Kopieren nicht möglich.'));
+        else toast('Kopieren nicht möglich.');
+      } }, 'Rechenweg kopieren'));
+    }
+    return bar;
   }
 
   reuse(row) {
     const r = row.result;
+    // A chemistry result hands its number on to the next row
+    if (r && r.ok && r.chemResult && r.chemResult.result && Number.isFinite(r.chemResult.result.value)) {
+      const next = this.addRow({ mode: 'text', text: String(Number(r.chemResult.result.value.toPrecision(15))) }, row);
+      this.focus(next);
+      this.onChange();
+      return;
+    }
     if (!r || !r.ok || !r.latex || r.kind === 'analysis') {
       toast('Diese Zeile hat kein Ergebnis zum Übernehmen.');
       return;

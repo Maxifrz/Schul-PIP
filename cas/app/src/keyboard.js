@@ -74,6 +74,16 @@ export const LAYOUTS = [
       ['[left]', '[right]', ',', '[backspace]', '[return]'],
     ],
   },
+  {
+    label: 'Chemie',
+    tooltip: 'Chemie: Formeln, Reaktionen, Einheiten, Konstanten',
+    rows: [
+      [{ latex: 'H_2', label: 'H₂' }, { latex: 'O_2', label: 'O₂' }, { latex: 'N_2', label: 'N₂' }, { latex: 'CO_2', label: 'CO₂' }, { latex: 'SO_4^{2-}', label: 'SO₄²⁻' }, { latex: 'NH_4^{+}', label: 'NH₄⁺' }, { latex: '_{#?}', label: 'X₂' }, { latex: '^{#?}', label: 'Xⁿ⁺' }],
+      [{ latex: '\\rightarrow', label: '→' }, { latex: '\\rightleftharpoons', label: '⇌' }, { latex: '\\uparrow', label: '↑' }, { latex: '\\downarrow', label: '↓' }, { latex: '\\Delta', label: 'Δ' }, { latex: 'e^{-}', label: 'e⁻' }, '+', '(', ')', { latex: ';', label: ';' }],
+      [{ latex: '\\,\\mathrm{mol}', label: 'mol' }, { latex: '\\,\\mathrm{g}', label: 'g' }, { latex: '\\,\\mathrm{L}', label: 'L' }, { latex: '\\,\\mathrm{mL}', label: 'mL' }, { latex: '\\,\\mathrm{M}', label: 'M' }, { latex: '\\,\\mathrm{K}', label: 'K' }, { latex: '^{\\circ}\\mathrm{C}', label: '°C' }, { latex: '\\,\\mathrm{bar}', label: 'bar' }, '=', { latex: ',', label: ',' }],
+      ['[left]', '[right]', { latex: '\\mathrm{pH}\\left(#?;#?\\right)', label: 'pH', class: 'small' }, { latex: 'K_a\\left(#?\\right)', label: 'Ka', class: 'small' }, { latex: 'K_b\\left(#?\\right)', label: 'Kb', class: 'small' }, { latex: 'K_{sp}\\left(#?\\right)', label: 'Ksp', class: 'small' }, { latex: 'E^{\\circ}\\left(#?\\right)', label: 'E°', class: 'small' }, { latex: '\\Delta H\\left(#?\\right)', label: 'ΔH', class: 'small' }, { latex: '\\Delta G\\left(#?\\right)', label: 'ΔG', class: 'small' }, '[backspace]', '[return]'],
+    ],
+  },
   'alphabetic',
   'greek',
 ];

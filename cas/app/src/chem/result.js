@@ -100,14 +100,16 @@ export function toRows(result, { steps = true } = {}) {
   }
   for (const [name, v] of Object.entries(result.values)) {
     if (v && v.value !== undefined) rows.push({ label: name, latex: qLatex(v.value, v.unit, { ...result.display, ...(v.display || {}) }) });
+    else if (v && v.text !== undefined && (!v.latex || v.latex.startsWith('\\text{'))) rows.push({ label: name, text: v.text, latex: v.latex || `\\text{${escapeText(v.text)}}`, plain: true });
     else if (v && v.latex) rows.push({ label: name, latex: v.latex });
   }
   if (steps) for (const step of result.steps) {
     step.lines.forEach((line, i) => rows.push({ label: i === 0 ? step.label : '', latex: line.latex, step: true }));
   }
-  for (const w of result.warnings) rows.push({ label: 'Achtung', latex: `\\text{${escapeText(w.message)}}`, warning: true });
-  for (const a of result.assumptions) rows.push({ label: 'Annahme', latex: `\\text{${escapeText(a)}}` });
-  if (result.sources.length) rows.push({ label: 'Quelle', latex: `\\text{${escapeText(result.sources.join('; '))}}` });
+  // words wrap in the view, so they travel as plain text
+  for (const w of result.warnings) rows.push({ label: 'Achtung', text: w.message, latex: `\\text{${escapeText(w.message)}}`, warning: true });
+  for (const a of result.assumptions) rows.push({ label: 'Annahme', text: a, latex: `\\text{${escapeText(a)}}` });
+  if (result.sources.length) rows.push({ label: 'Quelle', text: result.sources.join('; '), latex: `\\text{${escapeText(result.sources.join('; '))}}` });
   return rows;
 }
 

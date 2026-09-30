@@ -338,8 +338,18 @@ function failure(error) {
   return { ok: false, error: r.error, code: r.code };
 }
 
-/** Errors that mean "this was not a chemistry input after all" for the short names that mathematics uses too */
-const NOT_CHEMISTRY = new Set(['CHEM_SYNTAX', 'CHEM_UNKNOWN_SUBSTANCE', 'CHEM_FORMULA_INVALID', 'CHEM_UNKNOWN_ELEMENT', 'CHEM_UNIT_MISMATCH', 'CHEM_MISSING_CONSTANT']);
+/** Whether some word of the text is a formula or a name from the substance database */
+function mentionsSubstance(text) {
+  const words = String(text).match(/[A-Za-zÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß()\[\]^+\-·.]*/g) || [];
+  return words.some((w) => {
+    try {
+      resolve(w.replace(/[.,;:]+$/, ''));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  });
+}
 
 function runCall(name, argsText, defined) {
   const cmd = chemCommand(name);
@@ -349,6 +359,8 @@ function runCall(name, argsText, defined) {
   if (defined && defined.has(name)) return null;
   if (NEEDS_ARGUMENTS.has(name) && !argsText.trim()) return null;
   const args = splitArgs(argsText);
+  // A short name is chemistry only when an argument names a substance; otherwise it is mathematics (n(5), c(t), M(x))
+  if (ambiguous && !mentionsSubstance(argsText)) return null;
   // Ka(…) and its relatives run the constant lookup with their own kind
   let run = cmd.run;
   if (SHORT_KA[name]) run = (a) => constantCommand(SHORT_KA[name], a);
@@ -361,10 +373,8 @@ function runCall(name, argsText, defined) {
     return out;
   } catch (e) {
     if (e instanceof ChemError) {
-      if (ambiguous && NOT_CHEMISTRY.has(e.code)) return null;
       return failure(e);
     }
-    if (ambiguous) return null;
     return failure(new ChemError('CHEM_SYNTAX', 'Die Eingabe ist nicht lesbar.'));
   }
 }

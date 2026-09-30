@@ -336,12 +336,15 @@ function resolveAcidBase(text, defaults) {
     if (['CHEM_UNKNOWN_SUBSTANCE', 'CHEM_UNKNOWN_ELEMENT', 'CHEM_FORMULA_INVALID'].includes(e.code) && (defaults.pKa || defaults.pKb)) {
       // "HA" or "B": a substance for which the constant is given
       const label = text.trim();
-      const el = (symbol) => ({ type: 'el', symbol, n: 1, mass: null });
-      const rest = /^H(.+)$/.exec(label);
-      const parsed = defaults.pKa && rest
-        ? { input: label, atoms: { H: 1, [rest[1]]: 1 }, isotopes: {}, charge: 0, hydrate: [], phase: null, ast: [el('H'), el(rest[1])], generic: label }
+      const el = (symbol, n = 1) => ({ type: 'el', symbol, n, mass: null });
+      // HA, H2A, H3A: n protons and a residue A
+      const rest = /^H(\d*)([A-Za-z].*)$/.exec(label);
+      const protons = rest ? Number(rest[1] || 1) : 1;
+      const parsed = defaults.pKa
+        ? (rest
+            ? { input: label, atoms: { H: protons, [rest[2]]: 1 }, isotopes: {}, charge: 0, hydrate: [], phase: null, ast: [el('H', protons), el(rest[2])], generic: label }
+            : { input: label, atoms: { H: 1, [label]: 1 }, isotopes: {}, charge: 0, hydrate: [], phase: null, ast: [el('H'), el(label)], generic: label })
         : { input: label, atoms: { [label]: 1 }, isotopes: {}, charge: 0, hydrate: [], phase: null, ast: [el(label)], generic: label };
-      if (defaults.pKa && !rest) parsed.atoms = { H: 1, [label]: 1 };
       return { formula: parsed, entry: null, M: NaN, terms: [], notes: [], phase: null, label, input: label, generic: true };
     }
     throw e;

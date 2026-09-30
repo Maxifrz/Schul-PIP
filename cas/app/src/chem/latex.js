@@ -14,7 +14,7 @@ export function chemLatexToText(latex) {
     .replace(/\\(?:longrightarrow|rightarrow|to|Rightarrow|longrightarrow)(?![A-Za-z])/g, ' -> ')
     .replace(/\\(?:rightleftharpoons|leftrightarrow|Leftrightarrow|leftrightharpoons|rightleftarrows)(?![A-Za-z])/g, ' <=> ')
     .replace(/\\(?:uparrow|downarrow)(?![A-Za-z])/g, ' ')
-    .replace(/\\(?:Delta|triangle)(?![A-Za-z])/g, 'Δ')
+    .replace(/\\(?:Delta|triangle)(?![A-Za-z])\s*/g, 'Δ')
     .replace(/\\(?:mu)(?![A-Za-z])/g, 'µ')
     .replace(/\\(?:circ|degree)(?![A-Za-z])/g, '°')
     .replace(/\\%/g, '%')
@@ -36,7 +36,7 @@ export function chemLatexToText(latex) {
   // "e^-" stays the electron; ion charges written as ^3+ stay
   s = s.replace(/[{}]/g, '');
   s = s.replace(/\\([A-Za-z]+)/g, '');
-  return s.replace(/\s+/g, ' ').trim();
+  return s.replace(/°\s+C\b/g, '°C').replace(/\s+/g, ' ').trim();
 }
 
 /** Whether the LaTeX has anything only chemistry uses: subscripts in formulas, reaction arrows, degree signs … */
