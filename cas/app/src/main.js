@@ -568,6 +568,19 @@ function layouts() {
   return all.filter(([key]) => viewAllowed(state.exam, key));
 }
 
+/**
+ * Keeps the rows above the keyboard. Side by side, only the CAS column makes room: the graphics keep their full height
+ * and the keyboard covers their lower part, instead of squeezing them to a strip above it.
+ */
+function fitKeyboard() {
+  const keyboard = window.mathVirtualKeyboard;
+  const height = keyboard.visible ? keyboard.boundingRect.height : 0;
+  const both = state.layout === 'both';
+  const app = document.getElementById('app');
+  if (app) app.style.paddingBottom = both ? '0px' : height + 'px';
+  if (state.cas && state.cas.el) state.cas.el.style.paddingBottom = both ? height + 'px' : '';
+}
+
 function setLayout(layout) {
   const allowed = layouts().map(([key]) => key);
   state.layout = allowed.includes(layout) ? layout : allowed[0];
@@ -578,6 +591,7 @@ function setLayout(layout) {
   } catch (e) {
     // no storage: the layout is not remembered
   }
+  fitKeyboard();
   requestAnimationFrame(() => {
     if (state.graph) state.graph.resize();
     if (state.layout === 'space' && state.space && state.space.init()) {
@@ -1190,11 +1204,14 @@ function start() {
 
   window.mathVirtualKeyboard.layouts = LAYOUTS;
   window.mathVirtualKeyboard.editToolbar = 'none';
-  window.mathVirtualKeyboard.container = document.body;
+  // Its own container: with the page body as container, MathLive pads the whole page by the keyboard's height and the
+  // graphics shrink to a strip; `fitKeyboard` makes room where it is needed.
+  const keyboardHost = document.createElement('div');
+  keyboardHost.id = 'keyboard-host';
+  document.body.append(keyboardHost);
+  window.mathVirtualKeyboard.container = keyboardHost;
   // The rows end above the keyboard instead of behind it.
-  window.mathVirtualKeyboard.addEventListener('geometrychange', () => {
-    app.style.paddingBottom = window.mathVirtualKeyboard.visible ? window.mathVirtualKeyboard.boundingRect.height + 'px' : '0px';
-  });
+  window.mathVirtualKeyboard.addEventListener('geometrychange', fitKeyboard);
 
   store.get('favorites').then((json) => {
     try {

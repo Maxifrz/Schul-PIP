@@ -1,0 +1,14 @@
+{
+  "version": "2026.1",
+  "kind": "isotopes",
+  "source": "Nuklidmassen (AME2016/NUBASE2016, gerundet auf 5 Nachkommastellen) für die häufig in der Schule genannten Isotope; für alle anderen wird die Massenzahl als Näherung benutzt.",
+  "reference": "Wang et al., Chinese Physics C 41 (2017) 030003",
+  "masses": {
+    "1H": 1.00783, "2H": 2.01410, "3H": 3.01605,
+    "12C": 12.00000, "13C": 13.00335, "14C": 14.00324,
+    "14N": 14.00307, "15N": 15.00011,
+    "16O": 15.99491, "17O": 16.99913, "18O": 17.99916,
+    "35Cl": 34.96885, "37Cl": 36.96590,
+    "235U": 235.04393, "238U": 238.05079
+  }
+}

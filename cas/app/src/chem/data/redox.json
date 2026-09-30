@@ -1,0 +1,265 @@
+{
+ "version": "2026.1",
+ "kind": "redox",
+ "temperature": 298.15,
+ "reference": "Standardelektrodenpotentiale bezogen auf die Standard-Wasserstoffelektrode bei 25 °C (Halbreaktionen in Richtung der Reduktion)",
+ "source": "CRC Handbook of Chemistry and Physics, Abschnitt Electrochemical Series; auf 2 Nachkommastellen gerundet (Schulwerte)",
+ "unit": "V",
+ "halfReactions": [
+  {
+   "pair": "Li+/Li",
+   "reduction": "Li+ + e- -> Li",
+   "E0": -3.04
+  },
+  {
+   "pair": "K+/K",
+   "reduction": "K+ + e- -> K",
+   "E0": -2.93
+  },
+  {
+   "pair": "Ba2+/Ba",
+   "reduction": "Ba2+ + 2 e- -> Ba",
+   "E0": -2.91
+  },
+  {
+   "pair": "Ca2+/Ca",
+   "reduction": "Ca2+ + 2 e- -> Ca",
+   "E0": -2.87
+  },
+  {
+   "pair": "Na+/Na",
+   "reduction": "Na+ + e- -> Na",
+   "E0": -2.71
+  },
+  {
+   "pair": "Mg2+/Mg",
+   "reduction": "Mg2+ + 2 e- -> Mg",
+   "E0": -2.37
+  },
+  {
+   "pair": "Al3+/Al",
+   "reduction": "Al3+ + 3 e- -> Al",
+   "E0": -1.66
+  },
+  {
+   "pair": "Mn2+/Mn",
+   "reduction": "Mn2+ + 2 e- -> Mn",
+   "E0": -1.18
+  },
+  {
+   "pair": "Zn2+/Zn",
+   "reduction": "Zn2+ + 2 e- -> Zn",
+   "E0": -0.76
+  },
+  {
+   "pair": "Cr3+/Cr",
+   "reduction": "Cr3+ + 3 e- -> Cr",
+   "E0": -0.74
+  },
+  {
+   "pair": "Fe2+/Fe",
+   "reduction": "Fe2+ + 2 e- -> Fe",
+   "E0": -0.44
+  },
+  {
+   "pair": "Cd2+/Cd",
+   "reduction": "Cd2+ + 2 e- -> Cd",
+   "E0": -0.4
+  },
+  {
+   "pair": "Co2+/Co",
+   "reduction": "Co2+ + 2 e- -> Co",
+   "E0": -0.28
+  },
+  {
+   "pair": "Ni2+/Ni",
+   "reduction": "Ni2+ + 2 e- -> Ni",
+   "E0": -0.26
+  },
+  {
+   "pair": "Sn2+/Sn",
+   "reduction": "Sn2+ + 2 e- -> Sn",
+   "E0": -0.14
+  },
+  {
+   "pair": "Pb2+/Pb",
+   "reduction": "Pb2+ + 2 e- -> Pb",
+   "E0": -0.13
+  },
+  {
+   "pair": "Fe3+/Fe",
+   "reduction": "Fe3+ + 3 e- -> Fe",
+   "E0": -0.04
+  },
+  {
+   "pair": "H+/H2",
+   "reduction": "2 H+ + 2 e- -> H2",
+   "E0": 0.0
+  },
+  {
+   "pair": "Sn4+/Sn2+",
+   "reduction": "Sn4+ + 2 e- -> Sn2+",
+   "E0": 0.15
+  },
+  {
+   "pair": "Cu2+/Cu+",
+   "reduction": "Cu2+ + e- -> Cu+",
+   "E0": 0.16
+  },
+  {
+   "pair": "Cu2+/Cu",
+   "reduction": "Cu2+ + 2 e- -> Cu",
+   "E0": 0.34
+  },
+  {
+   "pair": "Cu+/Cu",
+   "reduction": "Cu+ + e- -> Cu",
+   "E0": 0.52
+  },
+  {
+   "pair": "I2/I-",
+   "reduction": "I2 + 2 e- -> 2 I-",
+   "E0": 0.54
+  },
+  {
+   "pair": "Fe3+/Fe2+",
+   "reduction": "Fe3+ + e- -> Fe2+",
+   "E0": 0.77
+  },
+  {
+   "pair": "Ag+/Ag",
+   "reduction": "Ag+ + e- -> Ag",
+   "E0": 0.8
+  },
+  {
+   "pair": "Hg2+/Hg",
+   "reduction": "Hg2+ + 2 e- -> Hg",
+   "E0": 0.85
+  },
+  {
+   "pair": "Br2/Br-",
+   "reduction": "Br2 + 2 e- -> 2 Br-",
+   "E0": 1.07
+  },
+  {
+   "pair": "O2/H2O",
+   "reduction": "O2 + 4 H+ + 4 e- -> 2 H2O",
+   "E0": 1.23
+  },
+  {
+   "pair": "MnO2/Mn2+",
+   "reduction": "MnO2 + 4 H+ + 2 e- -> Mn2+ + 2 H2O",
+   "E0": 1.23
+  },
+  {
+   "pair": "Cr2O7^2-/Cr3+",
+   "reduction": "Cr2O7^2- + 14 H+ + 6 e- -> 2 Cr3+ + 7 H2O",
+   "E0": 1.33
+  },
+  {
+   "pair": "Cl2/Cl-",
+   "reduction": "Cl2 + 2 e- -> 2 Cl-",
+   "E0": 1.36
+  },
+  {
+   "pair": "PbO2/Pb2+",
+   "reduction": "PbO2 + 4 H+ + 2 e- -> Pb2+ + 2 H2O",
+   "E0": 1.46
+  },
+  {
+   "pair": "Au3+/Au",
+   "reduction": "Au3+ + 3 e- -> Au",
+   "E0": 1.5
+  },
+  {
+   "pair": "MnO4-/Mn2+",
+   "reduction": "MnO4- + 8 H+ + 5 e- -> Mn2+ + 4 H2O",
+   "E0": 1.51
+  },
+  {
+   "pair": "MnO4-/MnO2",
+   "reduction": "MnO4- + 4 H+ + 3 e- -> MnO2 + 2 H2O",
+   "E0": 1.7
+  },
+  {
+   "pair": "H2O2/H2O",
+   "reduction": "H2O2 + 2 H+ + 2 e- -> 2 H2O",
+   "E0": 1.78
+  },
+  {
+   "pair": "S2O8^2-/SO4^2-",
+   "reduction": "S2O8^2- + 2 e- -> 2 SO4^2-",
+   "E0": 2.01
+  },
+  {
+   "pair": "F2/F-",
+   "reduction": "F2 + 2 e- -> 2 F-",
+   "E0": 2.87
+  },
+  {
+   "pair": "NO3-/NO",
+   "reduction": "NO3- + 4 H+ + 3 e- -> NO + 2 H2O",
+   "E0": 0.96
+  },
+  {
+   "pair": "NO3-/NO2",
+   "reduction": "NO3- + 2 H+ + e- -> NO2 + H2O",
+   "E0": 0.8
+  },
+  {
+   "pair": "PbSO4/Pb",
+   "reduction": "PbSO4 + 2 e- -> Pb + SO4^2-",
+   "E0": -0.36
+  },
+  {
+   "pair": "PbO2/PbSO4",
+   "reduction": "PbO2 + SO4^2- + 4 H+ + 2 e- -> PbSO4 + 2 H2O",
+   "E0": 1.69
+  },
+  {
+   "pair": "AgCl/Ag",
+   "reduction": "AgCl + e- -> Ag + Cl-",
+   "E0": 0.22
+  },
+  {
+   "pair": "H2O/H2",
+   "reduction": "2 H2O + 2 e- -> H2 + 2 OH-",
+   "E0": -0.83
+  },
+  {
+   "pair": "O2/OH-",
+   "reduction": "O2 + 2 H2O + 4 e- -> 4 OH-",
+   "E0": 0.4
+  },
+  {
+   "pair": "MnO4-/MnO2 (basisch)",
+   "reduction": "MnO4- + 2 H2O + 3 e- -> MnO2 + 4 OH-",
+   "E0": 0.59
+  },
+  {
+   "pair": "Fe(OH)3/Fe(OH)2",
+   "reduction": "Fe(OH)3 + e- -> Fe(OH)2 + OH-",
+   "E0": -0.56
+  },
+  {
+   "pair": "Zn(OH)2/Zn",
+   "reduction": "Zn(OH)2 + 2 e- -> Zn + 2 OH-",
+   "E0": -1.25
+  },
+  {
+   "pair": "SO4^2-/SO2",
+   "reduction": "SO4^2- + 4 H+ + 2 e- -> SO2 + 2 H2O",
+   "E0": 0.17
+  },
+  {
+   "pair": "I2/I- (aq)",
+   "reduction": "I3- + 2 e- -> 3 I-",
+   "E0": 0.54
+  },
+  {
+   "pair": "Fe(CN)6^3-/Fe(CN)6^4-",
+   "reduction": "[Fe(CN)6]3- + e- -> [Fe(CN)6]4-",
+   "E0": 0.36
+  }
+ ]
+}

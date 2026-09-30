@@ -297,6 +297,8 @@ export class Scene {
           return valueFn(tree);
         });
         if (fns.some((f) => !f)) return null;
+        // A chemistry diagram carries its shapes; nothing is worked out from sliders
+        if (entry.shapes) return { ...base, command: entry.command, chart: entry.chart, seed: 0, items: () => [], shapes: entry.shapes };
         return { ...base, command: entry.command, chart: entry.chart, seed: entry.seed, items: () => entry.layout.map((slot) => (typeof slot === 'string' ? slot : typeof slot === 'object' ? fns[slot.fn]() : fns[slot]())) };
       }
       case 'point3': {
@@ -434,6 +436,10 @@ export function classify(row, engine) {
       });
       return { row, type: 'chart', command: command(area.f).name, chart: 'area', layout, seed: 0, requests, label: '', name: r.definition ? r.definition.name : null };
     }
+  }
+  // Chemistry: a titration curve, a concentration–time curve … comes with its shapes
+  if (r && r.ok && r.kind === 'analysis' && r.shapes) {
+    return { row, type: 'chart', command: 'chemie', chart: 'chem', layout: [], seed: 0, requests: [], label: '', shapes: r.shapes };
   }
   if (r && r.ok && r.kind === 'analysis' && r.chart && r.tree) {
     // A chart: numbers and lists come from Giac with sliders left free, words (binomial, links …) stay as typed.

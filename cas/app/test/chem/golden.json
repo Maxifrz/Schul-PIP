@@ -1,0 +1,366 @@
+{
+  "note": "Golden cases: input in the command language, what the answer must contain. Every number is worked out independently of the engine (textbook value or a closed formula), never copied from its output.",
+  "cases": [
+    {
+      "input": "molmasse(H2SO4)",
+      "value": 98.079,
+      "unit": "g/mol",
+      "tolerance": 0.0005,
+      "text": [
+        "98,079"
+      ]
+    },
+    {
+      "input": "M(H2SO4)",
+      "value": 98.079,
+      "unit": "g/mol",
+      "tolerance": 0.0005
+    },
+    {
+      "input": "molmasse(NaCl)",
+      "value": 58.443,
+      "unit": "g/mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "molmasse(H2O)",
+      "value": 18.015,
+      "unit": "g/mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "molmasse(CaCO3)",
+      "value": 100.087,
+      "unit": "g/mol",
+      "tolerance": 0.002
+    },
+    {
+      "input": "molmasse(Fe2(SO4)3)",
+      "value": 399.88,
+      "unit": "g/mol",
+      "tolerance": 0.01
+    },
+    {
+      "input": "molmasse(CuSO4.5H2O)",
+      "value": 249.686,
+      "unit": "g/mol",
+      "tolerance": 0.002
+    },
+    {
+      "input": "molmasse(Salzsäure)",
+      "value": 36.461,
+      "unit": "g/mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "ausgleichen(Fe + O2 -> Fe2O3)",
+      "equation": "4 Fe + 3 O2 -> 2 Fe2O3"
+    },
+    {
+      "input": "Fe + O2 -> Fe2O3",
+      "equation": "4 Fe + 3 O2 -> 2 Fe2O3"
+    },
+    {
+      "input": "ausgleichen(C3H8 + O2 -> CO2 + H2O)",
+      "equation": "C3H8 + 5 O2 -> 3 CO2 + 4 H2O"
+    },
+    {
+      "input": "redox(MnO4- + Fe2+ -> Mn2+ + Fe3+)",
+      "equation": "MnO4- + 5 Fe^2+ + 8 H+ -> Mn^2+ + 5 Fe^3+ + 4 H2O"
+    },
+    {
+      "input": "MnO4- + Fe2+ -> Mn2+ + Fe3+",
+      "equation": "MnO4- + 5 Fe^2+ + 8 H+ -> Mn^2+ + 5 Fe^3+ + 4 H2O"
+    },
+    {
+      "input": "ausgleichen(MnO4- + Fe2+ -> Mn2+ + Fe3+)",
+      "equation": "MnO4- + 5 Fe^2+ + 8 H+ -> Mn^2+ + 5 Fe^3+ + 4 H2O"
+    },
+    {
+      "input": "n(NaCl; 58,44 g)",
+      "value": 1,
+      "unit": "mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "m(H2O; 2 mol)",
+      "value": 36.03,
+      "unit": "g",
+      "tolerance": 0.01
+    },
+    {
+      "input": "c(NaCl; 58,44 g; 1 L)",
+      "value": 1,
+      "unit": "mol/L",
+      "tolerance": 0.001
+    },
+    {
+      "input": "V(H2; 1 mol)",
+      "value": 22.414,
+      "unit": "L",
+      "tolerance": 0.001
+    },
+    {
+      "input": "pH(HCl; 0,1 mol/L)",
+      "value": 1,
+      "tolerance": 1e-06
+    },
+    {
+      "input": "pH(NaOH; 0,01 mol/L)",
+      "value": 12,
+      "tolerance": 1e-06
+    },
+    {
+      "input": "pH(CH3COOH; 0,1 mol/L)",
+      "value": 2.883,
+      "tolerance": 0.002
+    },
+    {
+      "input": "pH(NH3; 0,1 mol/L)",
+      "value": 11.122,
+      "tolerance": 0.002
+    },
+    {
+      "input": "pH(CH3COOH 0,1 mol/L; CH3COONa 0,1 mol/L)",
+      "value": 4.76,
+      "tolerance": 0.005
+    },
+    {
+      "input": "pOH(NaOH; 0,01 mol/L)",
+      "value": 2,
+      "tolerance": 1e-06
+    },
+    {
+      "input": "Ka(CH3COOH)",
+      "value": 1.738e-05,
+      "unit": "mol/L",
+      "tolerance": 1e-08
+    },
+    {
+      "input": "zellspannung(Zn; Cu)",
+      "value": 1.1,
+      "unit": "V",
+      "tolerance": 1e-09
+    },
+    {
+      "input": "E0(Zn)",
+      "value": -0.76,
+      "unit": "V",
+      "tolerance": 1e-09
+    },
+    {
+      "input": "löslichkeit(AgCl)",
+      "value": 1.33e-05,
+      "unit": "mol/L",
+      "tolerance": 1e-07
+    },
+    {
+      "input": "reaktionsenthalpie(N2 + 3 H2 -> 2 NH3)",
+      "value": -92.22,
+      "unit": "kJ/mol",
+      "tolerance": 0.01
+    },
+    {
+      "input": "hess(C + 1/2 O2 -> CO; C + O2 -> CO2 @ -393,5 kJ/mol; CO + 1/2 O2 -> CO2 @ -283 kJ/mol)",
+      "value": -110.5,
+      "unit": "kJ/mol",
+      "tolerance": 1e-09
+    },
+    {
+      "input": "kinetik(Ordnung=1; c0=1 mol/L; c=0,5 mol/L; t=100 s)",
+      "value": 0.006931,
+      "unit": "1/s",
+      "tolerance": 1e-06
+    },
+    {
+      "input": "gasgesetz(n=1 mol; T=273,15 K; p=101325 Pa)",
+      "value": 22.414,
+      "unit": "L",
+      "tolerance": 0.001
+    },
+    {
+      "input": "titration(HCl 0,1 mol/L 25 mL; NaOH 0,1 mol/L)",
+      "value": 25,
+      "unit": "mL",
+      "tolerance": 1e-06
+    },
+    {
+      "input": "stöchiometrie(2 H2 + O2 -> 2 H2O; 4 g H2; 32 g O2; gesucht=m(H2O))",
+      "value": 35.76,
+      "unit": "g",
+      "tolerance": 0.05
+    },
+    {
+      "input": "molmasse(Xy2)",
+      "code": "CHEM_UNKNOWN_ELEMENT",
+      "text": [
+        "Element"
+      ]
+    },
+    {
+      "input": "molmasse(H2O))",
+      "code": "CHEM_FORMULA_INVALID"
+    },
+    {
+      "input": "molmasse(Nichtsda)",
+      "code": "CHEM_UNKNOWN_SUBSTANCE"
+    },
+    {
+      "input": "ausgleichen(Na -> Cl2)",
+      "code": "CHEM_NO_SOLUTION"
+    },
+    {
+      "input": "ausgleichen(H2 + O2 -> H2O + H2O2)",
+      "code": "CHEM_MULTIPLE_SOLUTIONS"
+    },
+    {
+      "input": "stöchiometrie(2 H2 + O2 -> H2O; 4 g H2)",
+      "code": "CHEM_UNBALANCED_REACTION"
+    },
+    {
+      "input": "n(NaCl; 10 m)",
+      "code": "CHEM_UNIT_MISMATCH"
+    },
+    {
+      "input": "n(NaCl)",
+      "code": "CHEM_MISSING_CONSTANT"
+    },
+    {
+      "input": "reaktionsenthalpie(Xe + F2 -> XeF2)",
+      "code": "CHEM_DATA_UNAVAILABLE"
+    },
+    {
+      "input": "gleichgewicht(N2 + 3 H2 <=> 2 NH3; Kc=1)",
+      "code": "CHEM_NO_SOLUTION"
+    },
+    {
+      "input": "pH(HCl; -0,1 mol/L)",
+      "code": "CHEM_NEGATIVE_CONCENTRATION"
+    },
+    {
+      "input": "kinetik(Ordnung=9; k=1 1/s; c0=1 mol/L; t=1 s)",
+      "code": "CHEM_OUTSIDE_MODEL"
+    },
+    {
+      "input": "Ksp(Ag2CrO4; löslichkeit=1,3e-4 mol/L)",
+      "value": 8.788e-12,
+      "tolerance": 1e-14
+    },
+    {
+      "input": "nernst(Cu2+/Cu; c(Cu2+)=0,01 mol/L)",
+      "value": 0.28082,
+      "unit": "V",
+      "tolerance": 0.0001
+    },
+    {
+      "input": "elektrolyse(Cu2+; I=2 A; t=30 min)",
+      "value": 1.1855,
+      "unit": "g",
+      "tolerance": 0.001
+    },
+    {
+      "input": "arrhenius(k1=0,01 1/s; T1=300 K; k2=0,1 1/s; T2=330 K)",
+      "value": 63.18,
+      "unit": "kJ/mol",
+      "tolerance": 0.01
+    },
+    {
+      "input": "vanderwaals(Gas=CO2; n=1 mol; V=1 L; T=300 K)",
+      "value": 22.4025,
+      "unit": "bar",
+      "tolerance": 0.001
+    },
+    {
+      "input": "boyle(p1=1 bar; V1=10 L; p2=2 bar)",
+      "value": 5,
+      "unit": "L",
+      "tolerance": 1e-09
+    },
+    {
+      "input": "verdünnung(c1=1 mol/L; V1=10 mL; V2=100 mL)",
+      "value": 0.1,
+      "unit": "mol/L",
+      "tolerance": 1e-12
+    },
+    {
+      "input": "puffer(CH3COOH 0,1 mol/L; CH3COONa 0,05 mol/L)",
+      "value": 4.459,
+      "tolerance": 0.001
+    },
+    {
+      "input": "gleichgewichtskonstante(N2 + 3 H2 <=> 2 NH3; c(N2)=0,4 mol/L; c(H2)=1,2 mol/L; c(NH3)=0,3 mol/L)",
+      "value": 0.130208,
+      "tolerance": 1e-05
+    },
+    {
+      "input": "gibbs(ΔH=-92 kJ/mol; ΔS=-199 J/(mol·K); T=298 K)",
+      "value": -32.698,
+      "unit": "kJ/mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "freieenthalpie(CaCO3 -> CaO + CO2; T=1200 K)",
+      "value": -14.4,
+      "unit": "kJ/mol",
+      "tolerance": 0.1
+    },
+    {
+      "input": "limitierenderstoff(HCl + NaOH -> NaCl + H2O; HCl: 0,1 mol/L 50 mL; NaOH: 0,2 mol/L 20 mL)",
+      "text": [
+        "Limitierender Stoff: NaOH"
+      ]
+    },
+    {
+      "input": "oxidationszahl(KMnO4; Mn)",
+      "text": [
+        "Mn +7"
+      ]
+    },
+    {
+      "input": "reaktionsordnung(t=[0; 10; 20; 30] s; c=[1; 0,6065; 0,3679; 0,2231] mol/L)",
+      "text": [
+        "Ordnung 1"
+      ]
+    },
+    {
+      "input": "zusammensetzung(H2O)",
+      "text": [
+        "H 11,19 %",
+        "O 88,81 %"
+      ]
+    },
+    {
+      "input": "stoffinfo(NaCl)",
+      "value": 58.443,
+      "unit": "g/mol",
+      "tolerance": 0.001
+    },
+    {
+      "input": "element(Fe)",
+      "value": 55.845,
+      "unit": "g/mol",
+      "tolerance": 1e-06
+    },
+    {
+      "input": "ionenprodukt(T=25 °C)",
+      "value": 1e-14,
+      "tolerance": 1e-20
+    },
+    {
+      "input": "gasdichte(CO2; T=0 °C; p=101325 Pa)",
+      "value": 1.9634,
+      "unit": "g/L",
+      "tolerance": 0.001
+    },
+    {
+      "input": "pH(H2SO4; 0,05 mol/L)",
+      "value": 1.24,
+      "tolerance": 0.01
+    },
+    {
+      "input": "pH(Na2CO3; 0,1 mol/L)",
+      "value": 11.66,
+      "tolerance": 0.02
+    }
+  ]
+}

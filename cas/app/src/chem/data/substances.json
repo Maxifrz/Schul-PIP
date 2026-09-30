@@ -1,0 +1,4196 @@
+{
+ "version": "2026.1",
+ "kind": "substances",
+ "temperature": 298.15,
+ "source": "Standardbildungsenthalpie, Standardbildungs-Gibbsenergie und Standardentropie bei 298,15 K und 1 bar (aq: 1 mol/L) aus den üblichen Tabellenwerken (NBS/NIST, CRC Handbook of Chemistry and Physics) auf 2–3 Nachkommastellen gerundet; pKa-, pKb- und Ksp-Werte bei 25 °C aus CRC/Lange; Dichten und Löslichkeiten sind Richtwerte.",
+ "reference": "NIST Chemistry WebBook; CRC Handbook of Chemistry and Physics; D. D. Wagman et al., J. Phys. Chem. Ref. Data 11, Suppl. 2 (1982)",
+ "units": {
+  "dfH": "kJ/mol",
+  "dfG": "kJ/mol",
+  "S": "J/(mol·K)",
+  "ksp": "1",
+  "density": "siehe unit",
+  "solubility": "siehe unit"
+ },
+ "substances": [
+  {
+   "formula": "H2",
+   "name": "Wasserstoff",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 130.68
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 0.0899,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "O2",
+   "name": "Sauerstoff",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 205.15
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 1.429,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "N2",
+   "name": "Stickstoff",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 191.61
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 1.2506,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "Cl2",
+   "name": "Chlor",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 223.08
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 3.214,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "F2",
+   "name": "Fluor",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 202.79
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "Br2",
+   "name": "Brom",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 152.23
+    },
+    "g": {
+     "dfH": 30.91,
+     "dfG": 3.11,
+     "S": 245.46
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "I2",
+   "name": "Iod",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 116.14
+    },
+    "g": {
+     "dfH": 62.42,
+     "dfG": 19.33,
+     "S": 260.69
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "C",
+   "name": "Kohlenstoff (Graphit)",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 5.74
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 2.26,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "S",
+   "name": "Schwefel (rhombisch)",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 31.8
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 2.07,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "P",
+   "name": "Phosphor (weiß)",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 41.09
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "He",
+   "name": "Helium",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 126.15
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 0.1786,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "Ne",
+   "name": "Neon",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 146.33
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "Ar",
+   "name": "Argon",
+   "category": "gas",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 154.84
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 1.784,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "Fe",
+   "name": "Eisen",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 27.28
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 7.874,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Cu",
+   "name": "Kupfer",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 33.15
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 8.96,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Zn",
+   "name": "Zink",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 41.63
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 7.14,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Al",
+   "name": "Aluminium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 28.33
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 2.7,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Mg",
+   "name": "Magnesium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 32.68
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 1.738,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Ca",
+   "name": "Calcium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 41.59
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Na",
+   "name": "Natrium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 51.21
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 0.968,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "K",
+   "name": "Kalium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 64.18
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Li",
+   "name": "Lithium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 29.12
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Ag",
+   "name": "Silber",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 42.55
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 10.49,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Pb",
+   "name": "Blei",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 64.81
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 11.34,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Sn",
+   "name": "Zinn (weiß)",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 51.55
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Hg",
+   "name": "Quecksilber",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 76.02
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 13.546,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Au",
+   "name": "Gold",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 47.4
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 19.32,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Ni",
+   "name": "Nickel",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 29.87
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Mn",
+   "name": "Mangan",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 32.01
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Cr",
+   "name": "Chrom",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 23.77
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Ba",
+   "name": "Barium",
+   "category": "metal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 62.8
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Si",
+   "name": "Silicium",
+   "category": "nonmetal",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 18.83
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "H2O",
+   "name": "Wasser",
+   "category": "water",
+   "aliases": [
+    "Wasser",
+    "water"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -285.83,
+     "dfG": -237.13,
+     "S": 69.91
+    },
+    "g": {
+     "dfH": -241.82,
+     "dfG": -228.57,
+     "S": 188.83
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 0.9982,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "H2O2",
+   "name": "Wasserstoffperoxid",
+   "category": "oxide",
+   "aliases": [
+    "Wasserstoffperoxid"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -187.78,
+     "dfG": -120.35,
+     "S": 109.6
+    },
+    "aq": {
+     "dfH": -191.17,
+     "dfG": -134.03,
+     "S": 143.9
+    }
+   },
+   "phase": "l",
+   "acidBase": {
+    "pKa": [
+     11.6
+    ]
+   }
+  },
+  {
+   "formula": "CO",
+   "name": "Kohlenstoffmonoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -110.53,
+     "dfG": -137.17,
+     "S": 197.67
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 1.25,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "CO2",
+   "name": "Kohlenstoffdioxid",
+   "category": "oxide",
+   "aliases": [
+    "Kohlendioxid"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -393.51,
+     "dfG": -394.36,
+     "S": 213.74
+    },
+    "aq": {
+     "dfH": -413.8,
+     "dfG": -385.98,
+     "S": 117.6
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 1.977,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "NO",
+   "name": "Stickstoffmonoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 90.25,
+     "dfG": 86.55,
+     "S": 210.76
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "NO2",
+   "name": "Stickstoffdioxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 33.18,
+     "dfG": 51.31,
+     "S": 240.06
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "N2O",
+   "name": "Distickstoffmonoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 82.05,
+     "dfG": 104.2,
+     "S": 219.85
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "N2O4",
+   "name": "Distickstofftetroxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 9.16,
+     "dfG": 97.89,
+     "S": 304.29
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "SO2",
+   "name": "Schwefeldioxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -296.83,
+     "dfG": -300.19,
+     "S": 248.22
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "SO3",
+   "name": "Schwefeltrioxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -395.72,
+     "dfG": -371.06,
+     "S": 256.76
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "P4O10",
+   "name": "Phosphor(V)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -2984.0,
+     "dfG": -2697.7,
+     "S": 228.86
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "CaO",
+   "name": "Calciumoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -635.09,
+     "dfG": -604.03,
+     "S": 39.75
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "MgO",
+   "name": "Magnesiumoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -601.7,
+     "dfG": -569.43,
+     "S": 26.94
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Al2O3",
+   "name": "Aluminiumoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1675.7,
+     "dfG": -1582.3,
+     "S": 50.92
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Fe2O3",
+   "name": "Eisen(III)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -824.2,
+     "dfG": -742.2,
+     "S": 87.4
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Fe3O4",
+   "name": "Eisen(II,III)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1118.4,
+     "dfG": -1015.4,
+     "S": 146.4
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "FeO",
+   "name": "Eisen(II)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -272.0,
+     "dfG": -251.4,
+     "S": 60.75
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "CuO",
+   "name": "Kupfer(II)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -157.3,
+     "dfG": -129.7,
+     "S": 42.63
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Cu2O",
+   "name": "Kupfer(I)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -168.6,
+     "dfG": -146.0,
+     "S": 93.14
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "ZnO",
+   "name": "Zinkoxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -348.28,
+     "dfG": -318.3,
+     "S": 43.64
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "PbO",
+   "name": "Blei(II)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -217.32,
+     "dfG": -187.89,
+     "S": 68.7
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "PbO2",
+   "name": "Blei(IV)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -277.4,
+     "dfG": -217.33,
+     "S": 68.6
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "SiO2",
+   "name": "Siliciumdioxid (Quarz)",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -910.94,
+     "dfG": -856.64,
+     "S": 41.84
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "TiO2",
+   "name": "Titandioxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -944.0,
+     "dfG": -888.8,
+     "S": 50.6
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Ag2O",
+   "name": "Silber(I)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -31.05,
+     "dfG": -11.2,
+     "S": 121.3
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "MnO2",
+   "name": "Mangan(IV)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -520.03,
+     "dfG": -465.14,
+     "S": 53.05
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "Cr2O3",
+   "name": "Chrom(III)-oxid",
+   "category": "oxide",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1139.7,
+     "dfG": -1058.1,
+     "S": 81.2
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "CH4",
+   "name": "Methan",
+   "category": "organic",
+   "aliases": [
+    "Methan",
+    "Erdgas"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -74.81,
+     "dfG": -50.72,
+     "S": 186.26
+    }
+   },
+   "phase": "g",
+   "density": {
+    "value": 0.717,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "C2H6",
+   "name": "Ethan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -84.68,
+     "dfG": -32.82,
+     "S": 229.6
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "C3H8",
+   "name": "Propan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -103.85,
+     "dfG": -23.49,
+     "S": 269.91
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "C4H10",
+   "name": "Butan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -126.15,
+     "dfG": -17.03,
+     "S": 310.23
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "C2H4",
+   "name": "Ethen",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 52.26,
+     "dfG": 68.15,
+     "S": 219.56
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "C2H2",
+   "name": "Ethin",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 226.73,
+     "dfG": 209.2,
+     "S": 200.94
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "C6H6",
+   "name": "Benzol",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": 49.0,
+     "dfG": 124.5,
+     "S": 173.4
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 0.877,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "CH3OH",
+   "name": "Methanol",
+   "category": "organic",
+   "aliases": [
+    "Methanol"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -238.66,
+     "dfG": -166.27,
+     "S": 126.8
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 0.791,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "C2H5OH",
+   "name": "Ethanol",
+   "category": "organic",
+   "aliases": [
+    "Alkohol",
+    "Ethanol"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -277.69,
+     "dfG": -174.78,
+     "S": 160.7
+    },
+    "g": {
+     "dfH": -235.1,
+     "dfG": -168.49,
+     "S": 282.7
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 0.789,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "CH3COOH",
+   "name": "Essigsäure",
+   "category": "acid",
+   "aliases": [
+    "Essigsäure",
+    "Ethansäure",
+    "HAc"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -484.5,
+     "dfG": -389.9,
+     "S": 159.8
+    }
+   },
+   "phase": "l",
+   "acidBase": {
+    "pKa": [
+     4.76
+    ]
+   },
+   "density": {
+    "value": 1.049,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "HCOOH",
+   "name": "Ameisensäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": -424.72,
+     "dfG": -361.35,
+     "S": 128.95
+    }
+   },
+   "phase": "l",
+   "acidBase": {
+    "pKa": [
+     3.75
+    ]
+   }
+  },
+  {
+   "formula": "C6H12O6",
+   "name": "Glucose",
+   "category": "organic",
+   "aliases": [
+    "Traubenzucker",
+    "Glucose"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -1273.3,
+     "dfG": -910.4,
+     "S": 212.1
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 1.54,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "C12H22O11",
+   "name": "Saccharose",
+   "category": "organic",
+   "aliases": [
+    "Zucker",
+    "Saccharose"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -2226.1,
+     "dfG": -1544.3,
+     "S": 360.2
+    }
+   },
+   "phase": "s",
+   "density": {
+    "value": 1.587,
+    "unit": "g/cm3",
+    "T": 293.15
+   },
+   "solubility": {
+    "value": 203.9,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "C8H18",
+   "name": "Octan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": -250.1,
+     "dfG": 6.4,
+     "S": 361.1
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "(CH3)2CO",
+   "name": "Aceton",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": -248.4,
+     "dfG": -155.4,
+     "S": 200.4
+    }
+   },
+   "phase": "l",
+   "density": {
+    "value": 0.784,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "CH3CHO",
+   "name": "Ethanal",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -166.19,
+     "dfG": -128.86,
+     "S": 250.3
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "CCl4",
+   "name": "Tetrachlormethan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": -135.44,
+     "dfG": -65.21,
+     "S": 216.4
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "CHCl3",
+   "name": "Trichlormethan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": -134.47,
+     "dfG": -73.66,
+     "S": 201.7
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "CH3Cl",
+   "name": "Chlormethan",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -80.83,
+     "dfG": -57.37,
+     "S": 234.58
+    }
+   },
+   "phase": "g"
+  },
+  {
+   "formula": "CS2",
+   "name": "Kohlenstoffdisulfid",
+   "category": "organic",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": 89.7,
+     "dfG": 65.27,
+     "S": 151.34
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "NH3",
+   "name": "Ammoniak",
+   "category": "base",
+   "aliases": [
+    "Ammoniak"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -46.11,
+     "dfG": -16.45,
+     "S": 192.45
+    },
+    "aq": {
+     "dfH": -80.29,
+     "dfG": -26.5,
+     "S": 111.3
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "pKb": 4.75
+   },
+   "density": {
+    "value": 0.771,
+    "unit": "g/L",
+    "T": 273.15
+   }
+  },
+  {
+   "formula": "N2H4",
+   "name": "Hydrazin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {
+    "l": {
+     "dfH": 50.63,
+     "dfG": 149.34,
+     "S": 121.21
+    }
+   },
+   "phase": "l"
+  },
+  {
+   "formula": "HCN",
+   "name": "Blausäure",
+   "category": "acid",
+   "aliases": [
+    "Blausäure"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": 135.1,
+     "dfG": 124.7,
+     "S": 201.78
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "pKa": [
+     9.21
+    ]
+   }
+  },
+  {
+   "formula": "HNO3",
+   "name": "Salpetersäure",
+   "category": "acid",
+   "aliases": [
+    "Salpetersäure"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -174.1,
+     "dfG": -80.71,
+     "S": 155.6
+    }
+   },
+   "phase": "l",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "H2SO4",
+   "name": "Schwefelsäure",
+   "category": "acid",
+   "aliases": [
+    "Schwefelsäure"
+   ],
+   "thermo": {
+    "l": {
+     "dfH": -813.99,
+     "dfG": -690.0,
+     "S": 156.9
+    }
+   },
+   "phase": "l",
+   "acidBase": {
+    "strong": true,
+    "pKa": [
+     null,
+     1.99
+    ]
+   },
+   "density": {
+    "value": 1.84,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "H2S",
+   "name": "Schwefelwasserstoff",
+   "category": "acid",
+   "aliases": [
+    "Schwefelwasserstoff"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -20.63,
+     "dfG": -33.56,
+     "S": 205.79
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "pKa": [
+     7.0,
+     12.9
+    ]
+   }
+  },
+  {
+   "formula": "HCl",
+   "name": "Chlorwasserstoff",
+   "category": "acid",
+   "aliases": [
+    "Salzsäure",
+    "Chlorwasserstoff"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -92.31,
+     "dfG": -95.3,
+     "S": 186.91
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "HF",
+   "name": "Fluorwasserstoff",
+   "category": "acid",
+   "aliases": [
+    "Flusssäure"
+   ],
+   "thermo": {
+    "g": {
+     "dfH": -273.3,
+     "dfG": -275.4,
+     "S": 173.78
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "pKa": [
+     3.17
+    ]
+   }
+  },
+  {
+   "formula": "HBr",
+   "name": "Bromwasserstoff",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": -36.4,
+     "dfG": -53.45,
+     "S": 198.7
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "HI",
+   "name": "Iodwasserstoff",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {
+    "g": {
+     "dfH": 26.48,
+     "dfG": 1.7,
+     "S": 206.59
+    }
+   },
+   "phase": "g",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "H3PO4",
+   "name": "Phosphorsäure",
+   "category": "acid",
+   "aliases": [
+    "Phosphorsäure"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -1279.0,
+     "dfG": -1119.1,
+     "S": 110.5
+    }
+   },
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     2.15,
+     7.2,
+     12.35
+    ]
+   }
+  },
+  {
+   "formula": "NaCl",
+   "name": "Natriumchlorid",
+   "category": "salt",
+   "aliases": [
+    "Kochsalz"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -411.15,
+     "dfG": -384.14,
+     "S": 72.13
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 1
+    }
+   ],
+   "density": {
+    "value": 2.165,
+    "unit": "g/cm3",
+    "T": 293.15
+   },
+   "solubility": {
+    "value": 35.9,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "NaOH",
+   "name": "Natriumhydroxid",
+   "category": "base",
+   "aliases": [
+    "Natronlauge",
+    "Natriumhydroxid"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -425.61,
+     "dfG": -379.49,
+     "S": 64.46
+    }
+   },
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 1
+   },
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 1
+    }
+   ],
+   "density": {
+    "value": 2.13,
+    "unit": "g/cm3",
+    "T": 293.15
+   },
+   "solubility": {
+    "value": 109,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Na2CO3",
+   "name": "Natriumcarbonat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1130.68,
+     "dfG": -1044.44,
+     "S": 134.98
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 2
+    },
+    {
+     "formula": "CO3^2-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 21.5,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "NaHCO3",
+   "name": "Natriumhydrogencarbonat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -950.81,
+     "dfG": -851.0,
+     "S": 101.7
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "HCO3-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 9.6,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "NaNO3",
+   "name": "Natriumnitrat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -467.85,
+     "dfG": -367.0,
+     "S": 116.52
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "NO3-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 87.6,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Na2SO4",
+   "name": "Natriumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1387.08,
+     "dfG": -1270.16,
+     "S": 149.58
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 2
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "KCl",
+   "name": "Kaliumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -436.75,
+     "dfG": -409.14,
+     "S": 82.59
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 34.2,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "KOH",
+   "name": "Kaliumhydroxid",
+   "category": "base",
+   "aliases": [
+    "Kalilauge"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -424.76,
+     "dfG": -379.08,
+     "S": 78.9
+    }
+   },
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 1
+   },
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "KNO3",
+   "name": "Kaliumnitrat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -494.63,
+     "dfG": -394.86,
+     "S": 133.05
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "NO3-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 31.6,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "KMnO4",
+   "name": "Kaliumpermanganat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -837.2,
+     "dfG": -737.6,
+     "S": 171.71
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "MnO4-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 6.4,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Ca(OH)2",
+   "name": "Calciumhydroxid",
+   "category": "base",
+   "aliases": [
+    "Kalkwasser",
+    "gelöschter Kalk"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -986.09,
+     "dfG": -898.49,
+     "S": 83.39
+    }
+   },
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 2
+   },
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 5.02e-06,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "CaCO3",
+   "name": "Calciumcarbonat",
+   "category": "salt",
+   "aliases": [
+    "Kalk",
+    "Kalkstein"
+   ],
+   "thermo": {
+    "s": {
+     "dfH": -1206.92,
+     "dfG": -1128.79,
+     "S": 92.9
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 1
+    },
+    {
+     "formula": "CO3^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 3.36e-09,
+    "T": 298.15
+   },
+   "density": {
+    "value": 2.71,
+    "unit": "g/cm3",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "CaSO4",
+   "name": "Calciumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1434.11,
+     "dfG": -1321.79,
+     "S": 106.7
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 4.93e-05,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "CaCl2",
+   "name": "Calciumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -795.8,
+     "dfG": -748.1,
+     "S": 104.6
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ],
+   "solubility": {
+    "value": 74.5,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "Mg(OH)2",
+   "name": "Magnesiumhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -924.54,
+     "dfG": -833.51,
+     "S": 63.18
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Mg2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 5.61e-12,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "MgCO3",
+   "name": "Magnesiumcarbonat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1095.8,
+     "dfG": -1012.1,
+     "S": 65.7
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Mg2+",
+     "n": 1
+    },
+    {
+     "formula": "CO3^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 6.82e-06,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "FeS2",
+   "name": "Eisendisulfid (Pyrit)",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -178.2,
+     "dfG": -166.9,
+     "S": 52.93
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "ZnS",
+   "name": "Zinksulfid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -205.98,
+     "dfG": -201.29,
+     "S": 57.7
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Zn2+",
+     "n": 1
+    },
+    {
+     "formula": "S^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 2e-25,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "AgCl",
+   "name": "Silberchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -127.07,
+     "dfG": -109.79,
+     "S": 96.2
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 1.77e-10,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "AgBr",
+   "name": "Silberbromid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -100.37,
+     "dfG": -96.9,
+     "S": 107.1
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 1
+    },
+    {
+     "formula": "Br-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 5.35e-13,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "AgI",
+   "name": "Silberiodid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -61.84,
+     "dfG": -66.19,
+     "S": 115.5
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 1
+    },
+    {
+     "formula": "I-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 8.52e-17,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "AgNO3",
+   "name": "Silbernitrat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -124.39,
+     "dfG": -33.41,
+     "S": 140.92
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 1
+    },
+    {
+     "formula": "NO3-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 216,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "NH4Cl",
+   "name": "Ammoniumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -314.43,
+     "dfG": -202.87,
+     "S": 94.6
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "NH4+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 37.2,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "NH4NO3",
+   "name": "Ammoniumnitrat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -365.56,
+     "dfG": -183.87,
+     "S": 151.08
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "NH4+",
+     "n": 1
+    },
+    {
+     "formula": "NO3-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "(NH4)2SO4",
+   "name": "Ammoniumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1180.85,
+     "dfG": -901.67,
+     "S": 220.1
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "NH4+",
+     "n": 2
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "BaSO4",
+   "name": "Bariumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -1473.2,
+     "dfG": -1362.3,
+     "S": 132.2
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ba2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 1.08e-10,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "BaCl2",
+   "name": "Bariumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -858.6,
+     "dfG": -810.4,
+     "S": 123.7
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ba2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "CuSO4",
+   "name": "Kupfer(II)-sulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -771.36,
+     "dfG": -661.8,
+     "S": 109.0
+    }
+   },
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Cu2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "CuSO4·5H2O",
+   "name": "Kupfer(II)-sulfat-Pentahydrat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -2279.7,
+     "dfG": -1879.7,
+     "S": 300.4
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "CaC2",
+   "name": "Calciumcarbid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {
+    "s": {
+     "dfH": -59.8,
+     "dfG": -64.9,
+     "S": 70.0
+    }
+   },
+   "phase": "s"
+  },
+  {
+   "formula": "H+",
+   "name": "Wasserstoff-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": 0,
+     "dfG": 0,
+     "S": 0
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "OH-",
+   "name": "Hydroxid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -229.99,
+     "dfG": -157.24,
+     "S": -10.75
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Na+",
+   "name": "Natrium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -240.12,
+     "dfG": -261.91,
+     "S": 59.0
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "K+",
+   "name": "Kalium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -252.38,
+     "dfG": -283.27,
+     "S": 102.5
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Li+",
+   "name": "Lithium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -278.49,
+     "dfG": -293.31,
+     "S": 13.4
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Ag+",
+   "name": "Silber-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": 105.58,
+     "dfG": 77.11,
+     "S": 72.68
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Ca2+",
+   "name": "Calcium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -542.83,
+     "dfG": -553.58,
+     "S": -53.1
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Mg2+",
+   "name": "Magnesium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -466.85,
+     "dfG": -454.8,
+     "S": -138.1
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Ba2+",
+   "name": "Barium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -537.64,
+     "dfG": -560.77,
+     "S": 9.6
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Zn2+",
+   "name": "Zink-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -153.89,
+     "dfG": -147.06,
+     "S": -112.1
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Cu2+",
+   "name": "Kupfer(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": 64.77,
+     "dfG": 65.49,
+     "S": -99.6
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Fe2+",
+   "name": "Eisen(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -89.1,
+     "dfG": -78.9,
+     "S": -137.7
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Fe3+",
+   "name": "Eisen(III)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -48.5,
+     "dfG": -4.7,
+     "S": -315.9
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Al3+",
+   "name": "Aluminium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -531.0,
+     "dfG": -485.0,
+     "S": -321.7
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Pb2+",
+   "name": "Blei(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -1.7,
+     "dfG": -24.43,
+     "S": 10.5
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Ni2+",
+   "name": "Nickel(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -54.0,
+     "dfG": -45.6,
+     "S": -128.9
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Mn2+",
+   "name": "Mangan(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -220.75,
+     "dfG": -228.1,
+     "S": -73.6
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Cl-",
+   "name": "Chlorid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -167.16,
+     "dfG": -131.23,
+     "S": 56.5
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "Br-",
+   "name": "Bromid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -121.55,
+     "dfG": -103.96,
+     "S": 82.4
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "I-",
+   "name": "Iodid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -55.19,
+     "dfG": -51.57,
+     "S": 111.3
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "F-",
+   "name": "Fluorid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -332.63,
+     "dfG": -278.79,
+     "S": -13.8
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "NO3-",
+   "name": "Nitrat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -207.36,
+     "dfG": -111.25,
+     "S": 146.4
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "SO4^2-",
+   "name": "Sulfat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -909.27,
+     "dfG": -744.53,
+     "S": 20.1
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "CO3^2-",
+   "name": "Carbonat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -677.14,
+     "dfG": -527.81,
+     "S": -56.9
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "HCO3-",
+   "name": "Hydrogencarbonat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -691.99,
+     "dfG": -586.77,
+     "S": 91.2
+    }
+   },
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     10.33
+    ]
+   }
+  },
+  {
+   "formula": "PO4^3-",
+   "name": "Phosphat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -1277.4,
+     "dfG": -1018.7,
+     "S": -220.5
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "NH4+",
+   "name": "Ammonium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -132.51,
+     "dfG": -79.31,
+     "S": 113.4
+    }
+   },
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     9.25
+    ]
+   }
+  },
+  {
+   "formula": "CH3COO-",
+   "name": "Acetat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -486.01,
+     "dfG": -369.31,
+     "S": 86.6
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "MnO4-",
+   "name": "Permanganat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -541.4,
+     "dfG": -447.2,
+     "S": 191.2
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "HSO4-",
+   "name": "Hydrogensulfat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -887.34,
+     "dfG": -755.91,
+     "S": 131.8
+    }
+   },
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     1.99
+    ]
+   }
+  },
+  {
+   "formula": "Cr2O7^2-",
+   "name": "Dichromat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {
+    "aq": {
+     "dfH": -1490.3,
+     "dfG": -1301.1,
+     "S": 261.9
+    }
+   },
+   "phase": "aq"
+  },
+  {
+   "formula": "H2CO3",
+   "name": "Kohlensäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     6.35,
+     10.33
+    ]
+   }
+  },
+  {
+   "formula": "H2SO3",
+   "name": "Schweflige Säure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     1.85,
+     7.2
+    ]
+   }
+  },
+  {
+   "formula": "HNO2",
+   "name": "Salpetrige Säure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     3.35
+    ]
+   }
+  },
+  {
+   "formula": "HClO",
+   "name": "Hypochlorige Säure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     7.54
+    ]
+   }
+  },
+  {
+   "formula": "HClO4",
+   "name": "Perchlorsäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "l",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "HClO3",
+   "name": "Chlorsäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "strong": true
+   }
+  },
+  {
+   "formula": "H3BO3",
+   "name": "Borsäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     9.24
+    ]
+   }
+  },
+  {
+   "formula": "(COOH)2",
+   "name": "Oxalsäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     1.25,
+     4.27
+    ]
+   }
+  },
+  {
+   "formula": "C6H8O7",
+   "name": "Citronensäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     3.13,
+     4.76,
+     6.4
+    ]
+   }
+  },
+  {
+   "formula": "C6H5COOH",
+   "name": "Benzoesäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     4.2
+    ]
+   }
+  },
+  {
+   "formula": "C3H6O3",
+   "name": "Milchsäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "l",
+   "acidBase": {
+    "pKa": [
+     3.86
+    ]
+   }
+  },
+  {
+   "formula": "C2H5COOH",
+   "name": "Propansäure",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "l",
+   "acidBase": {
+    "pKa": [
+     4.87
+    ]
+   }
+  },
+  {
+   "formula": "C6H5OH",
+   "name": "Phenol",
+   "category": "acid",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "pKa": [
+     9.99
+    ]
+   }
+  },
+  {
+   "formula": "CH3NH2",
+   "name": "Methylamin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "g",
+   "acidBase": {
+    "pKb": 3.36
+   }
+  },
+  {
+   "formula": "C2H5NH2",
+   "name": "Ethylamin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "g",
+   "acidBase": {
+    "pKb": 3.35
+   }
+  },
+  {
+   "formula": "(CH3)2NH",
+   "name": "Dimethylamin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "g",
+   "acidBase": {
+    "pKb": 3.27
+   }
+  },
+  {
+   "formula": "(CH3)3N",
+   "name": "Trimethylamin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "g",
+   "acidBase": {
+    "pKb": 4.19
+   }
+  },
+  {
+   "formula": "C5H5N",
+   "name": "Pyridin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "l",
+   "acidBase": {
+    "pKb": 8.77
+   }
+  },
+  {
+   "formula": "C6H5NH2",
+   "name": "Anilin",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "l",
+   "acidBase": {
+    "pKb": 9.37
+   }
+  },
+  {
+   "formula": "LiOH",
+   "name": "Lithiumhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 1
+   },
+   "ions": [
+    {
+     "formula": "Li+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "Ba(OH)2",
+   "name": "Bariumhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 2
+   },
+   "ions": [
+    {
+     "formula": "Ba2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "Sr(OH)2",
+   "name": "Strontiumhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "acidBase": {
+    "strongBase": 2
+   },
+   "ions": [
+    {
+     "formula": "Sr2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "CH3COONa",
+   "name": "Natriumacetat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "CH3COO-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "NaF",
+   "name": "Natriumfluorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "F-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "NaCN",
+   "name": "Natriumcyanid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "CN-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "Na3PO4",
+   "name": "Natriumphosphat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 3
+    },
+    {
+     "formula": "PO4^3-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "Na2S",
+   "name": "Natriumsulfid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 2
+    },
+    {
+     "formula": "S^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "NaHSO4",
+   "name": "Natriumhydrogensulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "HSO4-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "NaBr",
+   "name": "Natriumbromid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Na+",
+     "n": 1
+    },
+    {
+     "formula": "Br-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "KBr",
+   "name": "Kaliumbromid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "Br-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "KI",
+   "name": "Kaliumiodid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 1
+    },
+    {
+     "formula": "I-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "MgSO4",
+   "name": "Magnesiumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Mg2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "solubility": {
+    "value": 35.1,
+    "unit": "g/100 g H2O",
+    "T": 293.15
+   }
+  },
+  {
+   "formula": "MgCl2",
+   "name": "Magnesiumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Mg2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "ZnSO4",
+   "name": "Zinksulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Zn2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "FeCl3",
+   "name": "Eisen(III)-chlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Fe3+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 3
+    }
+   ]
+  },
+  {
+   "formula": "FeCl2",
+   "name": "Eisen(II)-chlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Fe2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "AlCl3",
+   "name": "Aluminiumchlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Al3+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 3
+    }
+   ]
+  },
+  {
+   "formula": "K2Cr2O7",
+   "name": "Kaliumdichromat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 2
+    },
+    {
+     "formula": "Cr2O7^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "K2SO4",
+   "name": "Kaliumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "K+",
+     "n": 2
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "formula": "CuCl2",
+   "name": "Kupfer(II)-chlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Cu2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ]
+  },
+  {
+   "formula": "Al2(SO4)3",
+   "name": "Aluminiumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Al3+",
+     "n": 2
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 3
+    }
+   ]
+  },
+  {
+   "formula": "Ag2CrO4",
+   "name": "Silberchromat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 2
+    },
+    {
+     "formula": "CrO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 1.12e-12,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "PbCl2",
+   "name": "Blei(II)-chlorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Pb2+",
+     "n": 1
+    },
+    {
+     "formula": "Cl-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 1.7e-05,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "PbI2",
+   "name": "Blei(II)-iodid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Pb2+",
+     "n": 1
+    },
+    {
+     "formula": "I-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 9.8e-09,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "PbSO4",
+   "name": "Blei(II)-sulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Pb2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 2.53e-08,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Fe(OH)3",
+   "name": "Eisen(III)-hydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Fe3+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 3
+    }
+   ],
+   "ksp": {
+    "value": 2.79e-39,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Fe(OH)2",
+   "name": "Eisen(II)-hydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Fe2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 4.87e-17,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Al(OH)3",
+   "name": "Aluminiumhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Al3+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 3
+    }
+   ],
+   "ksp": {
+    "value": 3e-34,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Cu(OH)2",
+   "name": "Kupfer(II)-hydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Cu2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 2.2e-20,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Zn(OH)2",
+   "name": "Zinkhydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Zn2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 3e-17,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "CaF2",
+   "name": "Calciumfluorid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 1
+    },
+    {
+     "formula": "F-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 3.45e-11,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Ag2S",
+   "name": "Silbersulfid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 2
+    },
+    {
+     "formula": "S^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 6.3e-50,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "CuS",
+   "name": "Kupfer(II)-sulfid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Cu2+",
+     "n": 1
+    },
+    {
+     "formula": "S^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 6.3e-36,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "PbS",
+   "name": "Blei(II)-sulfid",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Pb2+",
+     "n": 1
+    },
+    {
+     "formula": "S^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 8e-28,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Ag2CO3",
+   "name": "Silbercarbonat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 2
+    },
+    {
+     "formula": "CO3^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 8.46e-12,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Ag2SO4",
+   "name": "Silbersulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ag+",
+     "n": 2
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 1.2e-05,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "BaCO3",
+   "name": "Bariumcarbonat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ba2+",
+     "n": 1
+    },
+    {
+     "formula": "CO3^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 2.58e-09,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "SrSO4",
+   "name": "Strontiumsulfat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Sr2+",
+     "n": 1
+    },
+    {
+     "formula": "SO4^2-",
+     "n": 1
+    }
+   ],
+   "ksp": {
+    "value": 3.44e-07,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Ni(OH)2",
+   "name": "Nickel(II)-hydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ni2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 5.48e-16,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Mn(OH)2",
+   "name": "Mangan(II)-hydroxid",
+   "category": "base",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Mn2+",
+     "n": 1
+    },
+    {
+     "formula": "OH-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 1.9e-13,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "Ca3(PO4)2",
+   "name": "Calciumphosphat",
+   "category": "salt",
+   "aliases": [],
+   "thermo": {},
+   "phase": "s",
+   "ions": [
+    {
+     "formula": "Ca2+",
+     "n": 3
+    },
+    {
+     "formula": "PO4^3-",
+     "n": 2
+    }
+   ],
+   "ksp": {
+    "value": 2.07e-33,
+    "T": 298.15
+   }
+  },
+  {
+   "formula": "HPO4^2-",
+   "name": "Hydrogenphosphat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     12.35
+    ]
+   }
+  },
+  {
+   "formula": "H2PO4-",
+   "name": "Dihydrogenphosphat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     7.2
+    ]
+   }
+  },
+  {
+   "formula": "HS-",
+   "name": "Hydrogensulfid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     12.9
+    ]
+   }
+  },
+  {
+   "formula": "S^2-",
+   "name": "Sulfid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "CN-",
+   "name": "Cyanid-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "NO2-",
+   "name": "Nitrit-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "ClO-",
+   "name": "Hypochlorit-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "H3O+",
+   "name": "Oxonium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "CrO4^2-",
+   "name": "Chromat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "C2O4^2-",
+   "name": "Oxalat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "SO3^2-",
+   "name": "Sulfit-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "HSO3-",
+   "name": "Hydrogensulfit-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     7.2
+    ]
+   }
+  },
+  {
+   "formula": "ClO4-",
+   "name": "Perchlorat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "ClO3-",
+   "name": "Chlorat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "BrO3-",
+   "name": "Bromat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "IO3-",
+   "name": "Iodat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Cu+",
+   "name": "Kupfer(I)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Sn2+",
+   "name": "Zinn(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Sn4+",
+   "name": "Zinn(IV)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Cr3+",
+   "name": "Chrom(III)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Co2+",
+   "name": "Cobalt(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Cd2+",
+   "name": "Cadmium(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Hg2+",
+   "name": "Quecksilber(II)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Au3+",
+   "name": "Gold(III)-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Sr2+",
+   "name": "Strontium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "S2O3^2-",
+   "name": "Thiosulfat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Cs+",
+   "name": "Caesium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "Rb+",
+   "name": "Rubidium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "SCN-",
+   "name": "Thiocyanat-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq"
+  },
+  {
+   "formula": "CH3NH3+",
+   "name": "Methylammonium-Ion",
+   "category": "ion",
+   "aliases": [],
+   "thermo": {},
+   "phase": "aq",
+   "acidBase": {
+    "pKa": [
+     10.64
+    ]
+   }
+  }
+ ]
+}

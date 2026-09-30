@@ -2,6 +2,8 @@
 // example, and how it becomes Giac. The command search, the autocompletion and the help all read this list, and a
 // test runs every example through Giac.
 
+import { CHEM_CATALOG } from './chem/commands.js';
+
 const list = (args) => args.join(',');
 
 /**
@@ -339,6 +341,9 @@ export const COMMANDS = [
   { name: 'divergenz', aliases: ['divergence'], cat: 'Vektoranalysis', syntax: 'divergenz([F1, F2, F3], [x, y, z])', text: 'Divergenz eines Vektorfelds.', example: 'divergenz([x^2, y^2, z^2], [x, y, z])', giac: (a) => `divergence(${list(a)})` },
   { name: 'rotation', aliases: ['rot', 'curl'], cat: 'Vektoranalysis', syntax: 'rotation([F1, F2, F3], [x, y, z])', text: 'Rotation eines Vektorfelds.', example: 'rotation([y, -x, 0], [x, y, z])', giac: (a) => `curl(${list(a)})` },
 ];
+
+// Chemie: run by the chemistry engine (chem/commands.js) before the mathematics sees the input
+COMMANDS.push(...CHEM_CATALOG);
 
 const byName = new Map();
 for (const command of COMMANDS) {
