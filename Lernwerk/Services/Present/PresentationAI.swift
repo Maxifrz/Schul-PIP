@@ -617,6 +617,12 @@ struct PresentationAssistant {
         }
     }
 
+    /// What can be shown while a deck is being built: the plan as soon as it exists, then the written slides.
+    enum Progress {
+        case outline(PresentationPrompt.Outline)
+        case draft(Presentation)
+    }
+
     /// Builds a whole presentation in three steps: an outline with one message per slide, then the slides for that
     /// outline in the same conversation, then (with `review`) the critic's important findings applied automatically.
     /// `content` is the material as the plan generator prepares it for this provider, ending with the planning
@@ -635,6 +641,7 @@ struct PresentationAssistant {
         wikipedia: WikipediaClient? = nil,
         today: Date = Date(),
         onStage: (Stage) -> Void = { _ in },
+        onProgress: (Progress) -> Void = { _ in },
         pageImage: (_ materialIndex: Int, _ page: Int) async -> PlacedImage?
     ) async throws -> Presentation {
         let research = wikipedia != nil
@@ -661,6 +668,7 @@ struct PresentationAssistant {
             jsonSchema: PresentationPrompt.outlineSchema
         )
         let outline = try await StructuredOutput.complete(request: outlineRequest, client: client, parse: PresentationPrompt.parseOutline) { !$0.slides.isEmpty }
+        onProgress(.outline(outline))
 
         let known = sources.count
         if let wikipedia, !outline.research.isEmpty {
@@ -727,6 +735,7 @@ struct PresentationAssistant {
         }
         var presentation = Presentation(title: title, themeId: theme, slides: slides, materialIds: materialIDs, minutes: minutes)
         presentation = SlideAutoFit.fit(presentation)
+        onProgress(.draft(presentation))
         if review {
             onStage(.review)
             // The critic improves the draft before the student sees it; a failed review keeps the draft.

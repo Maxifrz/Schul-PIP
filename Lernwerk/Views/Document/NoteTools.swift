@@ -72,6 +72,8 @@ struct InkSettings: Equatable {
     var textStyle: NoteTextStyle = .body
     var textColor: UInt32 = 0x16150F
     var textAlign: NoteTextAlign = .left
+    /// The lasso of PencilKit, for ink only (it turns and scales), instead of the one that also takes texts and pictures.
+    var nativeLasso = false
 
     func pkTool(for tool: NoteTool) -> (any PKTool)? {
         switch tool {

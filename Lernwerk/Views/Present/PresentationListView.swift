@@ -214,6 +214,12 @@ struct PresentationCreateView: View {
     @State private var research = true
     @State private var step = 0
     @State private var errorMessage: String?
+    /// The live view: the plan, then the written slides, revealed one by one.
+    @State private var buildOutline: PresentationPrompt.Outline?
+    @State private var buildDraft: Presentation?
+    @State private var buildImages: [String: UIImage] = [:]
+    @State private var revealed = 0
+    @State private var revealTask: Task<Void, Never>?
 
     private var canGenerate: Bool { !selection.isEmpty || research && !topic.isBlank }
 
@@ -343,21 +349,15 @@ struct PresentationCreateView: View {
         .background(Quill.bg.ignoresSafeArea())
         .overlay {
             if isGenerating {
-                ZStack {
-                    Quill.scrim.ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        PulsingDots(size: 6)
-                        Text(stage.label)
-                            .font(.work(16, .medium))
-                            .foregroundStyle(Quill.ink)
-                        Text("Schritt \(max(step, 1)) von \(max(stepCount, step)) · je nach Umfang einige Minuten")
-                            .font(.work(12.5))
-                            .foregroundStyle(Quill.faint)
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 28)
-                    .background(Quill.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                }
+                PresentationBuildView(
+                    stage: stage,
+                    step: step,
+                    stepCount: stepCount,
+                    outline: buildOutline,
+                    draft: buildDraft,
+                    revealed: revealed,
+                    images: buildImages
+                )
                 .transition(.opacity)
             }
         }
@@ -379,6 +379,11 @@ struct PresentationCreateView: View {
         isGenerating = true
         errorMessage = nil
         step = 0
+        buildOutline = nil
+        buildDraft = nil
+        buildImages = [:]
+        revealed = 0
+        revealTask?.cancel()
 
         Task { @MainActor in
             defer { isGenerating = false }
@@ -412,6 +417,18 @@ struct PresentationCreateView: View {
                             step += 1
                         }
                     },
+                    onProgress: { progress in
+                        Task { @MainActor in
+                            switch progress {
+                            case let .outline(outline):
+                                withAnimation { buildOutline = outline }
+                            case let .draft(draft):
+                                buildImages = store.images(for: draft.slides)
+                                buildDraft = draft
+                                reveal(draft.slides.count)
+                            }
+                        }
+                    },
                     pageImage: { index, page in
                         await MainActor.run {
                             guard let pdfPage = PDFDocument(url: urls[index])?.page(at: page - 1) else { return nil }
@@ -423,9 +440,28 @@ struct PresentationCreateView: View {
                         }
                     }
                 )
+                // Let the last slides turn up before the editor opens.
+                await revealTask?.value
+                buildImages = store.images(for: presentation.slides)
+                buildDraft = presentation
+                withAnimation { revealed = presentation.slides.count }
+                try? await Task.sleep(nanoseconds: 600_000_000)
                 onCreated(presentation)
             } catch {
+                revealTask?.cancel()
                 errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    /// The written slides turn up one after another in the places the plan reserved for them.
+    private func reveal(_ total: Int) {
+        revealTask?.cancel()
+        revealTask = Task { @MainActor in
+            while revealed < total, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                if Task.isCancelled { return }
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { revealed += 1 }
             }
         }
     }

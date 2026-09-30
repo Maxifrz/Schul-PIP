@@ -40,6 +40,12 @@ enum SlideDrawing {
             case .shape: drawShape(element, theme: theme, in: context)
             case .image: drawImage(element, theme: theme, in: context, images: images)
             case .text: drawText(element, theme: theme)
+            case .chart:
+                if let spec = element.chart {
+                    let frame = CGRect(x: element.x, y: element.y, width: element.width, height: element.height)
+                    context.clip(to: frame.insetBy(dx: -6, dy: -6))
+                    ChartDrawing.draw(spec, in: frame, theme: theme)
+                }
             }
             context.restoreGState()
         }

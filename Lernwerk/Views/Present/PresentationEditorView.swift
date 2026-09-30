@@ -30,6 +30,8 @@ struct PresentationEditorView: View {
     @State private var isPickingPage = false
     @State private var choosingDesign = false
     @State private var choosingVariant = false
+    @State private var isModulesOpen = false
+    @State private var chartEdit: ChartEditRequest?
 
     init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
@@ -109,12 +111,18 @@ struct PresentationEditorView: View {
                 Rectangle().fill(Quill.line).frame(width: 1)
                 VStack(spacing: 0) {
                     insertBar
-                    EditorCanvasView(model: model, images: images)
+                    EditorCanvasView(model: model, images: images, onEditChart: { chartEdit = ChartEditRequest(id: $0) })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     inspector
                     notesBar
                 }
                 .background(Quill.canvas)
+                if isModulesOpen {
+                    Rectangle().fill(Quill.line).frame(width: 1)
+                    ModulePanel(model: model) { isModulesOpen = false }
+                        .frame(width: 300)
+                        .transition(.move(edge: .trailing))
+                }
                 if isAssistantOpen {
                     Rectangle().fill(Quill.line).frame(width: 1)
                     AssistantPanel(model: model, state: assistant, tab: $assistantTab) { isAssistantOpen = false }
@@ -140,6 +148,11 @@ struct PresentationEditorView: View {
                 model.replaceSlide(SlideVariants.applying(variant, to: model.slide))
             }
         }
+        .sheet(item: $chartEdit) { request in
+            if let element = model.slide.elements.first(where: { $0.id == request.id }) {
+                ChartEditorSheet(model: model, element: element)
+            }
+        }
         .sheet(isPresented: $isPickingPage) {
             MaterialPagePicker { image in
                 isPickingPage = false
@@ -163,6 +176,7 @@ struct PresentationEditorView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: isAssistantOpen)
+        .animation(.easeInOut(duration: 0.25), value: isModulesOpen)
     }
 
     private func menuLabel(_ title: String) -> some View {
@@ -207,7 +221,9 @@ struct PresentationEditorView: View {
         let data: Data
         switch format {
         case .pptx:
-            data = PptxWriter.write(presentation) { store.mediaData($0) }
+            // PowerPoint gets each diagram as a picture of it.
+            let flat = ChartExport.flattened(presentation)
+            data = PptxWriter.write(flat.presentation) { flat.media[$0] ?? store.mediaData($0) }
         case .pdf:
             data = SlideDrawing.pdf(presentation, images: images)
         case .pdfNotes:
@@ -311,6 +327,11 @@ struct PresentationEditorView: View {
                 }
                 Button("Seite aus Material") { isPickingPage = true }
                     .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
+                Button(isModulesOpen ? "Module ✓" : "Module") {
+                    model.finishEditing()
+                    isModulesOpen.toggle()
+                }
+                .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
                 Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                 Button("Design") { choosingDesign = true }
                     .buttonStyle(QuillOutlineButtonStyle(weight: .medium))
@@ -392,12 +413,20 @@ struct PresentationEditorView: View {
                         }
                     case .image:
                         Text("Bild").font(.work(13)).foregroundStyle(Quill.muted)
+                    case .chart:
+                        chip("Daten und Typ …") { chartEdit = ChartEditRequest(id: element.id) }
+                        Text(element.chart?.type.label ?? "Diagramm").font(.work(13)).foregroundStyle(Quill.muted)
                     }
                     Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                     chip("Nach vorn") { model.reorderSelected(forward: true) }
                     chip("Nach hinten") { model.reorderSelected(forward: false) }
                     chip("Drehung 0°") { model.updateElement(element.id) { var e = $0; e.rotation = 0; return e } }
                     chip("Duplizieren") { model.duplicateSelected() }
+                    if element.group != nil {
+                        chip("Modul größer") { model.scaleSelectedGroup(by: 1.15) }
+                        chip("Modul kleiner") { model.scaleSelectedGroup(by: 1 / 1.15) }
+                        chip("Gruppe lösen") { model.ungroupSelected() }
+                    }
                     animationMenu(element)
                     chip("Löschen", color: Quill.warn) { model.deleteSelected() }
                 }
@@ -578,8 +607,10 @@ private struct ColorChip: View {
 private struct EditorCanvasView: View {
     @ObservedObject var model: PresentationEditorModel
     let images: [String: UIImage]
+    var onEditChart: (String) -> Void = { _ in }
     @State private var drag: EditorDrag?
     @State private var moved = false
+    @State private var isDropTargeted = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -604,6 +635,16 @@ private struct EditorCanvasView: View {
                     .onChanged { value in changed(value, scale: scale) }
                     .onEnded { _ in ended() }
             )
+            .overlay(Rectangle().stroke(Quill.accent, lineWidth: 3).opacity(isDropTargeted ? 1 : 0).allowsHitTesting(false))
+            .dropDestination(for: String.self) { items, location in
+                guard let payload = items.first(where: { $0.hasPrefix("module:") }),
+                      let module = SlideModules.module(id: String(payload.dropFirst(7)))
+                else { return false }
+                model.addModule(module, center: (x: Double(location.x) / scale, y: Double(location.y) / scale))
+                return true
+            } isTargeted: { targeted in
+                isDropTargeted = targeted
+            }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
@@ -633,13 +674,14 @@ private struct EditorCanvasView: View {
             var candidate = base
             candidate.x = base.x + x - px
             candidate.y = base.y + y - py
-            let others = model.slide.elements.filter { $0.id != base.id && $0.rotation == 0 }
+            // A module's other parts move with it, so they are no snapping targets.
+            let others = model.slide.elements.filter { $0.id != base.id && $0.rotation == 0 && (base.group == nil || $0.group != base.group) }
             let snap = SlideGeometry.snap(candidate, others: others, threshold: 7 / scale)
             model.verticalGuides = snap.verticalGuides
             model.horizontalGuides = snap.horizontalGuides
             candidate.x += snap.dx
             candidate.y += snap.dy
-            model.updateElement(base.id, record: false) { _ in candidate }
+            model.move(base, to: candidate)
         case let .resize(base, corner):
             model.updateElement(base.id, record: false) { _ in
                 SlideGeometry.resize(base, corner: corner, to: x, y, keepAspect: base.kind == .image)
@@ -692,8 +734,12 @@ private struct EditorCanvasView: View {
         model.verticalGuides = []
         model.horizontalGuides = []
         model.endGesture()
-        if !moved, case let .move(base, tappedSelected) = current, tappedSelected, base.kind == .text {
-            model.startEditing(base.id)
+        if !moved, case let .move(base, tappedSelected) = current, tappedSelected {
+            if base.kind == .text {
+                model.startEditing(base.id)
+            } else if base.kind == .chart {
+                onEditChart(base.id)
+            }
         }
     }
 
@@ -712,6 +758,13 @@ private struct EditorCanvasView: View {
             context.stroke(path, with: .color(accent), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
         }
         guard let element = model.selected, model.editingID == nil else { return }
+        // The other parts of a module: a dashed frame each.
+        if let group = element.group {
+            for other in model.slide.elements where other.group == group && other.id != element.id {
+                let rect = CGRect(x: other.x * scale, y: other.y * scale, width: other.width * scale, height: other.height * scale)
+                context.stroke(Path(roundedRect: rect, cornerRadius: 2), with: .color(accent.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            }
+        }
         func point(_ lx: Double, _ ly: Double) -> CGPoint {
             let slide = element.toSlide(lx, ly)
             return CGPoint(x: slide.0 * scale, y: slide.1 * scale)

@@ -7,7 +7,7 @@ export function commandPanel({ onInsert, onTry, onClose, hidden = new Set(), fav
   let query = '';
   // Favourites first when there are some, else everything
   let category = favorites.size ? '★' : null;
-  const search = h('input.search', { type: 'search', placeholder: 'Befehl suchen, z. B. Nullstellen, Normalverteilung …', autocomplete: 'off' });
+  const search = h('input.search', { type: 'search', placeholder: 'Befehl suchen …', autocomplete: 'off' });
   const chips = h('div.chips');
   const results = h('div.commands');
 

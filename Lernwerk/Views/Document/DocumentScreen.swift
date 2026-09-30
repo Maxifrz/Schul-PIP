@@ -48,6 +48,8 @@ struct DocumentScreen: View {
             toolBar
             HStack(spacing: 0) {
                 content
+                    // The keyboard covers the page instead of shrinking it; the text being typed scrolls above it.
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Quill.canvas)
                 if isRegular, let tutor {
@@ -690,11 +692,20 @@ private struct ToolOptions: View {
                 textStyleMenu
                 alignment
                 colors(InkSettings.penColors, selected: editor.settings.textColor) { editor.settings.textColor = $0 }
+                blockButtons
                 if !editor.isEditingText {
-                    hint(editor.tool == .typing ? "Tippe auf die Seite, um zu schreiben." : "Tippe auf die Seite für ein Textfeld.")
+                    hint(editor.tool == .typing ? "Tippe auf die Seite oder auf +, um zu schreiben." : "Tippe auf die Seite oder auf + für ein Textfeld.")
                 }
             case .lasso:
-                hint("Striche einkreisen zum Verschieben. Texte, Bilder und Sticker antippen und ziehen, gedrückt halten für mehr.")
+                Picker("Lasso", selection: $editor.settings.nativeLasso) {
+                    Text("Alles auswählen").tag(false)
+                    Text("Nur Tinte (drehen, skalieren)").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 340)
+                hint(editor.settings.nativeLasso
+                    ? "Striche einkreisen zum Verschieben, Drehen und Skalieren."
+                    : "Einkreisen: Tinte, Bilder, Texte, Sticker. Rahmen ziehen zum Verschieben; im Menü: Screenshot, Duplizieren, Löschen.")
             case .laser:
                 hint("Zum Zeigen: Die Spur verblasst nach dem Loslassen.")
             case .math:
@@ -749,6 +760,31 @@ private struct ToolOptions: View {
             .frame(height: 30)
             .background(Capsule().fill(Quill.hover))
         }
+    }
+
+    /// New text, headings, lists, checklist and table: they work on the lines being typed, and the table also on its own.
+    private var blockButtons: some View {
+        HStack(spacing: 0) {
+            blockButton("plus.square", "Neuer Text") { editor.newText() }
+            blockButton("textformat.size.larger", "Überschrift 1") { editor.format(.heading1) }
+            blockButton("textformat.size", "Überschrift 2") { editor.format(.heading2) }
+            blockButton("list.bullet", "Aufzählung") { editor.format(.bullet) }
+            blockButton("list.number", "Nummerierte Liste") { editor.format(.numbered) }
+            blockButton("checklist", "Checkliste") { editor.format(.check(done: false)) }
+            blockButton("tablecells", "Tabelle einfügen") { editor.insertTable() }
+        }
+    }
+
+    private func blockButton(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Quill.ink)
+                .frame(width: 34, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     private var alignment: some View {

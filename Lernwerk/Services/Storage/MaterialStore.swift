@@ -298,6 +298,46 @@ enum MaterialStore {
         return insertPages(document, in: material, after: index)
     }
 
+    /// Puts every page of `source` into `target`, after page `index` or at the end. The source's ink, texts,
+    /// pictures and bookmarks come along and stay editable; the target's own later pages move back.
+    static func merge(_ source: StudyMaterial, into target: StudyMaterial, after index: Int? = nil) -> Bool {
+        guard source.fileName != target.fileName,
+              let incoming = PDFDocument(url: source.fileURL), incoming.pageCount > 0,
+              let combined = PDFDocument(url: target.fileURL)
+        else { return false }
+        let position = index.map { min(max($0, -1) + 1, combined.pageCount) } ?? combined.pageCount
+        let count = incoming.pageCount
+        for offset in 0..<count {
+            guard let page = incoming.page(at: offset)?.copy() as? PDFPage else { return false }
+            combined.insert(page, at: position + offset)
+        }
+        guard combined.write(to: target.fileURL) else { return false }
+
+        var drawings = PageShift.inserting(loadDrawings(for: target.fileName), at: position, count: count)
+        for (page, drawing) in loadDrawings(for: source.fileName) where page < count {
+            drawings[position + page] = drawing
+        }
+        saveDrawings(drawings, for: target.fileName)
+
+        var notes = loadNotes(for: target.fileName)
+        notes.insertPage(at: position, count: count)
+        let carried = loadNotes(for: source.fileName)
+        for var annotation in carried.annotations where annotation.page < count {
+            annotation.id = UUID().uuidString
+            annotation.page += position
+            notes.annotations.append(annotation)
+        }
+        for (page, size) in carried.canvasSizes where page < count {
+            notes.canvasSizes[position + page] = size
+        }
+        for bookmark in carried.bookmarks where bookmark < count {
+            notes.bookmarks.insert(position + bookmark)
+        }
+        saveNotes(notes, for: target.fileName)
+        MaterialTextIndex.remove(fileName: target.fileName)
+        return true
+    }
+
     /// Removes a page with its ink and notes; the last page of a document stays.
     static func deletePage(in material: StudyMaterial, at index: Int) -> Bool {
         guard let document = PDFDocument(url: material.fileURL), document.pageCount > 1, index < document.pageCount else { return false }

@@ -5,7 +5,7 @@ import { isProgram, openBlocks, KEYWORDS } from './program.js';
 import { COMMAND_NAMES } from './commands.js';
 import { convertLatexToMarkup } from 'mathlive';
 import { h, toast } from './ui.js';
-import { commandTemplate } from './keyboard.js';
+import { commandTemplate, showKeyboard } from './keyboard.js';
 import { COMMANDS, searchCommands } from './commands.js';
 import { toText } from './chem/result.js';
 import { isReaction } from './chem/reaction.js';
@@ -206,7 +206,7 @@ export class CasView {
     field.value = row.latex;
     field.addEventListener('focusin', () => {
       this.activate(row);
-      window.mathVirtualKeyboard.show();
+      showKeyboard();
     });
     field.addEventListener('input', () => {
       row.latex = field.value;

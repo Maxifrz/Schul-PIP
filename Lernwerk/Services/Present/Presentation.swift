@@ -10,6 +10,8 @@ enum ElementKind: String, Codable {
     case text = "TEXT"
     case shape = "SHAPE"
     case image = "IMAGE"
+    /// A diagram drawn from data text (`ChartSpec`).
+    case chart = "CHART"
 }
 
 enum ShapeType: String, Codable, CaseIterable {
@@ -60,13 +62,17 @@ struct SlideElement: Codable, Equatable, Identifiable {
     var font = ""
     /// How the element comes in while presenting; nil for none. Previews, thumbnails and exports show it in place.
     var animation: ElementAnimation?
+    /// Elements with the same group id, like the parts of a module dropped from the library, move together.
+    var group: String?
+    /// The diagram of a `.chart` element: its type, data and options.
+    var chart: ChartSpec?
 
     init(
         id: String = UUID().uuidString, kind: ElementKind, x: Double, y: Double, width: Double, height: Double,
         rotation: Double = 0, text: String = "", fontSize: Double = 24, bold: Bool = false, italic: Bool = false,
         align: SlideTextAlign = .left, anchor: TextAnchor = .top, bullets: Bool = false, textColor: String = "text",
         shape: ShapeType = .rect, fill: String = "accent", stroke: String = "none", strokeWidth: Double = 0, image: String? = nil,
-        font: String = "", animation: ElementAnimation? = nil
+        font: String = "", animation: ElementAnimation? = nil, group: String? = nil, chart: ChartSpec? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -90,11 +96,13 @@ struct SlideElement: Codable, Equatable, Identifiable {
         self.image = image
         self.font = font
         self.animation = animation
+        self.group = group
+        self.chart = chart
     }
 
     enum CodingKeys: String, CodingKey {
         case id, kind, x, y, width, height, rotation, text, fontSize, bold, italic, align, anchor, bullets, textColor
-        case shape, fill, stroke, strokeWidth, image, font, animation
+        case shape, fill, stroke, strokeWidth, image, font, animation, group, chart
     }
 
     init(from decoder: Decoder) throws {
@@ -122,6 +130,8 @@ struct SlideElement: Codable, Equatable, Identifiable {
         font = try c.decodeIfPresent(String.self, forKey: .font) ?? ""
         // Newer than the first decks: a value this version cannot read is dropped, not a reason to lose the deck.
         animation = (try? c.decodeIfPresent(ElementAnimation.self, forKey: .animation)) ?? nil
+        group = try c.decodeIfPresent(String.self, forKey: .group)
+        chart = (try? c.decodeIfPresent(ChartSpec.self, forKey: .chart)) ?? nil
     }
 
     var centerX: Double { x + width / 2 }
