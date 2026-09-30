@@ -18,7 +18,7 @@ Alpes), licensed under the GNU GPL version 3 or later. That is why Schul-PIP as 
   `src/table-view.js`: the spreadsheet, whose cells are Giac variables; `src/chem/`: the chemical CAS, see `docs/chemistry-cas.md`), plain ES modules bundled with esbuild into `web/mathe.js` and `web/mathe.css`
   (`cd cas/app && npm ci && npm run build`). Its tests: `npm test` (expressions, plotting maths, engine against the real Giac, statistics against table values, the spreadsheet) and
   `test/chem/*.test.mjs` (the chemistry engine, no Giac needed) and
-  `test/ui/smoke.mjs`, `test/ui/chemistry.mjs`, `test/ui/graph.mjs`, `test/ui/geometry.mjs`, `test/ui/space.mjs`, `test/ui/stats.mjs`, `test/ui/program.mjs`, `test/ui/exam.mjs`, `test/ui/numerics.mjs`, `test/ui/comfort.mjs`, `test/ui/extras.mjs` (the page in Chromium through Playwright). The bundle is committed, so the app builds need no Node.
+  `test/ui/smoke.mjs`, `test/ui/chemistry.mjs`, `test/ui/graph.mjs`, `test/ui/geometry.mjs`, `test/ui/space.mjs`, `test/ui/stats.mjs`, `test/ui/program.mjs`, `test/ui/exam.mjs`, `test/ui/numerics.mjs`, `test/ui/comfort.mjs`, `test/ui/extras.mjs`, `test/ui/layout.mjs` (the page in Chromium through Playwright). The bundle is committed, so the app builds need no Node.
 - `web/mathe.html`: the calculator page both apps show in the Rechner tab; it talks to the app through a small bridge
   (`webkit.messageHandlers.mathe` on iOS, `MatheBridge` on Android) for storing projects and sharing.
 - Third-party code in the bundle: [MathLive](https://github.com/arnog/mathlive) 0.110 (MIT, formula editor and
