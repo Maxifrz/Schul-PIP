@@ -87,7 +87,7 @@ export const qLatex = (value, unit, options) => formatQuantity(value, unit, { ..
 export const qText = (value, unit, options) => formatQuantity(value, unit, { ...options, style: 'text' });
 
 /** Rows for the CAS view: [{ label, latex }] built from the result */
-export function toRows(result) {
+export function toRows(result, { steps = true } = {}) {
   const rows = [];
   const main = result.result;
   if (main) {
@@ -102,7 +102,7 @@ export function toRows(result) {
     if (v && v.value !== undefined) rows.push({ label: name, latex: qLatex(v.value, v.unit, { ...result.display, ...(v.display || {}) }) });
     else if (v && v.latex) rows.push({ label: name, latex: v.latex });
   }
-  for (const step of result.steps) {
+  if (steps) for (const step of result.steps) {
     step.lines.forEach((line, i) => rows.push({ label: i === 0 ? step.label : '', latex: line.latex, step: true }));
   }
   for (const w of result.warnings) rows.push({ label: 'Achtung', latex: `\\text{${escapeText(w.message)}}`, warning: true });

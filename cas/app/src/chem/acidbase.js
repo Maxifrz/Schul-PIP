@@ -40,13 +40,23 @@ export function kwAt(T = DEFAULT_TEMPERATURE) {
 const fmt = (v, sig = 4) => formatNumber(v, { sig });
 const fmtL = (v, sig = 4) => formatNumber(v, { sig, style: 'latex' });
 
-/** The formula with k protons removed (charge k lower) */
+/** The formula with k protons removed (charge k lower): the database's own writing (CH₃COO⁻) when it has one */
 export function deprotonated(parsed, k) {
+  let current = parsed;
+  for (let i = 0; i < k; i++) {
+    const base = conjugateBase(current);
+    if (!base) return deprotonatedByAtoms(parsed, k);
+    current = base.parsed;
+  }
+  return current;
+}
+
+function deprotonatedByAtoms(parsed, k) {
   const atoms = { ...parsed.atoms };
   atoms.H = (atoms.H || 0) - k;
   if (atoms.H < 0) fail('CHEM_FORMULA_INVALID', `${formatFormula(parsed)} hat nicht genug Wasserstoff für ${k} Protonenabgaben.`);
   if (atoms.H === 0) delete atoms.H;
-  return { ...parsed, atoms, isotopes: {}, hydrate: [], charge: parsed.charge - k, ast: rebuildAst(atoms, parsed.charge - k), phase: null };
+  return { ...parsed, atoms, isotopes: {}, hydrate: [], charge: parsed.charge - k, ast: rebuildAst(atoms), phase: null };
 }
 
 /** A minimal AST for a formula given by atom counts: elements in Hill-like order */

@@ -3,6 +3,7 @@
 
 import { parseLatex, parsePlain, toGiac, toLatex, ParseError, MATH_FUNCTIONS, latexNumber, compile } from './expr.js';
 import { command, giacCall, COMMAND_NAMES } from './commands.js';
+import { runChemistry, substituteChemistry } from './chem/commands.js';
 import { analyse, ANALYSIS_COMMANDS } from './analysis.js';
 import { Geometry, isShapeCall, isMeasureCall } from './geometry.js';
 import { STAT_COMMANDS, isWord, functionArg } from './statcommands.js';
@@ -164,6 +165,17 @@ export class Engine {
 
   evaluateFree(input) {
     if (input.text !== undefined && isProgram(input.text)) return this.program(input);
+    // Chemistry first: molmasse(H2SO4), pH(HCl; 0,01 mol/L), Fe + O2 -> Fe2O3 … (see chem/commands.js)
+    const chemistry = runChemistry(input, this.defined);
+    if (chemistry) return chemistry;
+    // Chemistry inside a calculation: 2*M(NaCl) becomes 2*(58.44…)
+    if (input.text !== undefined && !input.chemSubstituted) {
+      const substituted = substituteChemistry(input.text, this.defined);
+      if (substituted) {
+        const result = this.evaluateFree({ text: substituted.text, chemSubstituted: true });
+        return result.ok ? { ...result, understood: substituted.text, chemParts: substituted.parts } : result;
+      }
+    }
     // LaTeX or plain German in a text row
     if (input.text !== undefined) {
       const latex = latexInText(input.text);

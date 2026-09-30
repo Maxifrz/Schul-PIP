@@ -1,7 +1,7 @@
 {
  "version": "2026.1",
  "kind": "elements",
- "source": "Standard-Atomgewichte (IUPAC, abgekürzte Tabelle 2007) und Pauling-Elektronegativitäten (CRC Handbook of Chemistry and Physics); Elemente ohne stabiles Isotop tragen die Massenzahl ihres langlebigsten Isotops (massIsMassNumber).",
+ "source": "Standard-Atomgewichte (IUPAC, abgekürzte Tabelle; Schwefel 32,066 wie im CRC Handbook) und Pauling-Elektronegativitäten (CRC Handbook of Chemistry and Physics); Elemente ohne stabiles Isotop tragen die Massenzahl ihres langlebigsten Isotops (massIsMassNumber).",
  "reference": "IUPAC Commission on Isotopic Abundances and Atomic Weights; CRC Handbook",
  "elements": [
   {
@@ -207,7 +207,7 @@
    "symbol": "S",
    "name": "Sulfur",
    "nameDe": "Schwefel",
-   "atomicMass": 32.065,
+   "atomicMass": 32.066,
    "massIsMassNumber": false,
    "electronegativity": 2.58,
    "oxidationStates": [

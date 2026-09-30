@@ -8,7 +8,7 @@ import { formatReaction, speciesOf } from './reaction.js';
 import { formulaKey, formatFormula } from './formula.js';
 import { resolve, resolveParsed, parseGiven, amountFrom, conditionsFrom, latexOf, minSig } from './amounts.js';
 import { Quantity } from './quantity.js';
-import { formatNumber } from './format.js';
+import { formatNumber, sigWords } from './format.js';
 import { CONSTANTS, NORMAL } from './constants.js';
 import { fail } from './errors.js';
 import { splitArgs, parseArgs } from './args.js';
@@ -209,7 +209,7 @@ export function stoichiometry(reactionText, givens, options = {}, kind = 'stoich
   }
   const sig = minSig(allQuantities);
   if (sig !== undefined && sig < 4 && res.result && res.result.value !== undefined) {
-    res.step('Signifikante Stellen', L(`\\text{Kleinste Angabe: ${sig} signifikante Stellen} \\Rightarrow ${formatNumber(res.result.value, { sig, style: 'latex' })}\\,${res.result.unit ? `\\mathrm{${res.result.unit}}` : ''}`, `Kleinste Angabe: ${sig} signifikante Stellen => ${formatNumber(res.result.value, { sig })} ${res.result.unit || ''}`));
+    res.step('Signifikante Stellen', L(`\\text{Kleinste Angabe: ${sigWords(sig)}} \\Rightarrow ${formatNumber(res.result.value, { sig, style: 'latex' })}\\,${res.result.unit ? `\\mathrm{${res.result.unit}}` : ''}`, `Kleinste Angabe: ${sigWords(sig)} => ${formatNumber(res.result.value, { sig })} ${res.result.unit || ''}`));
   }
   res.stoich = { mode, xi, limiting: limiting.map((i) => subs[i].label), rows: rows.map((r) => ({ substance: r.sub.label, side: r.side, nu: r.nu, start: r.start, changed: r.changed, end: r.n, mass: r.usedMass })) };
   res.source('Stoffmengenverhältnis der Reaktionsgleichung; Molmassen aus den Atommassen (IUPAC)');

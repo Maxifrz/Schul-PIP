@@ -9,6 +9,9 @@ export function sigFigsOf(literal) {
   return digits.length || null;
 }
 
+/** "1 signifikante Stelle", "3 signifikante Stellen" */
+export const sigWords = (n) => `${n} signifikante ${n === 1 ? 'Stelle' : 'Stellen'}`;
+
 export function roundSig(value, sig) {
   if (!Number.isFinite(value) || value === 0) return value;
   return Number(value.toPrecision(Math.max(1, Math.min(21, sig))));
