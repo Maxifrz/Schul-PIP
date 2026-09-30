@@ -29,6 +29,40 @@ function shortcuts() {
 }
 
 /** Splits LaTeX at line breaks (\\\\) that are not inside an environment such as a matrix. */
+/** The letters of a LaTeX string that show: commands and braces do not count */
+const visibleLength = (latex) => latex.replace(/\\[A-Za-z]+/g, '.').replace(/[{}^_\\]/g, '').length;
+
+/**
+ * A long chemical equation or sum is broken into lines before a plus sign or an arrow, so it fits the row and needs no
+ * sideways scrolling. Text with its own line breaks and short lines stay as they are.
+ */
+function breakLatex(latex, limit) {
+  if (latex.includes('\\\\') || visibleLength(latex) <= limit || latex.startsWith('\\text')) return latex;
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < latex.length; i++) {
+    const c = latex[i];
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    else if (depth === 0 && (latex.startsWith(' + ', i) || latex.startsWith('\\rightarrow', i) || latex.startsWith('\\rightleftharpoons', i) || latex.startsWith(' = ', i)) && i > start) {
+      parts.push(latex.slice(start, i));
+      start = i;
+    }
+  }
+  parts.push(latex.slice(start));
+  const out = [];
+  let line = '';
+  for (const part of parts) {
+    if (line && visibleLength(line + part) > limit) {
+      out.push(line);
+      line = part.replace(/^\s+/, '');
+    } else line += part;
+  }
+  out.push(line);
+  return out.join('\\\\');
+}
+
 function lines(latex) {
   const out = [];
   let depth = 0;
@@ -363,7 +397,8 @@ export class CasView {
       row.outputEl.replaceChildren(h('div.error', {}, r.error || 'Fehler'));
       return;
     }
-    const math = (latex) => h('span', {}, ...lines(latex).map((line, i) => h('span', { style: { display: i ? 'block' : 'inline' }, html: convertLatexToMarkup(line) })));
+    const limit = window.innerWidth < 600 ? 22 : 64;
+    const math = (latex) => h('span', {}, ...lines(r.chem ? breakLatex(latex, limit) : latex).map((line, i) => h('span', { style: { display: i ? 'block' : 'inline' }, html: convertLatexToMarkup(line) })));
     if (r.kind === 'analysis') {
       const grid = h('div.analysis', {}, h('div.title', {}, ...(r.function ? [r.title + ' von ', math('f\\left(x\\right)=' + r.function)] : [r.title])));
       if (r.table) {
@@ -390,7 +425,7 @@ export class CasView {
   /** The working of a chemistry result, folded away until it is wanted */
   stepsView(r, math) {
     return h('details.chem-steps', {}, h('summary', {}, 'Rechenweg'),
-      ...r.steps.map((step, i) => h('div.chem-step', {}, h('div.label', {}, `${i + 1}. ${step.label}`), h('div', {}, ...step.lines.map((line) => h('div', {}, math(line.latex)))))));
+      ...r.steps.map((step, i) => h('div.chem-step', {}, h('div.label', {}, `${i + 1}. ${step.label}`), h('div', {}, ...step.lines.map((line) => (line.latex.startsWith('\\text') ? h('div.chem-text', {}, line.text) : h('div', {}, math(line.latex))))))));
   }
 
   /** Buttons that continue with a chemistry result: the next calculation, copying the working as text */

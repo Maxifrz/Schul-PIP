@@ -77,7 +77,7 @@ function describeHalf(b) {
   const e = b.extras.electron || 0;
   return {
     text: `${sideText(left, 'text')} -> ${sideText(right, 'text')}`,
-    latex: `${sideText(left, 'latex')} \\longrightarrow ${sideText(right, 'latex')}`,
+    latex: `${sideText(left, 'latex')} \\rightarrow ${sideText(right, 'latex')}`,
     left,
     right,
     electrons: Math.abs(e),

@@ -102,7 +102,7 @@ export function balanceResult(input) {
   res.result.equation = text;
   res.source('Erhaltung der Atome und der Ladung (Atommatrix, exakte Bruchrechnung)');
 
-  res.step('Ansatz', L(`${species.map((s, i) => `${letters[i]}\\,${formatFormula(s.formula, 'latex')}`).slice(0, reaction.reactants.length).join(' + ')} \\longrightarrow ${species.map((s, i) => `${letters[i]}\\,${formatFormula(s.formula, 'latex')}`).slice(reaction.reactants.length).join(' + ')}`, `${species.map((s, i) => `${letters[i]} ${formatFormula(s.formula, 'text')}`).slice(0, reaction.reactants.length).join(' + ')} -> ${species.map((s, i) => `${letters[i]} ${formatFormula(s.formula, 'text')}`).slice(reaction.reactants.length).join(' + ')}`));
+  res.step('Ansatz', L(`${species.map((s, i) => `${letters[i]}\\,${formatFormula(s.formula, 'latex')}`).slice(0, reaction.reactants.length).join(' + ')} \\rightarrow ${species.map((s, i) => `${letters[i]}\\,${formatFormula(s.formula, 'latex')}`).slice(reaction.reactants.length).join(' + ')}`, `${species.map((s, i) => `${letters[i]} ${formatFormula(s.formula, 'text')}`).slice(0, reaction.reactants.length).join(' + ')} -> ${species.map((s, i) => `${letters[i]} ${formatFormula(s.formula, 'text')}`).slice(reaction.reactants.length).join(' + ')}`));
   res.step('Bilanz je Element', ...keys.map((key) => L(rowLatex(key, species, letters), `${key === 'charge' ? 'Ladung' : key}: ${equationOf(key, species, letters).left.join(' + ') || '0'} = ${equationOf(key, species, letters).right.join(' + ') || '0'}`)));
 
   // the null space vector in terms of the free variable

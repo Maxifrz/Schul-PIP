@@ -164,7 +164,7 @@ export function formatReaction(reaction, coefficients, style = 'text') {
   };
   const left = species.map((s, i) => [s, i]).filter(([s]) => s.side === 'left').map(([s, i]) => term(s, i));
   const right = species.map((s, i) => [s, i]).filter(([s]) => s.side === 'right').map(([s, i]) => term(s, i));
-  const arrow = style === 'latex' ? (reaction.reversible ? '\\rightleftharpoons' : '\\longrightarrow') : style === 'unicode' ? (reaction.reversible ? '⇌' : '→') : reaction.reversible ? '<=>' : '->';
+  const arrow = style === 'latex' ? (reaction.reversible ? '\\rightleftharpoons' : '\\rightarrow') : style === 'unicode' ? (reaction.reversible ? '⇌' : '→') : reaction.reversible ? '<=>' : '->';
   const plus = style === 'latex' ? ' + ' : ' + ';
   return `${left.join(plus)} ${arrow} ${right.join(plus)}`;
 }
