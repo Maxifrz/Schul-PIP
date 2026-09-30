@@ -443,12 +443,14 @@ export function phOfSolution(componentTexts, options = {}, forceKind) {
     if (systems.length) res.warn('CHEM_OUTSIDE_MODEL', 'Die gespeicherten pKa-Werte gelten bei 25 °C; bei anderen Temperaturen ist der Wert ungenau.');
   } else res.assume('25 °C, Kw = 1·10⁻¹⁴ mol²/L².');
 
+  if (forceKind === 'buffer' && !systems.some((s) => s.contributions.length > 1)) res.warn('CHEM_OUTSIDE_MODEL', 'Das ist keine Pufferlösung: Es fehlt ein Paar aus schwacher Säure und ihrer konjugierten Base. Berechnet wird der pH-Wert der Lösung.');
   const kind = forceKind || (components.length > 1 ? (systems.some((s) => s.contributions.length > 1) ? 'buffer' : 'mixture') : kinds[0]);
   res.title = KIND_TITLE[kind] || 'pH-Wert';
 
   // the exact solution
   const sol = solveSolution(systems, spectators, Kw);
   const pH = sol.pH;
+  if (components.some((c) => c.conc > 1) || pH < 0 || pH > pKw) res.warn('CHEM_OUTSIDE_MODEL', 'Bei Konzentrationen über etwa 1 mol/L weichen die Aktivitäten stark von den Konzentrationen ab; der berechnete pH-Wert ist dann nur eine grobe Angabe.');
 
   // ------------- steps
   for (const comp of components) {
@@ -507,7 +509,7 @@ export function phOfSolution(componentTexts, options = {}, forceKind) {
       if (!ok) res.warn('CHEM_OUTSIDE_MODEL', `Die Näherung ist hier nicht zulässig (c/Kb = ${fmt(c / Kb)}); die exakte Lösung wird benutzt.`);
       res.value('Protolysegrad α', new Quantity(sol.oh / c, ''));
     }
-  } else if (kind === 'buffer') {
+  } else if (kind === 'buffer' && systems.some((s) => s.contributions.length > 1)) {
     const sys = systems.find((s) => s.contributions.length > 1);
     const parts = [...sys.contributions].sort((a, b) => a.k - b.k);
     // acid = fewer protons removed

@@ -12,6 +12,7 @@ import { Quantity } from './quantity.js';
 import { formatNumber } from './format.js';
 import { CONSTANTS, DEFAULT_TEMPERATURE } from './constants.js';
 import { solveLinear, Frac } from './rational.js';
+import { constantFromLn } from './numeric.js';
 import { fail } from './errors.js';
 import { parseArgs } from './args.js';
 
@@ -74,8 +75,9 @@ export function reactionThermo(reactionText, options = {}) {
     if (data.some((d) => d.phase !== resolveParsed(species[data.indexOf(d)].formula).phase)) res.assume('Phasenübergänge zwischen 298 K und T werden nicht berücksichtigt.');
     if (T < 200 || T > 1500) res.warn('CHEM_OUTSIDE_MODEL', `Bei ${fmt(T)} K ist die Näherung konstanter ΔH° und ΔS° unsicher, besonders wenn ein Stoff seinen Aggregatzustand ändert.`);
   }
-  const K = Math.exp((-dG * 1000) / (R * T));
-  res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(-\\frac{\\Delta_RG^\\circ}{R\\,T}\\right) = \\exp\\left(-\\frac{${fmtL(dG * 1000)}\\,\\mathrm{J/mol}}{8{,}314\\,\\mathrm{J/(mol\\cdot K)}\\cdot ${fmtL(T)}\\,\\mathrm{K}}\\right) = ${fmtL(K)}`, `K = exp(−ΔG°/(R·T)) = ${fmt(K)}`));
+  const kc = constantFromLn((-dG * 1000) / (R * T));
+  const K = kc.value;
+  res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(-\\frac{\\Delta_RG^\\circ}{R\\,T}\\right) = \\exp\\left(-\\frac{${fmtL(dG * 1000)}\\,\\mathrm{J/mol}}{8{,}314\\,\\mathrm{J/(mol\\cdot K)}\\cdot ${fmtL(T)}\\,\\mathrm{K}}\\right) = ${K === null ? kc.latex : fmtL(K)}`, `K = exp(−ΔG°/(R·T)) = ${K === null ? kc.text : fmt(K)}`));
   const verdict = dG < 0 ? 'freiwillig (exergonisch)' : dG > 0 ? 'nicht freiwillig (endergonisch)' : 'im Gleichgewicht';
   res.step('Bewertung', L(`\\Delta_RH^\\circ ${dH < 0 ? '<' : '>'} 0\\ (\\text{${dH < 0 ? 'exotherm' : 'endotherm'}}),\\ \\Delta_RG ${dG < 0 ? '<' : '>'} 0\\ (\\text{${verdict}})`, `${dH < 0 ? 'exotherm' : 'endotherm'}, ${verdict}`));
   if (dS !== 0 && dH !== 0) {
@@ -92,11 +94,13 @@ export function reactionThermo(reactionText, options = {}) {
   res.result.latex = `\\Delta_RH^\\circ = ${fmtL(dH)}\\,\\mathrm{kJ/mol}`;
   res.value('ΔS°', new Quantity(dS, 'J/(mol·K)'));
   res.value(atStandard ? 'ΔG°' : `ΔG (${fmt(T)} K)`, new Quantity(dG, 'kJ/mol'));
-  res.value('K', new Quantity(K, ''));
+  if (K !== null) res.value('K', new Quantity(K, ''));
+  else res.value('K', { text: kc.text, latex: kc.latex });
+  res.value('lg K', new Quantity(kc.lg, ''));
   res.value('Bewertung', { text: verdict, latex: `\\text{${verdict}}` });
   res.assume('Reaktionsumsatz = 1 mol Formelumsatz der Gleichung; Standardzustand: 1 bar, gelöste Stoffe 1 mol/L.');
   res.source('Standardbildungsdaten: NIST / CRC Handbook, 298,15 K');
-  res.chemistry = { dH, dS, dG, K, T };
+  res.chemistry = { dH, dS, dG, K, lgK: kc.lg, T };
   return res;
 }
 
@@ -120,24 +124,30 @@ export function gibbsFromArgs(args) {
     const dH = kJ(H, 'ΔH');
     const dS = JK(S, 'ΔS');
     const dG = dH - (T * dS) / 1000;
-    const K = Math.exp((-dG * 1000) / (R * T));
+    const kc = constantFromLn((-dG * 1000) / (R * T));
+    const K = kc.value;
     res.step('Gibbs-Helmholtz', L(`\\Delta G = \\Delta H - T\\,\\Delta S = ${fmtL(dH)} - ${fmtL(T)}\\cdot ${fmtL(dS / 1000)} = ${fmtL(dG)}\\,\\mathrm{kJ/mol}`, `ΔG = ΔH − T·ΔS = ${fmt(dG)} kJ/mol`));
-    res.step('Gleichgewichtskonstante', L(`K = e^{-\\Delta G/(RT)} = ${fmtL(K)}`, `K = exp(−ΔG/(R·T)) = ${fmt(K)}`));
+    res.step('Gleichgewichtskonstante', L(`K = e^{-\\Delta G/(RT)} = ${K === null ? kc.latex : fmtL(K)}`, `K = exp(−ΔG/(R·T)) = ${K === null ? kc.text : fmt(K)}`));
     if (dS !== 0 && dH !== 0 && Math.sign(dH) === Math.sign(dS)) {
       const Ts = (dH * 1000) / dS;
       res.step('Umschlagtemperatur', L(`T_0 = \\frac{\\Delta H}{\\Delta S} = ${fmtL(Ts)}\\,\\mathrm{K}`, `T0 = ΔH/ΔS = ${fmt(Ts)} K`));
       res.value('Umschlagtemperatur', new Quantity(Ts, 'K'));
     }
     res.answer(new Quantity(dG, 'kJ/mol'), { name: 'ΔG' });
-    res.value('K', new Quantity(K, ''));
+    if (K !== null) res.value('K', new Quantity(K, ''));
+    else res.value('K', { text: kc.text, latex: kc.latex });
+    res.value('lg K', new Quantity(kc.lg, ''));
     res.assume(`Temperatur ${fmt(T)} K; ΔH und ΔS temperaturunabhängig.`);
     return res;
   }
   if (G !== undefined) {
     const dG = kJ(G, 'ΔG');
-    const K = Math.exp((-dG * 1000) / (R * T));
-    res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(-\\frac{\\Delta G}{R\\,T}\\right) = ${fmtL(K)}`, `K = exp(−ΔG/(R·T)) = ${fmt(K)}`));
-    res.answer(new Quantity(K, ''), { name: 'K' });
+    const kc = constantFromLn((-dG * 1000) / (R * T));
+    const K = kc.value;
+    res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(-\\frac{\\Delta G}{R\\,T}\\right) = ${K === null ? kc.latex : fmtL(K)}`, `K = exp(−ΔG/(R·T)) = ${K === null ? kc.text : fmt(K)}`));
+    if (K === null) res.answer({ text: `K = ${kc.text}`, latex: `K = ${kc.latex}` });
+    else res.answer(new Quantity(K, ''), { name: 'K' });
+    res.value('lg K', new Quantity(kc.lg, ''));
     res.assume(`Temperatur ${fmt(T)} K.`);
     return res;
   }
@@ -162,7 +172,9 @@ export function vantHoffFromArgs(args) {
   const H = options['ΔH'] ?? options.dH ?? options.H;
   if (H === undefined) fail('CHEM_MISSING_CONSTANT', 'Es fehlt ΔH=… (in kJ/mol).');
   const dH = Quantity.parse(H).need('molarEnergy', 'ΔH').in('J/mol');
-  const K2 = K1 * Math.exp((-dH / R) * (1 / T2 - 1 / T1));
+  const kc = constantFromLn(Math.log(K1) + (-dH / R) * (1 / T2 - 1 / T1));
+  const K2 = kc.value;
+  if (K2 === null) fail('CHEM_OUTSIDE_MODEL', `K₂ ist nicht darstellbar (${kc.text}).`);
   const res = new ChemicalResult('vanthoff', "Van-'t-Hoff-Gleichung");
   res.step("Van 't Hoff", L(`\\ln\\frac{K_2}{K_1} = -\\frac{\\Delta H}{R}\\left(\\frac{1}{T_2} - \\frac{1}{T_1}\\right)`, 'ln(K2/K1) = −ΔH/R · (1/T2 − 1/T1)'));
   res.step('Einsetzen', L(`K_2 = ${fmtL(K1)}\\cdot\\exp\\left(-\\frac{${fmtL(dH)}}{8{,}314}\\left(\\frac{1}{${fmtL(T2)}} - \\frac{1}{${fmtL(T1)}}\\right)\\right) = ${fmtL(K2)}`, `K2 = ${fmt(K2)}`));

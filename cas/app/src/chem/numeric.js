@@ -66,3 +66,24 @@ export function linearFit(xs, ys) {
   const r2 = syy === 0 ? 1 : (sxy * sxy) / (sxx * syy);
   return { a, b, r2 };
 }
+
+/**
+ * A constant from its natural logarithm, safe from overflow: { ln, lg, value, text, latex }. `value` is null when the
+ * number is not representable (beyond 10^±300); then `text` and `latex` write it as a power of ten.
+ */
+export function constantFromLn(ln) {
+  const lg = ln / Math.LN10;
+  const value = Math.exp(ln);
+  const ok = Number.isFinite(value) && value > 1e-300 && value < 1e300;
+  const exponent = Math.floor(lg);
+  const mantissa = 10 ** (lg - exponent);
+  const rounded = Number(mantissa.toPrecision(4));
+  const shown = rounded >= 10 ? `1·10^${exponent + 1}` : `${String(rounded).replace('.', ',')}·10^${exponent}`;
+  return {
+    ln,
+    lg,
+    value: ok ? value : null,
+    text: ok ? null : shown,
+    latex: ok ? null : shown.replace('·10^', '\\cdot10^{') + '}',
+  };
+}

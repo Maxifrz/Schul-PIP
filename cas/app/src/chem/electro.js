@@ -12,6 +12,7 @@ import { formatNumber } from './format.js';
 import { CONSTANTS, DEFAULT_TEMPERATURE } from './constants.js';
 import { kwAt } from './acidbase.js';
 import { Frac } from './rational.js';
+import { constantFromLn } from './numeric.js';
 import { fail } from './errors.js';
 import { parseArgs } from './args.js';
 
@@ -241,9 +242,10 @@ export function cellFromArgs(args) {
   const cellNotation = `${cellSide(an, 'anode')} || ${cellSide(cat, 'cathode')}`;
   res.step('Zelldiagramm', L(`\\text{${cellNotation.replace(/\|\|/g, '} \\,\\|\\!\\|\\, \\text{').replace(/ \| /g, '} \\,|\\, \\text{')}}`, cellNotation));
   const dG0 = -cell.n * F * E0cell;
-  const K = Math.exp((cell.n * F * E0cell) / (R * T));
+  const kc = constantFromLn((cell.n * F * E0cell) / (R * T));
+  const K = kc.value;
   res.step('Freie Standardreaktionsenthalpie', L(`\\Delta G^\\circ = -z\\,F\\,\\Delta E^\\circ = -${cell.n}\\cdot 96485\\,\\mathrm{C/mol}\\cdot ${fmtL(E0cell)}\\,\\mathrm{V} = ${fmtL(dG0 / 1000)}\\,\\mathrm{kJ/mol}`, `ΔG° = −z·F·ΔE° = ${fmt(dG0 / 1000)} kJ/mol`));
-  res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(\\frac{z\\,F\\,\\Delta E^\\circ}{R\\,T}\\right) = ${fmtL(K)}`, `K = exp(z·F·ΔE°/(R·T)) = ${fmt(K)}`));
+  res.step('Gleichgewichtskonstante', L(`K = \\exp\\left(\\frac{z\\,F\\,\\Delta E^\\circ}{R\\,T}\\right) = ${K === null ? kc.latex : fmtL(K)}`, `K = exp(z·F·ΔE°/(R·T)) = ${K === null ? kc.text : fmt(K)}`));
   let Ecell = E0cell;
   if (useActual) {
     const Ea = cat === a ? ea : eb;
@@ -259,7 +261,9 @@ export function cellFromArgs(args) {
   res.result.latex = `${useActual ? '\\Delta E' : '\\Delta E^\\circ'} = ${fmtL(Ecell)}\\,\\mathrm{V}`;
   res.value('ΔE° (Standard)', new Quantity(E0cell, 'V'));
   res.value('ΔG°', new Quantity(dG0 / 1000, 'kJ/mol'));
-  res.value('K', new Quantity(K, ''));
+  if (K !== null) res.value('K', new Quantity(K, ''));
+  else res.value('K', { text: kc.text, latex: kc.latex });
+  res.value('lg K', new Quantity(kc.lg, ''));
   res.value('Zellreaktion', { text: eq, latex: eqL });
   res.value('Kathode', { text: cat.pair, latex: couplePairLatex(cat) });
   res.value('Anode', { text: an.pair, latex: couplePairLatex(an) });

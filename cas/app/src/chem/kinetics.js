@@ -93,6 +93,9 @@ export function kineticsFromArgs(args) {
   const c = options.c !== undefined ? concentration(options.c, 'c') : null;
   const t = options.t !== undefined ? timeOf(options.t, 't') : null;
   const wantHalf = options.halbwertszeit !== undefined || options.t12 !== undefined || options['t½'] !== undefined;
+  if (k !== null && !(k > 0)) fail('CHEM_OUTSIDE_MODEL', 'Die Geschwindigkeitskonstante k muss größer als 0 sein.');
+  if (c0 !== null && !(c0 > 0)) fail('CHEM_NEGATIVE_CONCENTRATION', 'Die Anfangskonzentration c0 muss größer als 0 sein.');
+  if (t !== null && t < 0) fail('CHEM_OUTSIDE_MODEL', 'Die Zeit t darf nicht negativ sein.');
   const haveK = k !== null;
   if (wantHalf) {
     if (!haveK) fail('CHEM_MISSING_CONSTANT', 'Für die Halbwertszeit fehlt k.');
