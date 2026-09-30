@@ -37,6 +37,13 @@ function splitPhase(s) {
 
 /** Splits off the charge and says what is left. See the README for the rules that decide "Fe3+" versus "NH4+". */
 export function splitCharge(input) {
+  const result = splitChargeRaw(input);
+  if (/\^/.test(input) && result.charge === 0) fail('CHEM_INVALID_CHARGE', `Ungültige Ladung in „${input}“: eine Ladung mit Vorzeichen ist nicht 0.`);
+  if (Math.abs(result.charge) > 8) fail('CHEM_INVALID_CHARGE', `Ungültige Ladung in „${input}“: ${Math.abs(result.charge)} Elementarladungen kommen bei Ionen nicht vor.`);
+  return result;
+}
+
+function splitChargeRaw(input) {
   const s = input.replace(/\s+/g, ' ').trim();
   const invalid = (why) => fail('CHEM_INVALID_CHARGE', `Ungültige Ladung in „${input}“: ${why}`);
   // Explicit: ^2-, ^-, ^{2-}, ^{-2}, ^+

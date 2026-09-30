@@ -150,3 +150,34 @@ test('Ksp errors', () => {
   assert.equal(code(() => solubility('AgCl', ['c(Cl-)=1 mol/L', 'c(Ag+)=1 mol/L'])), 'CHEM_NO_SOLUTION');
   assert.ok(solubility('AgCl', [], { T: '50 °C' }).warnings.length === 1);
 });
+
+test('coupled equilibria through the command: AgCl dissolving in ammonia', async () => {
+  const { runChemistry } = await import('../../src/chem/commands.js');
+  const r = runChemistry({ text: 'gleichgewicht(AgCl <=> Ag+ + Cl-; Ag+ + 2 NH3 <=> Ag(NH3)2+; K1=1,77e-10; K2=1,1e7; c(NH3)=1 mol/L)' }, new Set());
+  assert.equal(r.ok, true, r.error);
+  // closed form: K = Ksp·Kf = s² / (c − 2s)²  →  s = √K·c / (1 + 2√K)
+  const root = Math.sqrt(1.77e-10 * 1.1e7);
+  const s = root / (1 + 2 * root);
+  const eqs = r.chem.values;
+  close(eqs['c(Cl-) im Gleichgewicht'].value, s, 1e-7);
+  close(eqs['c(NH3) im Gleichgewicht'].value, 1 - 2 * s, 1e-7);
+  close(eqs['c(Ag+) im Gleichgewicht'].value, 1.77e-10 / s, 1e-6);
+  assert.ok(r.chemResult.steps.some((step) => step.label === 'Ladungsbilanz'));
+  // a species without a start value is never negative
+  for (const v of Object.values(eqs)) assert.ok(v.value >= 0);
+});
+
+test('coupled equilibria: dimerisation followed by dissociation, atoms conserved', async () => {
+  const { runChemistry } = await import('../../src/chem/commands.js');
+  const r = runChemistry({ text: 'gleichgewicht(N2O4 <=> 2 NO2; NO2 <=> NO + O; K1=0,01; K2=1e-3; c(N2O4)=1 mol/L)' }, new Set());
+  assert.equal(r.ok, true, r.error);
+  const [a, b, c, d] = r.chemResult.chemistry.equilibrium;
+  close((b * b) / a, 0.01, 1e-8);
+  close((c * d) / b, 1e-3, 1e-8);
+  close(2 * a + b + c, 2, 1e-9);
+  close(4 * a + 2 * b + c + d, 4, 1e-9);
+  assert.equal(code(() => runChemistry({ text: 'gleichgewicht(N2O4 <=> 2 NO2; NO2 <=> NO + O; K1=0,01; c(N2O4)=1 mol/L)' }, new Set()).ok && null) === null, true);
+  const missing = runChemistry({ text: 'gleichgewicht(N2O4 <=> 2 NO2; NO2 <=> NO + O; K1=0,01; c(N2O4)=1 mol/L)' }, new Set());
+  assert.equal(missing.ok, false);
+  assert.equal(missing.code, 'CHEM_MISSING_CONSTANT');
+});

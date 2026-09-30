@@ -14,7 +14,7 @@ import { parseReaction, isReaction } from './reaction.js';
 import { stoichiometryFromArgs } from './stoich.js';
 import { phFromArgs, systemsOf, kwAt, lg } from './acidbase.js';
 import { resolve, latexOf } from './amounts.js';
-import { equilibrium } from './equilibrium.js';
+import { equilibrium, coupledEquilibrium } from './equilibrium.js';
 import { solubility, kspFromArgs, precipitation } from './ksp.js';
 import { cellFromArgs, nernstFromArgs, electrolysisFromArgs, potentialFromArgs } from './electro.js';
 import { reactionThermo, gibbsFromArgs, hessFromArgs, vantHoffFromArgs } from './thermo.js';
@@ -163,6 +163,9 @@ const wrapThermo = (which) => (args) => {
 const equilibriumCommand = (mode) => (args) => {
   const { positional, options } = parseArgs(args);
   if (!positional.length) fail('CHEM_SYNTAX', 'Es fehlt die Reaktionsgleichung.');
+  // several reactions at once: coupled equilibria, one K each
+  const reactions = positional.filter((p) => isReaction(p));
+  if (mode === 'solve' && reactions.length > 1) return coupledEquilibrium(reactions, positional.filter((p) => !isReaction(p)), options);
   return equilibrium(positional[0], positional.slice(1), options, mode);
 };
 
@@ -254,7 +257,7 @@ export const CHEM_COMMANDS = [
   { name: 'titration', aliases: ['titrationskurve'], syntax: 'titration(CH3COOH 0,1 mol/L 25 mL; NaOH 0,1 mol/L)', text: 'Titrationskurve pH(V) mit Äquivalenzpunkten, Halbäquivalenzpunkt und passendem Indikator.', example: 'titration(CH3COOH 0,1 mol/L 25 mL; NaOH 0,1 mol/L)', run: titrationFromArgs },
   { name: 'speziesverteilung', aliases: ['speziation'], syntax: 'speziesverteilung(H3PO4)', text: 'Verteilungsdiagramm einer Säure: Anteil jeder Spezies gegen den pH.', example: 'speziesverteilung(H3PO4)', run: distributionFromArgs },
   // Gleichgewicht
-  { name: 'gleichgewicht', aliases: ['massenwirkung'], syntax: 'gleichgewicht(N2 + 3 H2 <=> 2 NH3; Kc=0,5; c(N2)=1 mol/L; c(H2)=3 mol/L)', text: 'Gleichgewichtskonzentrationen aus K und Anfangswerten; keine negativen Konzentrationen. Kp mit Drücken in bar.', example: 'gleichgewicht(N2 + 3 H2 <=> 2 NH3; Kc=0,5; c(N2)=1 mol/L; c(H2)=3 mol/L)', run: equilibriumCommand('solve') },
+  { name: 'gleichgewicht', aliases: ['massenwirkung'], syntax: 'gleichgewicht(N2 + 3 H2 <=> 2 NH3; Kc=0,5; c(N2)=1 mol/L; c(H2)=3 mol/L) · gleichgewicht(R1; R2; K1=…; K2=…; c(…)=…)', text: 'Gleichgewichtskonzentrationen aus K und Anfangswerten; keine negativen Konzentrationen. Kp mit Drücken in bar; mehrere Reaktionen mit K1, K2 … werden gemeinsam gelöst.', example: 'gleichgewicht(N2 + 3 H2 <=> 2 NH3; Kc=0,5; c(N2)=1 mol/L; c(H2)=3 mol/L)', run: equilibriumCommand('solve') },
   { name: 'gleichgewichtskonstante', aliases: [], short: ['Kc', 'Kp'], syntax: 'gleichgewichtskonstante(N2 + 3 H2 <=> 2 NH3; c(N2)=0,4 mol/L; c(H2)=1,2 mol/L; c(NH3)=0,3 mol/L)', text: 'K aus Gleichgewichtswerten (oder Anfangswerten c0(…) mit einem bekannten Gleichgewichtswert).', example: 'gleichgewichtskonstante(N2 + 3 H2 <=> 2 NH3; c(N2)=0,4 mol/L; c(H2)=1,2 mol/L; c(NH3)=0,3 mol/L)', run: kcCommand('c') },
   { name: 'löslichkeit', aliases: ['loeslichkeit'], syntax: 'löslichkeit(AgCl) · löslichkeit(AgCl; c(Cl-)=0,1 mol/L) · löslichkeit(Mg(OH)2; pH=10)', text: 'Löslichkeit eines schwerlöslichen Salzes aus Ksp; mit gleichionigem Zusatz oder festem pH.', example: 'löslichkeit(AgCl)', run: (a) => { const { positional, options } = parseArgs(a); return solubility(positional[0], positional.slice(1), options); } },
   { name: 'löslichkeitsprodukt', aliases: ['loeslichkeitsprodukt'], short: ['Ksp'], syntax: 'Ksp(AgCl) · Ksp(Ag2CrO4; löslichkeit=1,3e-4 mol/L)', text: 'Löslichkeitsprodukt aus der Datenbank oder aus einer gemessenen Löslichkeit.', example: 'löslichkeitsprodukt(AgCl)', run: kspFromArgs },

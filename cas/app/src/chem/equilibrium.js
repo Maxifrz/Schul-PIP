@@ -351,3 +351,92 @@ export function equilibrium(reactionText, givens, options = {}, mode = 'solve') 
   res.chemistry = { K, xi, equilibrium: aEq, start: a0, unit };
   return res;
 }
+
+// ------------------------------------------------------------------------------------ coupled equilibria
+
+/**
+ * Several equilibria at once: gleichgewicht(R1; R2; K1=…; K2=…; c(X)=…). Every reaction has its own K (K1, K2, …, or
+ * Kp1, Kc1 …); species with the same formula in different reactions are the same species. The extents of all reactions
+ * are found together, so every concentration stays positive and every mass action law holds at the same time.
+ */
+export function coupledEquilibrium(reactionTexts, givens, options = {}) {
+  const parsed = reactionTexts.map((t) => coefficientsFor(t));
+  const res = new ChemicalResult('equilibrium', 'Gekoppelte Gleichgewichte');
+  const universe = [];
+  const indexOf = (formula) => {
+    const key = formulaKey({ ...formula, phase: null });
+    let i = universe.findIndex((u) => u.key === key);
+    if (i < 0) {
+      universe.push({ key, sub: resolveParsed(formula) });
+      i = universe.length - 1;
+    }
+    return i;
+  };
+  const vectors = parsed.map((p) => {
+    const v = {};
+    speciesOf(p.reaction).forEach((s, i) => {
+      const at = indexOf(s.formula);
+      v[at] = (v[at] || 0) + (s.side === 'right' ? 1 : -1) * p.coefficients[i].toNumber();
+    });
+    return v;
+  });
+  const n = universe.length;
+  const nu = vectors.map((v) => Array.from({ length: n }, (_, i) => v[i] || 0));
+  const active = universe.map((u) => !isPure(u.sub));
+  const Ks = parsed.map((p, j) => {
+    const raw = options[`K${j + 1}`] ?? options[`Kc${j + 1}`] ?? options[`Kp${j + 1}`];
+    if (raw === undefined) fail('CHEM_MISSING_CONSTANT', `Für die ${j + 1}. Reaktion fehlt die Gleichgewichtskonstante K${j + 1}=….`);
+    const v = Number(String(raw).trim().replace(',', '.').replace(/[·×]\s*10\^?/, 'e'));
+    if (!(v > 0) || !Number.isFinite(v)) fail('CHEM_MISSING_CONSTANT', `K${j + 1} muss eine positive Zahl sein.`);
+    return v;
+  });
+  parsed.forEach((p, j) => {
+    res.step(`Reaktion ${j + 1}`, L(`${formatReaction(p.reaction, p.coefficients, 'latex')},\\quad K_${j + 1} = ${fmtL(Ks[j])}`, `${formatReaction(p.reaction, p.coefficients, 'text')}, K${j + 1} = ${fmt(Ks[j])}`));
+  });
+  res.assume('Ideale Lösung: Aktivitäten = c/c° mit c° = 1 mol/L; reine Feststoffe und Flüssigkeiten haben die Aktivität 1.');
+  const a0 = universe.map(() => 0);
+  const volume = options.V !== undefined ? Quantity.parse(options.V).need('volume', 'das Volumen').in('L') : null;
+  for (const text of givens) {
+    const g = parseGiven(text);
+    if (!g.substance) fail('CHEM_SYNTAX', `„${text}“: es fehlt der Stoff, z. B. c(H2A) = 0,1 mol/L.`);
+    const wanted = formulaKey({ ...resolve(g.substance).formula, phase: null });
+    const i = universe.findIndex((u) => u.key === wanted);
+    if (i < 0) fail('CHEM_UNKNOWN_SUBSTANCE', `${g.substance} kommt in keiner Reaktion vor.`, { substance: g.substance });
+    const q = g.quantities[0];
+    if (q.is('concentration')) a0[i] = q.in('mol/L');
+    else if (q.is('amount') && volume !== null) a0[i] = q.in('mol') / volume;
+    else fail('CHEM_UNIT_MISMATCH', `Für ${g.substance} wird eine Konzentration erwartet (oder eine Stoffmenge mit V=…).`);
+    if (a0[i] < 0) fail('CHEM_NEGATIVE_CONCENTRATION', `Die Anfangskonzentration von ${g.substance} ist negativ.`);
+  }
+  universe.forEach((u, i) => {
+    if (!active[i]) a0[i] = 1;
+  });
+  const sol = solveCoupled(nu, Ks, a0, active);
+  // the answer must satisfy every law and stay positive
+  const q = (j) => universe.reduce((prod, u, i) => (active[i] ? prod * sol.a[i] ** nu[j][i] : prod), 1);
+  res.step('Ansatz', L('a_i = a_{i,0} + \\sum_j \\nu_{ij}\\,\\xi_j\\quad\\text{und}\\quad \\prod_i a_i^{\\nu_{ij}} = K_j\\ \\text{für jede Reaktion}', 'a(i) = a0(i) + Σ ν(i,j)·ξ(j) und Π a^ν = K(j) für jede Reaktion'));
+  res.step('Umsätze', L(sol.xi.map((x, j) => `\\xi_${j + 1} = ${fmtL(x)}\\,\\mathrm{mol/L}`).join(',\\ '), sol.xi.map((x, j) => `ξ${j + 1} = ${fmt(x)} mol/L`).join(', ')));
+  res.step('Gleichgewichtskonzentrationen', ...universe.map((u, i) => (active[i] ? L(`${latexOf(u.sub)}:\\ ${fmtL(sol.a[i])}\\,\\mathrm{mol/L}`, `${u.sub.label}: ${fmt(sol.a[i])} mol/L`) : null)).filter(Boolean));
+  res.step('Probe der Massenwirkungsgesetze', ...parsed.map((p, j) => L(`Q_${j + 1} = ${fmtL(q(j), 6)} \\approx K_${j + 1} = ${fmtL(Ks[j], 6)}`, `Q${j + 1} = ${fmt(q(j), 6)} ≈ K${j + 1} = ${fmt(Ks[j], 6)}`)));
+  // conservation: charge always; atoms when no pure phase takes part
+  const charge = (a) => universe.reduce((s, u, i) => (active[i] ? s + u.sub.formula.charge * a[i] : s), 0);
+  const c0 = charge(a0);
+  const c1 = charge(sol.a);
+  res.step('Ladungsbilanz', L(`\\sum z\\,c = ${fmtL(c0)} \\to ${fmtL(c1)}\\,\\mathrm{mol/L}\\quad(\\text{unverändert})`, `Σ z·c: ${fmt(c0)} → ${fmt(c1)} mol/L (unverändert)`));
+  if (Math.abs(c1 - c0) > 1e-9 * Math.max(1, Math.abs(c0))) res.warn('CHEM_OUTSIDE_MODEL', 'Die Ladungsbilanz hat sich verändert: Die Reaktionen sind nicht ladungsneutral geschrieben.');
+  if (universe.every((u, i) => active[i])) {
+    const elements = new Set(universe.flatMap((u) => Object.keys(u.sub.formula.atoms)));
+    const lines = [...elements].map((el) => {
+      const total = (a) => universe.reduce((s, u, i) => s + (u.sub.formula.atoms[el] || 0) * a[i], 0);
+      return `${el}: ${fmt(total(a0))} → ${fmt(total(sol.a))} mol/L`;
+    });
+    res.step('Massenbilanz (Elemente)', ...lines.map((t) => L(`\\text{${t}}`, t)));
+  }
+  res.answer({ text: universe.map((u, i) => (active[i] ? `${u.sub.label} = ${fmt(sol.a[i])} mol/L` : null)).filter(Boolean).join('; '), latex: universe.map((u, i) => (active[i] ? `${latexOf(u.sub)} = ${fmtL(sol.a[i])}\\,\\mathrm{mol/L}` : null)).filter(Boolean).join(',\\ ') });
+  universe.forEach((u, i) => {
+    if (active[i]) res.value(`c(${u.sub.label}) im Gleichgewicht`, new Quantity(sol.a[i], 'mol/L'));
+  });
+  res.table = { head: ['Stoff', 'Anfang in mol/L', 'Gleichgewicht in mol/L'], rows: universe.map((u, i) => (active[i] ? [latexOf(u.sub), fmtL(a0[i]), fmtL(sol.a[i])] : null)).filter(Boolean) };
+  res.chemistry = { K: Ks, xi: sol.xi, equilibrium: sol.a, species: universe.map((u) => u.sub.label), iterations: sol.iterations };
+  return res;
+}
