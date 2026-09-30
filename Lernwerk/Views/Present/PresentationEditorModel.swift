@@ -237,23 +237,109 @@ final class PresentationEditorModel: ObservableObject {
         if edit { startEditing(element.id) }
     }
 
+    /// The selected element and, when it belongs to a group like a dropped module, everything grouped with it.
+    var selectedGroup: [SlideElement] {
+        guard let element = selected else { return [] }
+        guard let group = element.group else { return [element] }
+        return slide.elements.filter { $0.group == group }
+    }
+
     func deleteSelected() {
         guard let id = selectedID else { return }
         finishEditing()
+        let group = selected?.group
         updateSlide { slide in
             var copy = slide
-            copy.elements.removeAll { $0.id == id }
+            copy.elements.removeAll { $0.id == id || (group != nil && $0.group == group) }
             return copy
         }
         selectedID = nil
     }
 
     func duplicateSelected() {
-        guard var copy = selected else { return }
-        copy.id = UUID().uuidString
-        copy.x += 16
-        copy.y += 16
-        addElement(copy)
+        guard selected != nil else { return }
+        finishEditing()
+        let parts = selectedGroup
+        let group = parts.first?.group == nil ? nil : UUID().uuidString
+        let copies = parts.map { part -> SlideElement in
+            var copy = part
+            copy.id = UUID().uuidString
+            copy.group = group
+            copy.x += 16
+            copy.y += 16
+            return copy
+        }
+        updateSlide { slide in
+            var next = slide
+            next.elements.append(contentsOf: copies)
+            return next
+        }
+        selectedID = copies.first?.id
+    }
+
+    /// A dragged element takes its group along. `base` is the element as the drag began; the others follow by the
+    /// same distance from where they were then.
+    func move(_ base: SlideElement, to candidate: SlideElement) {
+        guard let group = base.group, let start = gestureBase?.slides[safe: slideIndex] else {
+            updateElement(base.id, record: false) { _ in candidate }
+            return
+        }
+        let dx = candidate.x - base.x
+        let dy = candidate.y - base.y
+        let starts = Dictionary(uniqueKeysWithValues: start.elements.filter { $0.group == group }.map { ($0.id, $0) })
+        updateSlide(record: false) { slide in
+            var next = slide
+            next.elements = slide.elements.map { element in
+                guard var first = starts[element.id] else { return element }
+                first.x += dx
+                first.y += dy
+                return first
+            }
+            return next
+        }
+    }
+
+    /// A module from the library, dropped with its middle at `center` (slide points) or in the middle of the slide.
+    func addModule(_ component: SlideComponent, center: (x: Double, y: Double)? = nil) {
+        finishEditing()
+        let parts = SlideModules.elements(for: component, theme: presentation.theme, center: center)
+        guard !parts.isEmpty else { return }
+        updateSlide { slide in
+            var next = slide
+            next.elements.append(contentsOf: parts)
+            return next
+        }
+        selectedID = parts.first?.id
+    }
+
+    /// The selected group bigger or smaller around its middle.
+    func scaleSelectedGroup(by factor: Double) {
+        guard selected?.group != nil else { return }
+        finishEditing()
+        let ids = Set(selectedGroup.map(\.id))
+        let scaled = SlideModules.scaled(selectedGroup, by: factor)
+        let byID = Dictionary(uniqueKeysWithValues: scaled.map { ($0.id, $0) })
+        updateSlide { slide in
+            var next = slide
+            next.elements = slide.elements.map { ids.contains($0.id) ? (byID[$0.id] ?? $0) : $0 }
+            return next
+        }
+    }
+
+    /// Makes the parts of a group single elements again.
+    func ungroupSelected() {
+        guard let group = selected?.group else { return }
+        finishEditing()
+        updateSlide { slide in
+            var next = slide
+            next.elements = slide.elements.map { element in
+                guard element.group == group else { return element }
+                var single = element
+                single.group = nil
+                return single
+            }
+            return next
+        }
     }
 
     func reorderSelected(forward: Bool) {
@@ -279,5 +365,11 @@ final class PresentationEditorModel: ObservableObject {
         guard editingID != nil else { return }
         editingID = nil
         endGesture()
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
