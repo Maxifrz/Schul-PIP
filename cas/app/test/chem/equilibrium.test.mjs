@@ -181,3 +181,22 @@ test('coupled equilibria: dimerisation followed by dissociation, atoms conserved
   assert.equal(missing.ok, false);
   assert.equal(missing.code, 'CHEM_MISSING_CONSTANT');
 });
+
+test('which species are pure phases: tags decide, solvents and solids by default', async () => {
+  const { isPurePhase, resolve } = await import('../../src/chem/amounts.js');
+  const pure = (t) => isPurePhase(resolve(t));
+  assert.equal(pure('AgCl'), true);
+  assert.equal(pure('H2O'), true);
+  assert.equal(pure('CaCO3'), true);
+  assert.equal(pure('CH3COOH'), false, 'acetic acid in a solution is a solute');
+  assert.equal(pure('H2O2'), false);
+  assert.equal(pure('NH3'), false);
+  assert.equal(pure('Ag+'), false);
+  assert.equal(pure('CO2'), false);
+  assert.equal(pure('CH3COOH(l)'), true, 'a tag wins');
+  assert.equal(pure('NaCl(aq)'), false);
+  // acetic acid as an equilibrium: the acid is a solute, so its concentration enters the law
+  const r = eq('CH3COOH <=> H+ + CH3COO-; Kc=1,8e-5; c(CH3COOH)=0,1 mol/L');
+  const x = (-1.8e-5 + Math.sqrt(1.8e-5 ** 2 + 4 * 1.8e-5 * 0.1)) / 2;
+  close(r.chemistry.xi, x, 1e-9);
+});

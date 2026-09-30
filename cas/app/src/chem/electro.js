@@ -6,7 +6,7 @@ import redoxData from './data/redox.json' with { type: 'json' };
 import { ChemicalResult, L } from './result.js';
 import { parseReaction, speciesOf, formatReaction, balanceCheck } from './reaction.js';
 import { parseFormula, formatFormula, formulaKey } from './formula.js';
-import { resolve, resolveParsed, latexOf, parseGiven, amountFrom, conditionsFrom } from './amounts.js';
+import { resolve, resolveParsed, latexOf, parseGiven, amountFrom, conditionsFrom, isPurePhase } from './amounts.js';
 import { Quantity } from './quantity.js';
 import { formatNumber } from './format.js';
 import { CONSTANTS, DEFAULT_TEMPERATURE } from './constants.js';
@@ -127,11 +127,9 @@ function quotient(c, act) {
 /** Metals and water are solids/liquids at the electrode; solutes and gases are not */
 function isSolidOrLiquid(f) {
   if (f.charge !== 0) return false;
-  const key = keyOf(f);
-  if (key === 'H2O') return true;
   const sub = resolveParsed(f);
-  if (sub.entry) return sub.entry.phase === 's' || sub.entry.phase === 'l';
-  return Object.keys(f.atoms).length === 1 && !['H', 'N', 'O', 'F', 'Cl'].includes(Object.keys(f.atoms)[0]);
+  if (sub.entry) return isPurePhase(sub);
+  return isPurePhase(sub) || (Object.keys(f.atoms).length === 1 && !['H', 'N', 'O', 'F', 'Cl'].includes(Object.keys(f.atoms)[0]));
 }
 
 /** E of a half-cell by the Nernst equation: E = E° − (RT/nF)·ln Q, Q of the reduction */

@@ -33,6 +33,19 @@ export function resolve(input) {
   return { formula: parsed, entry: known, M: mm.value, terms: mm.terms, notes: mm.notes, phase, label: formatFormula({ ...parsed, phase: null }, 'text'), input: text };
 }
 
+/**
+ * Whether a species has activity 1 in an equilibrium expression: a pure solid or liquid. A phase tag decides ((s), (l)
+ * pure; (aq), (g) not). Without a tag: solids from the database and the solvent water are pure; other liquids
+ * (acetic acid, ethanol, hydrogen peroxide) are taken as solutes, since that is what they are in a solution.
+ */
+export function isPurePhase(sub) {
+  const tag = sub.formula && sub.formula.phase;
+  if (tag) return tag === 's' || tag === 'l';
+  if (formatFormula({ ...sub.formula, phase: null }) === 'H2O') return true;
+  if (['Hg', 'Br2'].includes(sub.label)) return true;
+  return sub.phase === 's';
+}
+
 /** A substance from an already parsed formula */
 export function resolveParsed(parsed) {
   const entry = entryOf(parsed);

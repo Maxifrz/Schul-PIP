@@ -7,7 +7,7 @@ import { ChemicalResult, L } from './result.js';
 import { coefficientsFor } from './balance.js';
 import { formatReaction, speciesOf } from './reaction.js';
 import { formulaKey, formatFormula } from './formula.js';
-import { resolve, resolveParsed, latexOf, parseGiven, conditionsFrom } from './amounts.js';
+import { resolve, resolveParsed, latexOf, parseGiven, conditionsFrom, isPurePhase } from './amounts.js';
 import { Quantity } from './quantity.js';
 import { formatNumber } from './format.js';
 import { CONSTANTS, DEFAULT_TEMPERATURE } from './constants.js';
@@ -169,7 +169,7 @@ export function solveCoupled(reactions, K, a0, active = a0.map(() => true)) {
 
 // ------------------------------------------------------------------------------------ the command level
 
-const isPure = (sub) => sub.phase === 's' || sub.phase === 'l';
+const isPure = isPurePhase;
 
 /** Which species of the reaction a substance text means */
 function indexOfSpecies(subs, text) {
