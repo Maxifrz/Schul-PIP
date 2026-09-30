@@ -48,6 +48,16 @@ private enum DragItem {
     }
 }
 
+/// Documents dropped onto another one: they can go into it, or the lot into a new folder.
+private struct MergeRequest {
+    var target: StudyMaterial
+    var sources: [StudyMaterial]
+
+    var sourceTitle: String {
+        sources.count == 1 ? "„\(sources[0].title)“" : "\(sources.count) Dokumente"
+    }
+}
+
 /// Single files, or a whole folder with its subfolders.
 private enum ImportMode {
     case files
@@ -61,7 +71,7 @@ private struct SubjectRequest: Identifiable {
 
 /// The library: folders like the Files app, search over titles and the text of every PDF, sorting, subjects with
 /// colors, favorites, a row to continue reading, selecting several documents at once, drag and drop onto folders
-/// (a document dropped onto another makes a folder of both), importing whole folders and ZIP archives, and a trash
+/// (a document dropped onto another goes into it or makes a folder of both), importing whole folders and ZIP archives, and a trash
 /// that empties itself after 30 days. Mirrors the Android app.
 struct LibraryView: View {
     @EnvironmentObject private var settings: AppSettings
@@ -92,6 +102,7 @@ struct LibraryView: View {
     @State private var moveRequest: MoveRequest?
     @State private var subjectRequest: SubjectRequest?
     @State private var deletingFolder: MaterialFolder?
+    @State private var mergeRequest: MergeRequest?
     @State private var confirmEmptyTrash = false
     @State private var creatingNotebook = false
     @State private var openedNotebook: StudyMaterial?
@@ -185,6 +196,15 @@ struct LibraryView: View {
             }
         } message: {
             Text("„\(deletingFolder?.name ?? "")“ und alle Unterordner werden gelöscht. Die Dokumente darin kommen in den Papierkorb und lassen sich 30 Tage lang wiederherstellen.")
+        }
+        .confirmationDialog("Was soll passieren?", isPresented: mergePresented, titleVisibility: .visible, presenting: mergeRequest) { request in
+            Button("In „\(request.target.title)“ einfügen") { merge(request) }
+            Button("Zusammen in einen Ordner") {
+                group([request.target] + request.sources, in: request.target.folderID)
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { request in
+            Text("\(request.sourceTitle) hinter die letzte Seite von „\(request.target.title)“ einfügen (mit Handschrift und Notizen). Das Original kommt in den Papierkorb und lässt sich 30 Tage lang wiederherstellen.")
         }
         .confirmationDialog("Papierkorb leeren?", isPresented: $confirmEmptyTrash, titleVisibility: .visible) {
             Button("Endgültig löschen", role: .destructive, action: emptyTrash)
@@ -602,7 +622,26 @@ struct LibraryView: View {
         return moved
     }
 
-    /// A document dropped onto another: both go into a new folder where the target was, as on the home screen.
+    private var mergePresented: Binding<Bool> {
+        Binding(get: { mergeRequest != nil }, set: { if !$0 { mergeRequest = nil } })
+    }
+
+    /// Adds the dropped documents' pages to the end of the target; each original goes to the trash.
+    private func merge(_ request: MergeRequest) {
+        var failed: [String] = []
+        for source in request.sources {
+            if MaterialStore.merge(source, into: request.target) {
+                source.deletedAt = .now
+            } else {
+                failed.append(source.title)
+            }
+        }
+        if !failed.isEmpty {
+            errorMessage = "Nicht eingefügt: " + failed.joined(separator: ", ")
+        }
+    }
+
+    /// A document dropped onto another: it asks whether to put it into the target's pages or both into a new folder.
     private func drop(_ items: [String], onto target: StudyMaterial) -> Bool {
         var others: [StudyMaterial] = []
         for item in items.compactMap(DragItem.init) {
@@ -611,7 +650,7 @@ struct LibraryView: View {
             }
         }
         guard !others.isEmpty else { return false }
-        group([target] + others, in: target.folderID)
+        mergeRequest = MergeRequest(target: target, sources: others)
         return true
     }
 
