@@ -290,7 +290,7 @@ final class ChartDrawingTests: XCTestCase {
     func testEveryTypeDrawsInEveryDesign() {
         for theme in [SlideTheme.quill, .night, .chalk] {
             for type in ChartType.allCases {
-                XCTAssertGreaterThan(inkedPixels(ChartSpec(type: type, title: "Titel", unit: "%"), theme: theme), 800, "\(type.rawValue) \(theme.id)")
+                XCTAssertGreaterThan(inkedPixels(ChartSpec(type: type, unit: "%", title: "Titel"), theme: theme), 800, "\(type.rawValue) \(theme.id)")
             }
         }
     }
@@ -303,7 +303,7 @@ final class ChartDrawingTests: XCTestCase {
         ]
         for type in ChartType.allCases {
             for input in inputs {
-                _ = inkedPixels(ChartSpec(type: type, data: input, title: "T", unit: "kg"))
+                _ = inkedPixels(ChartSpec(type: type, data: input, unit: "kg", title: "T"))
                 _ = inkedPixels(ChartSpec(type: type, data: input, showValues: false))
             }
         }
