@@ -26,6 +26,14 @@ Everything else goes to the mathematics as before. Short names are guarded: `M(�
 `E0`, `dH` … are chemistry only if an argument names a substance and the student has not defined that name
 (`M = 5` makes `M(2)` a product; `c(t) = t^2+1` stays a function).
 
+### Typing in the formula editor
+
+The formula editor turns `mol/L` into a fraction and lets a space jump out of a bracket; both are handled: a fraction
+of units is read back as `mol/L`, and quantities may be typed without spaces (`0,1mol/L`, `4gH2`, `50mLHCl`: the
+longest known unit before a formula is the unit). Reactions with spaces around the plus signs are easiest in a text
+row (the **T** button); without spaces (`Fe+O2->Fe2O3`, `MnO4-+Fe2+->Mn2++Fe3+`) they work in the formula editor too.
+`stöchiometrie` has the ASCII spelling `stoechiometrie`, which the editor does not mistake for the Greek letter χ.
+
 ## Command language
 
 Arguments are separated by `;` (a decimal comma is part of a number). `key=value` are options. A *given* is written

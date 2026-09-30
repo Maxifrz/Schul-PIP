@@ -169,8 +169,8 @@ export class Engine {
     const chemistry = runChemistry(input, this.defined);
     if (chemistry) return chemistry;
     // Chemistry inside a calculation: 2*M(NaCl) becomes 2*(58.44…)
-    if (input.text !== undefined && !input.chemSubstituted) {
-      const substituted = substituteChemistry(input.text, this.defined);
+    if (!input.chemSubstituted && (input.text !== undefined || input.latex !== undefined)) {
+      const substituted = substituteChemistry(input.text !== undefined ? input.text : { latex: input.latex }, this.defined);
       if (substituted) {
         const result = this.evaluateFree({ text: substituted.text, chemSubstituted: true });
         return result.ok ? { ...result, understood: substituted.text, chemParts: substituted.parts } : result;

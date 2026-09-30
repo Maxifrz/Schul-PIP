@@ -142,6 +142,12 @@ test('quantities check dimensions', () => {
   assert.equal(parseNumber('1.5e-3'), 0.0015);
   assert.equal(parseNumber('abc'), null);
   assert.throws(() => Quantity.parse('10 Fe'), (e) => e instanceof ChemError);
+  // typed without a space: the unit is the longest known one before a formula
+  for (const [text, unit, rest] of [['4gH2', 'g', 'H2'], ['50mLHCl', 'mL', 'HCl'], ['0,1mol/LHCl', 'mol/L', 'HCl'], ['2molO2', 'mol', 'O2'], ['1atm', 'atm', '']]) {
+    const parsed = Quantity.parseWithRest(text);
+    assert.equal(parsed.quantity.unit, unit, text);
+    assert.equal(parsed.rest, rest, text);
+  }
   assert.throws(() => new Quantity(NaN, 'g'), (e) => e.code === 'CHEM_NO_SOLUTION');
 });
 

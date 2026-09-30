@@ -82,6 +82,16 @@ test('formula editor input reaches the chemistry engine', () => {
   assert.equal(runLatex('\\frac{1}{3}+\\frac{1}{4}').latex, '\\frac{7}{12}');
 });
 
+test('chemistry in a calculation typed in the formula editor', () => {
+  const r = runLatex('M\\left(H2O\\right)\\cdot2');
+  assert.equal(r.ok, true, r.error);
+  assert.match(r.latex, /36\{,\}03056/);
+  assert.equal(r.chemParts[0].unit, 'g/mol');
+  // mathematics with other commands is not turned into text
+  assert.equal(runLatex('\\sqrt{4}+2').latex, '4');
+  assert.equal(runLatex('\\frac{1}{2}\\cdot 4').latex, '2');
+});
+
 test('the catalog: chemistry commands are found by search and do not shadow mathematics', () => {
   const chem = COMMANDS.filter((c) => c.chem);
   assert.ok(chem.length >= 50);

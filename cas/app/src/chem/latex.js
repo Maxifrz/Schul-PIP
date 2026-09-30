@@ -3,8 +3,11 @@
 
 const SPACES = /\\[,;:! ]|\\quad|\\qquad|~/g;
 
-/** Text for a LaTeX string; unknown commands are dropped, braces removed */
-export function chemLatexToText(latex) {
+/**
+ * Text for a LaTeX string; unknown commands are dropped, braces removed. With `strict`, a LaTeX command that is not
+ * chemistry notation (\sqrt, \int, \begin …) makes the answer null, so mathematics is never turned into nonsense.
+ */
+export function chemLatexToText(latex, { strict = false } = {}) {
   let s = String(latex).replace(/\^\s*\{?\\(?:circ|degree)\}?/g, '°');
   s = s
     .replace(/\\left(?![A-Za-z])|\\right(?![A-Za-z])/g, '')
@@ -30,6 +33,13 @@ export function chemLatexToText(latex) {
     .replace(/\\lg\b/g, 'lg')
     .replace(/\\ln\b/g, 'ln')
     .replace(/\\pi\b/g, 'pi');
+  // a fraction typed as mol/L: \frac{mol}{L} → mol/L
+  for (let i = 0; i < 6; i++) {
+    const before = s;
+    s = s.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
+    if (s === before) break;
+  }
+  if (strict && /\\(?!left|right)[A-Za-z]+/.test(s)) return null;
   // sub- and superscripts: X_2, X_{12}, X^{2-}, X^-
   s = s.replace(/_\{([^{}]*)\}/g, '$1').replace(/_([A-Za-z0-9])/g, '$1');
   s = s.replace(/\^\{([^{}]*)\}/g, (m, body) => '^' + body).replace(/\^([A-Za-z0-9+-])/g, '^$1');

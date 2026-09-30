@@ -112,6 +112,24 @@ test('formula editor LaTeX becomes chemistry text', () => {
   assert.ok(Math.abs(dh.chemResult.result.value + 92.22) < 0.01);
 });
 
+test('input typed in the formula editor: fractions for units, no spaces', () => {
+  // MathLive turns "mol/L" into a fraction and swallows spaces inside brackets
+  assert.equal(chemLatexToText('\\mathrm{pH}\\left(HCl;0,\\frac{01mol}{L}\\right)'), 'pH(HCl;0,01mol/L)');
+  assert.equal(chemLatexToText('\\frac{\\mathrm{mol}}{\\mathrm{L}}'), 'mol/L');
+  assert.equal(chemLatexToText('\\sqrt{2}', { strict: true }), null);
+  assert.equal(chemLatexToText('M\\left(H2O\\right)\\cdot2', { strict: true }), 'M(H2O)·2');
+  const p = runChemistry({ latex: 'pH\\left(HCl;0,\\frac{01mol}{L}\\right)' }, none);
+  assert.ok(p.ok, p.error);
+  assert.ok(Math.abs(p.chemResult.result.value - 2) < 1e-9);
+  const n = runChemistry({ latex: 'n\\left(NaCl;10g\\right)' }, none);
+  assert.ok(Math.abs(n.chemResult.result.value - 10 / 58.44276928) < 1e-9);
+  const st = runChemistry({ text: 'stöchiometrie(2H2+O2->2H2O;4gH2;32gO2)' }, none);
+  assert.ok(st.ok, st.error);
+  assert.deepEqual(st.chemResult.stoich.limiting, ['H2']);
+  const r = runChemistry({ latex: 'redox\\left(MnO4-+Fe2+\\to Mn2++Fe3+\\right)' }, none);
+  assert.equal(r.chemResult.result.equation, 'MnO4- + 5 Fe^2+ + 8 H+ -> Mn^2+ + 5 Fe^3+ + 4 H2O');
+});
+
 test('German sentences become commands; nothing is calculated by the parser', () => {
   const cases = [
     ['Molare Masse von Schwefelsäure', 'molarMass', 'molmasse(Schwefelsäure)'],

@@ -430,6 +430,11 @@ export function runChemistry(input, defined) {
  * so the mathematics can go on with it. Returns { text, parts: [{ call, value, unit }] } or null when nothing was replaced.
  */
 export function substituteChemistry(text, defined) {
+  if (text && typeof text === 'object') {
+    // LaTeX of the formula editor: only plain chemistry notation is read, anything else stays mathematics
+    const plain = text.latex ? chemLatexToText(text.latex, { strict: true }) : null;
+    return plain ? substituteChemistry(plain.replace(/·/g, '*'), defined) : null;
+  }
   const source = String(text);
   const parts = [];
   let out = '';

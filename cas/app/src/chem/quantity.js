@@ -2,7 +2,7 @@
 // pressure, phase, an uncertainty, significant digits and a source. Arithmetic checks dimensions, so an amount cannot
 // be added to a mass.
 
-import { parseUnit, toSI, fromSI, dimensionName, convert, sameDimension, DIM } from './units.js';
+import { parseUnit, toSI, fromSI, dimensionName, convert, sameDimension, DIM, isUnit } from './units.js';
 import { fail } from './errors.js';
 import { sigFigsOf } from './format.js';
 
@@ -104,8 +104,21 @@ export class Quantity {
     let used = 1;
     while (used < words.length && /[·/^]$/.test(unitText)) unitText += words[used++];
     const rest = words.slice(used).join(' ');
+    // typed without a space ("4gH2", "50mLHCl"): the longest known unit, if a formula follows it
+    let restText = rest;
+    if (!isUnit(unitText)) {
+      for (let k = unitText.length - 1; k >= 1; k--) {
+        const head = unitText.slice(0, k);
+        const tail = unitText.slice(k);
+        if (isUnit(head) && /^[A-Z(\[]/.test(tail)) {
+          unitText = head;
+          restText = rest ? `${tail} ${rest}` : tail;
+          break;
+        }
+      }
+    }
     const quantity = new Quantity(value, unitText, { sigFigs: sigFigsOf(m[1].replace(/\s*[·×x].*$/, '').replace(/[eE].*$/, '')) || undefined });
-    return { quantity, rest };
+    return { quantity, rest: restText };
   }
 }
 
