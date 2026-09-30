@@ -3,6 +3,30 @@
 
 import { command } from './commands.js';
 
+// The formula keyboard can be put away; while it is, focusing a row does not bring it back.
+let keyboardOff = false;
+try {
+  keyboardOff = localStorage.getItem('mathe.keyboardOff') === '1';
+} catch (e) {
+  keyboardOff = false;
+}
+
+export const isKeyboardOff = () => keyboardOff;
+
+export function setKeyboardOff(off) {
+  keyboardOff = off;
+  try {
+    localStorage.setItem('mathe.keyboardOff', off ? '1' : '0');
+  } catch (e) {
+    // not remembered
+  }
+}
+
+/** Shows the formula keyboard for a focused formula row, unless the student put it away. */
+export function showKeyboard() {
+  if (!keyboardOff) window.mathVirtualKeyboard.show();
+}
+
 /** LaTeX template for a command: löse → \operatorname{löse}\left(#?,x\right), filled from its syntax. */
 export function commandTemplate(name) {
   const c = command(name);

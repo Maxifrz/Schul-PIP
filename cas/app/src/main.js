@@ -6,7 +6,8 @@ import { h, toast, sheet, prompt, confirmSheet, toggle } from './ui.js';
 import { Engine } from './engine.js';
 import { CasView } from './cas-view.js';
 import { commandPanel } from './palette.js';
-import { LAYOUTS } from './keyboard.js';
+import { LAYOUTS, showKeyboard, setKeyboardOff } from './keyboard.js';
+import { createSplitter } from './splitter.js';
 import { store, share, reply, notifyReady, insertIntoDocument, hasApp } from './native.js';
 import { toLatex, parsePlain } from './expr.js';
 import { command as commandByName } from './commands.js';
@@ -37,6 +38,7 @@ const state = {
   project: { name: null, settings: { degrees: false }, graph: null },
   layout: null,
   panel: null,
+  splitter: null,
   dirty: false,
 };
 
@@ -579,6 +581,35 @@ function fitKeyboard() {
   const app = document.getElementById('app');
   if (app) app.style.paddingBottom = both ? '0px' : height + 'px';
   if (state.cas && state.cas.el) state.cas.el.style.paddingBottom = both ? height + 'px' : '';
+  // The command list floats over the graphics side by side, so it too must end above the keyboard.
+  if (state.panel) state.panel.style.paddingBottom = both ? height + 'px' : '';
+  updateKeyboardToggle(height);
+}
+
+/** The round button that puts the formula keyboard away and brings it back; it rides on the keyboard's top edge. */
+const keyboardToggle = h('button.kb-toggle', { type: 'button', 'aria-label': 'Formeltastatur ein- oder ausblenden', onclick: toggleKeyboard });
+
+function updateKeyboardToggle(height = window.mathVirtualKeyboard.visible ? window.mathVirtualKeyboard.boundingRect.height : 0) {
+  const visible = window.mathVirtualKeyboard.visible;
+  keyboardToggle.textContent = visible ? '⌄ Tastatur' : '⌨ Tastatur';
+  keyboardToggle.style.bottom = `calc(${Math.round(height)}px + 10px + var(--safe-bottom))`;
+}
+
+function toggleKeyboard() {
+  const keyboard = window.mathVirtualKeyboard;
+  if (keyboard.visible) {
+    setKeyboardOff(true);
+    keyboard.hide();
+  } else {
+    setKeyboardOff(false);
+    // Shown for the row being edited; without a formula row in focus the keyboard would have nothing to type into.
+    const active = state.cas && state.cas.active;
+    if (active && active.mode === 'math') active.field.focus();
+    keyboard.show();
+  }
+  // The keyboard reports its new size when it has moved.
+  updateKeyboardToggle();
+  setTimeout(fitKeyboard, 350);
 }
 
 function setLayout(layout) {
@@ -592,6 +623,7 @@ function setLayout(layout) {
     // no storage: the layout is not remembered
   }
   fitKeyboard();
+  if (state.splitter) state.splitter.apply();
   requestAnimationFrame(() => {
     if (state.graph) state.graph.resize();
     if (state.layout === 'space' && state.space && state.space.init()) {
@@ -614,17 +646,20 @@ function togglePanel() {
     onFavorite: (set) => store.set('favorites', JSON.stringify([...set])),
     onInsert: (name) => {
       if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
+      state.splitter.reveal();
       state.cas.insertCommand(name);
       if (window.innerWidth <= 760) togglePanel();
     },
     onTry: (example) => {
       if (state.layout === 'graph') setLayout(window.innerWidth >= WIDE ? 'both' : 'cas');
+      state.splitter.reveal();
       state.cas.tryExample(example);
       if (window.innerWidth <= 760) togglePanel();
     },
     onClose: togglePanel,
   });
   mainEl.append(state.panel);
+  fitKeyboard();
 }
 
 async function newProject() {
@@ -1077,7 +1112,7 @@ function buildInputLine() {
   const line = h('div.graph-input', {}, h('span.caption', {}, 'Eingabe'), field);
   field.mathVirtualKeyboardPolicy = 'manual';
   field.smartFence = true;
-  field.addEventListener('focusin', () => window.mathVirtualKeyboard.show());
+  field.addEventListener('focusin', () => showKeyboard());
   field.addEventListener('change', () => {
     const latex = field.value.trim();
     if (!latex) return;
@@ -1190,8 +1225,9 @@ function start() {
   state.graph.el.classList.add('graph-pane');
   state.space.el.classList.add('space-pane');
   state.table.el.classList.add('table-pane');
-  mainEl.append(state.cas.el, state.graph.el, state.space.el, state.table.el);
-  app.append(header, examBanner, mainEl);
+  state.splitter = createSplitter({ main: mainEl, onResize: () => requestAnimationFrame(() => state.graph && state.graph.resize()) });
+  mainEl.append(state.cas.el, state.splitter.el, state.graph.el, state.space.el, state.table.el);
+  app.append(header, examBanner, mainEl, keyboardToggle);
   let remembered = null;
   try {
     remembered = localStorage.getItem('mathe.layout');
@@ -1212,6 +1248,7 @@ function start() {
   window.mathVirtualKeyboard.container = keyboardHost;
   // The rows end above the keyboard instead of behind it.
   window.mathVirtualKeyboard.addEventListener('geometrychange', fitKeyboard);
+  updateKeyboardToggle(0);
 
   store.get('favorites').then((json) => {
     try {
