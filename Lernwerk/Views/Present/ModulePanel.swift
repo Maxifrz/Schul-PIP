@@ -1,17 +1,18 @@
 import SwiftUI
 
-/// The module library beside the slide: building blocks for showing data and connections (timelines, comparisons,
-/// number rows, matrices, charts …) with a live preview each. Drag one onto the slide, or tap it to put it in the
-/// middle. Dropped modules are ordinary shapes and texts tied into a group: they move together and can be edited.
+/// The module library beside the slide: diagrams, arrangements and slide components for showing data and connections,
+/// with a live preview each. Drag one onto the slide, or tap it to put it in the middle. Dropped modules are ordinary
+/// shapes, texts and diagrams tied into a group: they move together and can be edited; a diagram's data is changed
+/// with a tap on the diagram.
 struct ModulePanel: View {
     @ObservedObject var model: PresentationEditorModel
     let onClose: () -> Void
 
     @State private var query = ""
-    @State private var category: ComponentCategory?
+    @State private var group: ModuleGroup?
 
-    private var modules: [SlideComponent] {
-        let source = category.map { SlideModules.modules(in: $0) } ?? SlideModules.all
+    private var modules: [SlideModule] {
+        let source = group.map { SlideModules.modules(in: $0) } ?? SlideModules.all
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return source }
         return source.filter { $0.label.localizedCaseInsensitiveContains(text) || $0.summary.localizedCaseInsensitiveContains(text) }
@@ -44,9 +45,9 @@ struct ModulePanel: View {
                 .padding(.vertical, 8)
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
-                    chip("Alle", selected: category == nil) { category = nil }
-                    ForEach(SlideModules.categories, id: \.self) { item in
-                        chip(item.label, selected: category == item) { category = category == item ? nil : item }
+                    chip("Alle", selected: group == nil) { group = nil }
+                    ForEach(SlideModules.groups, id: \.self) { item in
+                        chip(item.label, selected: group == item) { group = group == item ? nil : item }
                     }
                 }
                 .padding(.horizontal, 14)
@@ -56,9 +57,9 @@ struct ModulePanel: View {
             QuillDivider(color: Quill.lineSoft)
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    ForEach(modules, id: \.id) { component in
-                        ModuleCard(component: component, theme: model.presentation.theme) {
-                            model.addModule(component)
+                    ForEach(modules) { module in
+                        ModuleCard(module: module, theme: model.presentation.theme) {
+                            model.addModule(module)
                         }
                     }
                     if modules.isEmpty {
@@ -67,7 +68,7 @@ struct ModulePanel: View {
                             .foregroundStyle(Quill.muted)
                             .padding(.top, 20)
                     }
-                    Text("Ziehen oder antippen. Im Modul lässt sich jedes Teil einzeln bearbeiten; „Modul größer“ und „Gruppe lösen“ stehen unter der Folie.")
+                    Text("Ziehen oder antippen. Ein Diagramm bekommt seine Zahlen per Tipp auf das Diagramm; in anderen Modulen lässt sich jedes Teil einzeln bearbeiten. „Modul größer“ und „Gruppe lösen“ stehen unter der Folie.")
                         .font(.work(12))
                         .foregroundStyle(Quill.faint)
                         .padding(.top, 4)
@@ -93,12 +94,13 @@ struct ModulePanel: View {
     }
 }
 
-/// One module with its preview, drawn in the deck's own design.
+/// One module with its preview, drawn in the deck's own design. The preview is drawn once into a picture, so
+/// scrolling the list stays light.
 private struct ModuleCard: View {
-    let component: SlideComponent
+    let module: SlideModule
     let theme: SlideTheme
     let onInsert: () -> Void
-    @State private var slide: Slide?
+    @State private var image: UIImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -106,31 +108,36 @@ private struct ModuleCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Quill.line2, lineWidth: 1))
             HStack(alignment: .firstTextBaseline) {
-                Text(component.label)
+                Text(module.label)
                     .font(.work(13.5, .medium))
                     .foregroundStyle(Quill.ink)
                 Spacer()
-                Text(component.category.label)
+                Text(module.group.label)
                     .font(.work(11.5))
                     .foregroundStyle(Quill.faint)
+                    .lineLimit(1)
             }
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onInsert)
-        .draggable("module:" + component.id) {
+        .draggable("module:" + module.id) {
             preview.frame(width: 200)
         }
         .task(id: theme.id) {
-            slide = SlideModules.preview(of: component, theme: theme)
+            let slide = SlideModules.preview(of: module, theme: theme)
+            let data = SlideDrawing.png(slide, theme: theme, index: 1, images: [:], width: 640)
+            image = UIImage(data: data)
         }
-        .accessibilityLabel("\(component.label), Modul")
+        .accessibilityLabel("\(module.label), Modul")
         .accessibilityHint("Auf die Folie ziehen oder antippen")
     }
 
     @ViewBuilder
     private var preview: some View {
-        if let slide {
-            SlideCanvas(slide: slide, theme: theme, images: [:], index: 1)
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(16 / 9, contentMode: .fit)
         } else {
             Rectangle()
                 .fill(Quill.hover)

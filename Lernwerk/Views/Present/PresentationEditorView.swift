@@ -31,6 +31,7 @@ struct PresentationEditorView: View {
     @State private var choosingDesign = false
     @State private var choosingVariant = false
     @State private var isModulesOpen = false
+    @State private var chartEdit: ChartEditRequest?
 
     init(presentation: Presentation, store: PresentationStore, openAssistant: AssistantTab? = nil) {
         _model = StateObject(wrappedValue: PresentationEditorModel(presentation) { store.update($0) })
@@ -110,7 +111,7 @@ struct PresentationEditorView: View {
                 Rectangle().fill(Quill.line).frame(width: 1)
                 VStack(spacing: 0) {
                     insertBar
-                    EditorCanvasView(model: model, images: images)
+                    EditorCanvasView(model: model, images: images, onEditChart: { chartEdit = ChartEditRequest(id: $0) })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     inspector
                     notesBar
@@ -145,6 +146,11 @@ struct PresentationEditorView: View {
             VariantSheet(slide: model.slide, theme: model.presentation.theme, images: images, index: model.slideIndex) { variant in
                 choosingVariant = false
                 model.replaceSlide(SlideVariants.applying(variant, to: model.slide))
+            }
+        }
+        .sheet(item: $chartEdit) { request in
+            if let element = model.slide.elements.first(where: { $0.id == request.id }) {
+                ChartEditorSheet(model: model, element: element)
             }
         }
         .sheet(isPresented: $isPickingPage) {
@@ -215,7 +221,9 @@ struct PresentationEditorView: View {
         let data: Data
         switch format {
         case .pptx:
-            data = PptxWriter.write(presentation) { store.mediaData($0) }
+            // PowerPoint gets each diagram as a picture of it.
+            let flat = ChartExport.flattened(presentation)
+            data = PptxWriter.write(flat.presentation) { flat.media[$0] ?? store.mediaData($0) }
         case .pdf:
             data = SlideDrawing.pdf(presentation, images: images)
         case .pdfNotes:
@@ -405,6 +413,9 @@ struct PresentationEditorView: View {
                         }
                     case .image:
                         Text("Bild").font(.work(13)).foregroundStyle(Quill.muted)
+                    case .chart:
+                        chip("Daten und Typ …") { chartEdit = ChartEditRequest(id: element.id) }
+                        Text(element.chart?.type.label ?? "Diagramm").font(.work(13)).foregroundStyle(Quill.muted)
                     }
                     Rectangle().fill(Quill.line2).frame(width: 1, height: 24)
                     chip("Nach vorn") { model.reorderSelected(forward: true) }
@@ -596,6 +607,7 @@ private struct ColorChip: View {
 private struct EditorCanvasView: View {
     @ObservedObject var model: PresentationEditorModel
     let images: [String: UIImage]
+    var onEditChart: (String) -> Void = { _ in }
     @State private var drag: EditorDrag?
     @State private var moved = false
     @State private var isDropTargeted = false
@@ -626,9 +638,9 @@ private struct EditorCanvasView: View {
             .overlay(Rectangle().stroke(Quill.accent, lineWidth: 3).opacity(isDropTargeted ? 1 : 0).allowsHitTesting(false))
             .dropDestination(for: String.self) { items, location in
                 guard let payload = items.first(where: { $0.hasPrefix("module:") }),
-                      let component = ComponentRegistry.component(String(payload.dropFirst(7)))
+                      let module = SlideModules.module(id: String(payload.dropFirst(7)))
                 else { return false }
-                model.addModule(component, center: (x: Double(location.x) / scale, y: Double(location.y) / scale))
+                model.addModule(module, center: (x: Double(location.x) / scale, y: Double(location.y) / scale))
                 return true
             } isTargeted: { targeted in
                 isDropTargeted = targeted
@@ -722,8 +734,12 @@ private struct EditorCanvasView: View {
         model.verticalGuides = []
         model.horizontalGuides = []
         model.endGesture()
-        if !moved, case let .move(base, tappedSelected) = current, tappedSelected, base.kind == .text {
-            model.startEditing(base.id)
+        if !moved, case let .move(base, tappedSelected) = current, tappedSelected {
+            if base.kind == .text {
+                model.startEditing(base.id)
+            } else if base.kind == .chart {
+                onEditChart(base.id)
+            }
         }
     }
 

@@ -300,6 +300,7 @@ enum MotionPlanner {
                     kind = .fly
                     direction = SlideDesign.isHeading(element) ? .left : .down
                 case .image: kind = .zoom
+                case .chart: kind = .fade
                 case .shape: kind = element.isLine ? .wipe : .fade
                 }
                 if kind == .wipe { direction = .left }

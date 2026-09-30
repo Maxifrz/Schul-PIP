@@ -201,6 +201,9 @@ enum PptxWriter {
             case .image:
                 guard let name = element.image, let relation = images[name] else { continue }
                 xml += picture(element, id: id, relation: relation)
+            case .chart:
+                // Diagrams reach the writer as pictures (`ChartExport`); one that did not has nothing to write.
+                continue
             }
             if index >= decor.count { shapeIDs[element.id] = id }
         }

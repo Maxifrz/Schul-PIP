@@ -300,9 +300,9 @@ final class PresentationEditorModel: ObservableObject {
     }
 
     /// A module from the library, dropped with its middle at `center` (slide points) or in the middle of the slide.
-    func addModule(_ component: SlideComponent, center: (x: Double, y: Double)? = nil) {
+    func addModule(_ module: SlideModule, center: (x: Double, y: Double)? = nil) {
         finishEditing()
-        let parts = SlideModules.elements(for: component, theme: presentation.theme, center: center)
+        let parts = SlideModules.elements(for: module, theme: presentation.theme, center: center)
         guard !parts.isEmpty else { return }
         updateSlide { slide in
             var next = slide
