@@ -92,11 +92,13 @@ final class PageOverlayView: UIView {
     let annotationLayer = UIView()
     let canvas = PKCanvasView()
     let instrumentLayer = InstrumentLayerView()
+    let lassoLayer = LassoLayerView()
     private let targetLayer = CAShapeLayer()
     private let mathChip = UIButton(type: .system)
     private var mathChipAction: (() -> Void)?
     private(set) var annotationViews: [String: AnnotationView] = [:]
     let tap = UITapGestureRecognizer()
+    private var renderedScale: CGFloat = 0
 
     init(pageIndex: Int, controller: NotesController) {
         self.pageIndex = pageIndex
@@ -111,6 +113,10 @@ final class PageOverlayView: UIView {
         canvas.overrideUserInterfaceStyle = .light
         canvas.drawingPolicy = .default
         addSubview(canvas)
+        lassoLayer.controller = controller
+        lassoLayer.pageIndex = pageIndex
+        lassoLayer.isHidden = true
+        addSubview(lassoLayer)
         instrumentLayer.controller = controller
         addSubview(instrumentLayer)
         targetLayer.fillColor = QuillUIColor.hex(0x7FA98C, alpha: 0.08).cgColor
@@ -142,6 +148,7 @@ final class PageOverlayView: UIView {
         super.layoutSubviews()
         annotationLayer.frame = bounds
         canvas.frame = bounds
+        lassoLayer.frame = bounds
         instrumentLayer.frame = bounds
         targetLayer.frame = bounds
         controller?.overlayDidLayout(self)
@@ -159,9 +166,30 @@ final class PageOverlayView: UIView {
             }
         }
         if tool.usesCanvas {
+            // The selection lasso takes the touches itself; the pencil's own lasso (and every pen) go to the canvas.
+            if !lassoLayer.isHidden {
+                return lassoLayer.hitTest(convert(point, to: lassoLayer), with: event) ?? lassoLayer
+            }
             return canvas.hitTest(convert(point, to: canvas), with: event)
         }
         return tool == .typing || tool == .textBox ? self : nil
+    }
+
+    /// The page is enlarged by a transform, which stretches what was drawn at the first size. Telling the views and
+    /// layers to draw at the enlarged size keeps ink, text and pictures sharp at any zoom; the size on the glass
+    /// (`nativeScale` times the zoom) is capped so memory stays in bounds.
+    func renderSharp(at zoom: CGFloat) {
+        let native = window?.screen.nativeScale ?? UIScreen.main.nativeScale
+        let scale = min(max(native * zoom, native), native * 8)
+        guard abs(scale - renderedScale) > 0.01 else { return }
+        renderedScale = scale
+        Self.apply(scale: scale, to: self)
+    }
+
+    private static func apply(scale: CGFloat, to view: UIView) {
+        view.contentScaleFactor = scale
+        view.layer.contentsScale = scale
+        view.subviews.forEach { apply(scale: scale, to: $0) }
     }
 
     /// The calculated result offered after a written "=", or nil to take it away.
@@ -215,6 +243,7 @@ final class PageOverlayView: UIView {
                 let view = AnnotationView(annotation: annotation, controller: controller)
                 annotationLayer.addSubview(view)
                 annotationViews[annotation.id] = view
+                if renderedScale > 0 { Self.apply(scale: renderedScale, to: view) }
             }
         }
         updateHandles()

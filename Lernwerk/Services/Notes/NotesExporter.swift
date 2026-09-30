@@ -57,7 +57,7 @@ enum NotesExporter {
         cg.restoreGState()
     }
 
-    private static func drawAnnotations(_ annotations: [PageAnnotation]) {
+    static func drawAnnotations(_ annotations: [PageAnnotation]) {
         for annotation in annotations {
             let frame = annotation.frame
             switch annotation.kind {

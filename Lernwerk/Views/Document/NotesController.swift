@@ -18,6 +18,19 @@ struct MathRegionRequest: Identifiable {
     var imageJPEG: Data
 }
 
+/// What the lasso has taken in on a page, and what is going on while it is dragged.
+private struct LassoState {
+    var page: Int
+    var strokeIndices: [Int]
+    var strokeCount: Int
+    var annotationIDs: [String]
+    var bounds: CGRect
+    /// While dragging: the page's ink as it was, the strokes lifted off it, and where the annotations were.
+    var original: PKDrawing?
+    var lifted: [PKStroke] = []
+    var startFrames: [String: CGRect] = [:]
+}
+
 /// Runs the document canvas: PDFKit shows the pages, each page gets an overlay with its texts, pictures, stickers
 /// and a PencilKit canvas. Ink and notes are saved shortly after every change.
 final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewDelegate {
@@ -38,6 +51,11 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     /// The text or table being typed in, kept when its page's view is recycled so typing can go on.
     private var editingAnnotationID: String?
     private var keyboardInset: CGFloat = 0
+    private var lasso: LassoState?
+
+    /// The most the page can be enlarged, in times the size at 100 %.
+    static let maxZoom: CGFloat = 16
+    private var pendingSharpen: DispatchWorkItem?
 
     private(set) var zoomActive = false
     private var zoomTarget: (page: Int, rect: CGRect)?
@@ -69,12 +87,15 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         // The overlay provider has to be set before the document is assigned.
         container.pdfView.pageOverlayViewProvider = self
         container.pdfView.document = document
+        // Far more than PDFKit's default: small handwriting and fine print can be enlarged until they fill the screen.
+        container.pdfView.maxScaleFactor = Self.maxZoom
         container.markingView.onMark = { [weak self] rect in self?.handleMark(rect) }
         container.zoomPanel.canvas.delegate = self
         container.zoomPanel.onMove = { [weak self] dx, dy in self?.moveZoomTarget(dx: dx, dy: dy) }
         container.zoomPanel.onNewLine = { [weak self] in self?.zoomNewLine() }
         container.zoomPanel.onClose = { [weak self] in self?.onZoomClosed?() }
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: container.pdfView)
+        NotificationCenter.default.addObserver(self, selector: #selector(zoomChanged), name: .PDFViewScaleChanged, object: container.pdfView)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         for name in [Notification.Name.NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
@@ -115,8 +136,10 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
 
     func apply(tool: NoteTool, settings: InkSettings) {
         let toolChanged = tool != self.tool
+        let lassoModeChanged = settings.nativeLasso != self.settings.nativeLasso
         self.tool = tool
         self.settings = settings
+        if toolChanged || lassoModeChanged { lassoClear() }
         if toolChanged, !tool.editsAnnotations { container.endEditing(true) }
         let markup = tool.usesCanvas
         if container.pdfView.isInMarkupMode != markup { container.pdfView.isInMarkupMode = markup }
@@ -131,8 +154,11 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
 
     private func configure(_ overlay: PageOverlayView) {
         let showsInstrument = instrument != nil && overlay.pageIndex == instrumentPage
+        // The lasso that also takes texts and pictures works on its own layer; the pencil's lasso on the canvas.
+        let ownLasso = tool == .lasso && !settings.nativeLasso
         overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations || showsInstrument
-        overlay.canvas.isUserInteractionEnabled = tool.usesCanvas
+        overlay.canvas.isUserInteractionEnabled = tool.usesCanvas && !ownLasso
+        overlay.lassoLayer.isHidden = !ownLasso
         if let pkTool = settings.pkTool(for: tool) { overlay.canvas.tool = pkTool }
         overlay.tap.isEnabled = tool == .typing || tool == .textBox
         overlay.updateHandles()
@@ -241,6 +267,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         overlay.reload(notes.annotations(on: index), editingID: nil)
         overlays[index] = overlay
         configure(overlay)
+        overlay.renderSharp(at: container.pdfView.scaleFactor)
         // The page's view was recycled while typing (the keyboard came up, the page scrolled): go on where it was.
         if let id = editingAnnotationID, overlay.annotationViews[id] != nil {
             DispatchQueue.main.async { [weak overlay] in overlay?.annotationViews[id]?.beginEditing() }
@@ -276,6 +303,19 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     func go(to selection: PDFSelection) {
         container.pdfView.go(to: selection)
         container.pdfView.highlightedSelections = [selection]
+    }
+
+    /// Ink and text are drawn again at the new size once the pinch has come to rest, so they stay sharp when enlarged
+    /// instead of showing the pixels of the size they were first drawn at.
+    @objc private func zoomChanged() {
+        pendingSharpen?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let zoom = self.container.pdfView.scaleFactor
+            self.overlays.values.forEach { $0.renderSharp(at: zoom) }
+        }
+        pendingSharpen = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
     }
 
     @objc private func pageChanged() {
@@ -350,12 +390,14 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     // History
 
     func undo() {
+        lassoClear()
         container.endEditing(true)
         undoManager?.undo()
         notifyUndo()
     }
 
     func redo() {
+        lassoClear()
         container.endEditing(true)
         undoManager?.redo()
         notifyUndo()
@@ -586,6 +628,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     }
 
     func commitFrame(of id: String, frame: CGRect) {
+        lassoClear()
         let previous = changeSnapshot ?? notes.annotations
         changeSnapshot = nil
         var updated = notes.annotations
@@ -915,5 +958,263 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         }
         MaterialStore.saveDrawings(drawings, for: fileName)
         MaterialStore.saveNotes(notes, for: fileName)
+    }
+}
+
+// MARK: - Selection lasso
+
+extension NotesController {
+    /// Takes in the ink, texts, pictures and stickers a loop encloses; nil when the loop is too small to mean anything.
+    func lassoSelect(page: Int, loop: [CGPoint]) -> LassoResult? {
+        let drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        var indices: [Int] = []
+        var box = CGRect.null
+        for (index, stroke) in drawing.strokes.enumerated() {
+            let points = stroke.path.map { $0.location.applying(stroke.transform) }
+            if LassoGeometry.share(of: points, inside: loop) >= 0.5 {
+                indices.append(index)
+                box = box.union(stroke.renderBounds)
+            }
+        }
+        var ids: [String] = []
+        for note in notes.annotations(on: page) where LassoGeometry.selects(loop, rect: note.frame) {
+            ids.append(note.id)
+            box = box.union(note.frame)
+        }
+        let hasObjects = !indices.isEmpty || !ids.isEmpty
+        if !hasObjects { box = LassoGeometry.bounds(of: loop) }
+        let rect = LassoGeometry.padded(box, by: 6, within: CGRect(origin: .zero, size: pageCanvasSize(page)))
+        guard !rect.isNull, rect.width > 4, rect.height > 4 else { return nil }
+        lasso = LassoState(page: page, strokeIndices: indices, strokeCount: drawing.strokes.count, annotationIDs: ids, bounds: rect)
+        return LassoResult(rect: rect, hasObjects: hasObjects)
+    }
+
+    func lassoClear() {
+        if lasso?.original != nil { lassoCancelMove() }
+        lasso = nil
+        overlays.values.forEach { $0.lassoLayer.hideSelection() }
+    }
+
+    /// Sets a page's ink on the canvas only: no history, nothing saved. For the moment a selection is dragged.
+    private func setCanvasDrawing(_ drawing: PKDrawing, page: Int) {
+        guard let canvas = overlays[page]?.canvas else { return }
+        isReplacingDrawing = true
+        canvas.drawing = drawing
+        isReplacingDrawing = false
+    }
+
+    /// Picks the selection up: its ink leaves the canvas as a picture that moves with the finger, and the frames of
+    /// its objects are remembered.
+    func lassoLift() -> (image: UIImage?, rect: CGRect)? {
+        guard var state = lasso, state.original == nil else { return nil }
+        let page = state.page
+        let drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        guard drawing.strokes.count == state.strokeCount else {
+            lassoClear()
+            return nil
+        }
+        state.original = drawing
+        for note in notes.annotations where state.annotationIDs.contains(note.id) {
+            state.startFrames[note.id] = note.frame
+        }
+        var image: UIImage?
+        var rect = CGRect.zero
+        if !state.strokeIndices.isEmpty {
+            let strokes = state.strokeIndices.map { drawing.strokes[$0] }
+            state.lifted = strokes
+            let liftedDrawing = PKDrawing(strokes: strokes)
+            rect = liftedDrawing.bounds.insetBy(dx: -2, dy: -2)
+            UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+                image = liftedDrawing.image(from: rect, scale: UIScreen.main.scale * 2)
+            }
+            var rest = drawing.strokes
+            for index in state.strokeIndices.sorted(by: >) { rest.remove(at: index) }
+            setCanvasDrawing(PKDrawing(strokes: rest), page: page)
+        }
+        lasso = state
+        return (image, rect)
+    }
+
+    /// The pictures, texts and stickers of the selection follow the finger.
+    func lassoMove(by translation: CGPoint) {
+        guard let state = lasso, let overlay = overlays[state.page] else { return }
+        for id in state.annotationIDs {
+            if let start = state.startFrames[id] {
+                overlay.annotationViews[id]?.frame = start.offsetBy(dx: translation.x, dy: translation.y)
+            }
+        }
+    }
+
+    /// Puts the selection down: ink and objects move together, as one step of the history.
+    func lassoDrop(by translation: CGPoint) {
+        guard var state = lasso, let original = state.original else { return }
+        let page = state.page
+        if !state.lifted.isEmpty {
+            // Back to the ink as it was without a trace, then the move as one undoable change.
+            setCanvasDrawing(original, page: page)
+            var strokes = original.strokes
+            for index in state.strokeIndices.sorted(by: >) { strokes.remove(at: index) }
+            let moved = PKDrawing(strokes: state.lifted)
+                .transformed(using: CGAffineTransform(translationX: translation.x, y: translation.y))
+                .strokes
+            let first = strokes.count
+            strokes.append(contentsOf: moved)
+            setDrawing(PKDrawing(strokes: strokes), page: page)
+            state.strokeIndices = Array(first..<strokes.count)
+            state.strokeCount = strokes.count
+        }
+        if !state.annotationIDs.isEmpty {
+            var updated = notes.annotations
+            for index in updated.indices {
+                if let start = state.startFrames[updated[index].id] {
+                    updated[index].frame = start.offsetBy(dx: translation.x, dy: translation.y)
+                }
+            }
+            commitAnnotations(updated, previous: notes.annotations, name: "Verschieben")
+        }
+        state.bounds = state.bounds.offsetBy(dx: translation.x, dy: translation.y)
+        state.original = nil
+        state.lifted = []
+        state.startFrames = [:]
+        lasso = state
+    }
+
+    func lassoCancelMove() {
+        guard var state = lasso, let original = state.original else { return }
+        setCanvasDrawing(original, page: state.page)
+        if let overlay = overlays[state.page] {
+            for (id, frame) in state.startFrames { overlay.annotationViews[id]?.frame = frame }
+        }
+        state.original = nil
+        state.lifted = []
+        state.startFrames = [:]
+        lasso = state
+    }
+
+    func lassoDelete() {
+        guard let state = lasso else { return }
+        let page = state.page
+        var drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        if !state.strokeIndices.isEmpty, drawing.strokes.count == state.strokeCount {
+            var strokes = drawing.strokes
+            for index in state.strokeIndices.sorted(by: >) { strokes.remove(at: index) }
+            drawing = PKDrawing(strokes: strokes)
+            setDrawing(drawing, page: page)
+        }
+        if !state.annotationIDs.isEmpty {
+            commitAnnotations(notes.annotations.filter { !state.annotationIDs.contains($0.id) }, previous: notes.annotations, name: "Löschen")
+        }
+        lassoClear()
+    }
+
+    func lassoDuplicate() {
+        guard var state = lasso else { return }
+        let page = state.page
+        let offset: CGFloat = 24
+        if !state.strokeIndices.isEmpty {
+            var drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+            guard drawing.strokes.count == state.strokeCount else {
+                lassoClear()
+                return
+            }
+            let copies = PKDrawing(strokes: state.strokeIndices.map { drawing.strokes[$0] })
+                .transformed(using: CGAffineTransform(translationX: offset, y: offset))
+                .strokes
+            let first = drawing.strokes.count
+            drawing.strokes.append(contentsOf: copies)
+            setDrawing(drawing, page: page)
+            state.strokeIndices = Array(first..<drawing.strokes.count)
+            state.strokeCount = drawing.strokes.count
+        }
+        if !state.annotationIDs.isEmpty {
+            var copies: [PageAnnotation] = []
+            for id in state.annotationIDs {
+                guard var copy = notes.annotations.first(where: { $0.id == id }) else { continue }
+                copy.id = UUID().uuidString
+                copy.x += offset
+                copy.y += offset
+                copies.append(copy)
+            }
+            commitAnnotations(notes.annotations + copies, previous: notes.annotations, name: "Duplizieren")
+            state.annotationIDs = copies.map(\.id)
+        }
+        state.bounds = state.bounds.offsetBy(dx: offset, dy: offset)
+        lasso = state
+        overlays[page]?.lassoLayer.show(LassoResult(rect: state.bounds, hasObjects: true))
+    }
+
+    // Screenshot
+
+    /// The page as it looks in a region, with the PDF, texts, pictures and ink, as a picture.
+    func snapshotImage(page: Int, rect: CGRect, scale: CGFloat = 3) -> UIImage? {
+        guard let pdfPage = document.page(at: page), rect.width > 1, rect.height > 1 else { return nil }
+        let canvas = pageCanvasSize(page)
+        let box = pdfPage.bounds(for: .cropBox)
+        let drawing = overlays[page]?.canvas.drawing ?? drawings[page] ?? PKDrawing()
+        let annotations = notes.annotations(on: page)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
+            let cg = context.cgContext
+            UIColor.white.setFill()
+            cg.fill(CGRect(origin: .zero, size: rect.size))
+            cg.translateBy(x: -rect.minX, y: -rect.minY)
+            cg.saveGState()
+            cg.scaleBy(x: canvas.width / box.width, y: canvas.height / box.height)
+            cg.translateBy(x: 0, y: box.height)
+            cg.scaleBy(x: 1, y: -1)
+            pdfPage.draw(with: .cropBox, to: cg)
+            cg.restoreGState()
+            NotesExporter.drawAnnotations(annotations)
+            if !drawing.strokes.isEmpty {
+                UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+                    drawing.image(from: rect, scale: scale).draw(in: rect)
+                }
+            }
+        }
+    }
+
+    /// Takes a picture of the framed region and asks what to do with it: put it on the page, copy or share it.
+    func lassoScreenshot(page: Int, rect: CGRect, from source: UIView) {
+        guard let image = snapshotImage(page: page, rect: rect) else { return }
+        let sheet = UIAlertController(title: "Screenshot", message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Als Bild auf die Seite", style: .default) { [weak self] _ in
+            self?.insertScreenshot(image, of: rect, page: page)
+        })
+        sheet.addAction(UIAlertAction(title: "Kopieren", style: .default) { _ in
+            UIPasteboard.general.image = image
+        })
+        sheet.addAction(UIAlertAction(title: "Teilen oder sichern …", style: .default) { [weak self] _ in
+            let share = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+            share.popoverPresentationController?.sourceView = source
+            share.popoverPresentationController?.sourceRect = source.bounds
+            self?.presenter()?.present(share, animated: true)
+        })
+        sheet.addAction(UIAlertAction(title: "Abbrechen", style: .cancel))
+        sheet.popoverPresentationController?.sourceView = source
+        sheet.popoverPresentationController?.sourceRect = source.bounds
+        presenter()?.present(sheet, animated: true)
+    }
+
+    /// The screenshot as a picture beside the region, or below it, at the size it was taken.
+    private func insertScreenshot(_ image: UIImage, of rect: CGRect, page: Int) {
+        guard let name = MaterialStore.saveNoteImage(image) else { return }
+        let size = pageCanvasSize(page)
+        var origin = CGPoint(x: rect.minX, y: rect.maxY + 12)
+        if origin.y + rect.height > size.height {
+            origin = CGPoint(x: rect.maxX + 12, y: rect.minY)
+        }
+        origin.x = min(max(0, origin.x), max(0, size.width - rect.width))
+        origin.y = min(max(0, origin.y), max(0, size.height - rect.height))
+        var annotation = PageAnnotation(page: page, kind: .image, x: origin.x, y: origin.y, width: rect.width, height: rect.height)
+        annotation.image = name
+        commitAnnotations(notes.annotations + [annotation], previous: notes.annotations, name: "Screenshot")
+    }
+
+    private func presenter() -> UIViewController? {
+        var top = container.window?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 }

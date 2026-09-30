@@ -697,7 +697,15 @@ private struct ToolOptions: View {
                     hint(editor.tool == .typing ? "Tippe auf die Seite oder auf +, um zu schreiben." : "Tippe auf die Seite oder auf + für ein Textfeld.")
                 }
             case .lasso:
-                hint("Striche einkreisen zum Verschieben. Texte, Bilder und Sticker antippen und ziehen, gedrückt halten für mehr.")
+                Picker("Lasso", selection: $editor.settings.nativeLasso) {
+                    Text("Alles auswählen").tag(false)
+                    Text("Nur Tinte (drehen, skalieren)").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 340)
+                hint(editor.settings.nativeLasso
+                    ? "Striche einkreisen zum Verschieben, Drehen und Skalieren."
+                    : "Einkreisen: Tinte, Bilder, Texte, Sticker. Rahmen ziehen zum Verschieben; im Menü: Screenshot, Duplizieren, Löschen.")
             case .laser:
                 hint("Zum Zeigen: Die Spur verblasst nach dem Loslassen.")
             case .math:
