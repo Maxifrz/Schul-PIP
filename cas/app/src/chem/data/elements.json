@@ -1,0 +1,1475 @@
+{
+ "version": "2026.1",
+ "kind": "elements",
+ "source": "Standard-Atomgewichte (IUPAC, abgekürzte Tabelle 2007) und Pauling-Elektronegativitäten (CRC Handbook of Chemistry and Physics); Elemente ohne stabiles Isotop tragen die Massenzahl ihres langlebigsten Isotops (massIsMassNumber).",
+ "reference": "IUPAC Commission on Isotopic Abundances and Atomic Weights; CRC Handbook",
+ "elements": [
+  {
+   "atomicNumber": 1,
+   "symbol": "H",
+   "name": "Hydrogen",
+   "nameDe": "Wasserstoff",
+   "atomicMass": 1.00794,
+   "massIsMassNumber": false,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    -1,
+    1
+   ]
+  },
+  {
+   "atomicNumber": 2,
+   "symbol": "He",
+   "name": "Helium",
+   "nameDe": "Helium",
+   "atomicMass": 4.002602,
+   "massIsMassNumber": false,
+   "electronegativity": null,
+   "oxidationStates": [
+    0
+   ]
+  },
+  {
+   "atomicNumber": 3,
+   "symbol": "Li",
+   "name": "Lithium",
+   "nameDe": "Lithium",
+   "atomicMass": 6.941,
+   "massIsMassNumber": false,
+   "electronegativity": 0.98,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 4,
+   "symbol": "Be",
+   "name": "Beryllium",
+   "nameDe": "Beryllium",
+   "atomicMass": 9.012182,
+   "massIsMassNumber": false,
+   "electronegativity": 1.57,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 5,
+   "symbol": "B",
+   "name": "Boron",
+   "nameDe": "Bor",
+   "atomicMass": 10.811,
+   "massIsMassNumber": false,
+   "electronegativity": 2.04,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 6,
+   "symbol": "C",
+   "name": "Carbon",
+   "nameDe": "Kohlenstoff",
+   "atomicMass": 12.0107,
+   "massIsMassNumber": false,
+   "electronegativity": 2.55,
+   "oxidationStates": [
+    -4,
+    -2,
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 7,
+   "symbol": "N",
+   "name": "Nitrogen",
+   "nameDe": "Stickstoff",
+   "atomicMass": 14.0067,
+   "massIsMassNumber": false,
+   "electronegativity": 3.04,
+   "oxidationStates": [
+    -3,
+    -2,
+    -1,
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 8,
+   "symbol": "O",
+   "name": "Oxygen",
+   "nameDe": "Sauerstoff",
+   "atomicMass": 15.9994,
+   "massIsMassNumber": false,
+   "electronegativity": 3.44,
+   "oxidationStates": [
+    -2,
+    -1,
+    1,
+    2
+   ]
+  },
+  {
+   "atomicNumber": 9,
+   "symbol": "F",
+   "name": "Fluorine",
+   "nameDe": "Fluor",
+   "atomicMass": 18.9984032,
+   "massIsMassNumber": false,
+   "electronegativity": 3.98,
+   "oxidationStates": [
+    -1
+   ]
+  },
+  {
+   "atomicNumber": 10,
+   "symbol": "Ne",
+   "name": "Neon",
+   "nameDe": "Neon",
+   "atomicMass": 20.1797,
+   "massIsMassNumber": false,
+   "electronegativity": null,
+   "oxidationStates": [
+    0
+   ]
+  },
+  {
+   "atomicNumber": 11,
+   "symbol": "Na",
+   "name": "Sodium",
+   "nameDe": "Natrium",
+   "atomicMass": 22.98976928,
+   "massIsMassNumber": false,
+   "electronegativity": 0.93,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 12,
+   "symbol": "Mg",
+   "name": "Magnesium",
+   "nameDe": "Magnesium",
+   "atomicMass": 24.305,
+   "massIsMassNumber": false,
+   "electronegativity": 1.31,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 13,
+   "symbol": "Al",
+   "name": "Aluminium",
+   "nameDe": "Aluminium",
+   "atomicMass": 26.9815386,
+   "massIsMassNumber": false,
+   "electronegativity": 1.61,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 14,
+   "symbol": "Si",
+   "name": "Silicon",
+   "nameDe": "Silicium",
+   "atomicMass": 28.0855,
+   "massIsMassNumber": false,
+   "electronegativity": 1.9,
+   "oxidationStates": [
+    -4,
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 15,
+   "symbol": "P",
+   "name": "Phosphorus",
+   "nameDe": "Phosphor",
+   "atomicMass": 30.973762,
+   "massIsMassNumber": false,
+   "electronegativity": 2.19,
+   "oxidationStates": [
+    -3,
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 16,
+   "symbol": "S",
+   "name": "Sulfur",
+   "nameDe": "Schwefel",
+   "atomicMass": 32.065,
+   "massIsMassNumber": false,
+   "electronegativity": 2.58,
+   "oxidationStates": [
+    -2,
+    2,
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 17,
+   "symbol": "Cl",
+   "name": "Chlorine",
+   "nameDe": "Chlor",
+   "atomicMass": 35.453,
+   "massIsMassNumber": false,
+   "electronegativity": 3.16,
+   "oxidationStates": [
+    -1,
+    1,
+    3,
+    5,
+    7
+   ]
+  },
+  {
+   "atomicNumber": 18,
+   "symbol": "Ar",
+   "name": "Argon",
+   "nameDe": "Argon",
+   "atomicMass": 39.948,
+   "massIsMassNumber": false,
+   "electronegativity": null,
+   "oxidationStates": [
+    0
+   ]
+  },
+  {
+   "atomicNumber": 19,
+   "symbol": "K",
+   "name": "Potassium",
+   "nameDe": "Kalium",
+   "atomicMass": 39.0983,
+   "massIsMassNumber": false,
+   "electronegativity": 0.82,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 20,
+   "symbol": "Ca",
+   "name": "Calcium",
+   "nameDe": "Calcium",
+   "atomicMass": 40.078,
+   "massIsMassNumber": false,
+   "electronegativity": 1.0,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 21,
+   "symbol": "Sc",
+   "name": "Scandium",
+   "nameDe": "Scandium",
+   "atomicMass": 44.955912,
+   "massIsMassNumber": false,
+   "electronegativity": 1.36,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 22,
+   "symbol": "Ti",
+   "name": "Titanium",
+   "nameDe": "Titan",
+   "atomicMass": 47.867,
+   "massIsMassNumber": false,
+   "electronegativity": 1.54,
+   "oxidationStates": [
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 23,
+   "symbol": "V",
+   "name": "Vanadium",
+   "nameDe": "Vanadium",
+   "atomicMass": 50.9415,
+   "massIsMassNumber": false,
+   "electronegativity": 1.63,
+   "oxidationStates": [
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 24,
+   "symbol": "Cr",
+   "name": "Chromium",
+   "nameDe": "Chrom",
+   "atomicMass": 51.9961,
+   "massIsMassNumber": false,
+   "electronegativity": 1.66,
+   "oxidationStates": [
+    2,
+    3,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 25,
+   "symbol": "Mn",
+   "name": "Manganese",
+   "nameDe": "Mangan",
+   "atomicMass": 54.938045,
+   "massIsMassNumber": false,
+   "electronegativity": 1.55,
+   "oxidationStates": [
+    2,
+    3,
+    4,
+    6,
+    7
+   ]
+  },
+  {
+   "atomicNumber": 26,
+   "symbol": "Fe",
+   "name": "Iron",
+   "nameDe": "Eisen",
+   "atomicMass": 55.845,
+   "massIsMassNumber": false,
+   "electronegativity": 1.83,
+   "oxidationStates": [
+    2,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 27,
+   "symbol": "Co",
+   "name": "Cobalt",
+   "nameDe": "Cobalt",
+   "atomicMass": 58.933195,
+   "massIsMassNumber": false,
+   "electronegativity": 1.88,
+   "oxidationStates": [
+    2,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 28,
+   "symbol": "Ni",
+   "name": "Nickel",
+   "nameDe": "Nickel",
+   "atomicMass": 58.6934,
+   "massIsMassNumber": false,
+   "electronegativity": 1.91,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 29,
+   "symbol": "Cu",
+   "name": "Copper",
+   "nameDe": "Kupfer",
+   "atomicMass": 63.546,
+   "massIsMassNumber": false,
+   "electronegativity": 1.9,
+   "oxidationStates": [
+    1,
+    2
+   ]
+  },
+  {
+   "atomicNumber": 30,
+   "symbol": "Zn",
+   "name": "Zinc",
+   "nameDe": "Zink",
+   "atomicMass": 65.38,
+   "massIsMassNumber": false,
+   "electronegativity": 1.65,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 31,
+   "symbol": "Ga",
+   "name": "Gallium",
+   "nameDe": "Gallium",
+   "atomicMass": 69.723,
+   "massIsMassNumber": false,
+   "electronegativity": 1.81,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 32,
+   "symbol": "Ge",
+   "name": "Germanium",
+   "nameDe": "Germanium",
+   "atomicMass": 72.64,
+   "massIsMassNumber": false,
+   "electronegativity": 2.01,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 33,
+   "symbol": "As",
+   "name": "Arsenic",
+   "nameDe": "Arsen",
+   "atomicMass": 74.9216,
+   "massIsMassNumber": false,
+   "electronegativity": 2.18,
+   "oxidationStates": [
+    -3,
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 34,
+   "symbol": "Se",
+   "name": "Selenium",
+   "nameDe": "Selen",
+   "atomicMass": 78.96,
+   "massIsMassNumber": false,
+   "electronegativity": 2.55,
+   "oxidationStates": [
+    -2,
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 35,
+   "symbol": "Br",
+   "name": "Bromine",
+   "nameDe": "Brom",
+   "atomicMass": 79.904,
+   "massIsMassNumber": false,
+   "electronegativity": 2.96,
+   "oxidationStates": [
+    -1,
+    1,
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 36,
+   "symbol": "Kr",
+   "name": "Krypton",
+   "nameDe": "Krypton",
+   "atomicMass": 83.798,
+   "massIsMassNumber": false,
+   "electronegativity": 3.0,
+   "oxidationStates": [
+    0,
+    2
+   ]
+  },
+  {
+   "atomicNumber": 37,
+   "symbol": "Rb",
+   "name": "Rubidium",
+   "nameDe": "Rubidium",
+   "atomicMass": 85.4678,
+   "massIsMassNumber": false,
+   "electronegativity": 0.82,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 38,
+   "symbol": "Sr",
+   "name": "Strontium",
+   "nameDe": "Strontium",
+   "atomicMass": 87.62,
+   "massIsMassNumber": false,
+   "electronegativity": 0.95,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 39,
+   "symbol": "Y",
+   "name": "Yttrium",
+   "nameDe": "Yttrium",
+   "atomicMass": 88.90585,
+   "massIsMassNumber": false,
+   "electronegativity": 1.22,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 40,
+   "symbol": "Zr",
+   "name": "Zirconium",
+   "nameDe": "Zirconium",
+   "atomicMass": 91.224,
+   "massIsMassNumber": false,
+   "electronegativity": 1.33,
+   "oxidationStates": [
+    4
+   ]
+  },
+  {
+   "atomicNumber": 41,
+   "symbol": "Nb",
+   "name": "Niobium",
+   "nameDe": "Niob",
+   "atomicMass": 92.90638,
+   "massIsMassNumber": false,
+   "electronegativity": 1.6,
+   "oxidationStates": [
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 42,
+   "symbol": "Mo",
+   "name": "Molybdenum",
+   "nameDe": "Molybdän",
+   "atomicMass": 95.96,
+   "massIsMassNumber": false,
+   "electronegativity": 2.16,
+   "oxidationStates": [
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 43,
+   "symbol": "Tc",
+   "name": "Technetium",
+   "nameDe": "Technetium",
+   "atomicMass": 98.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.9,
+   "oxidationStates": [
+    4,
+    7
+   ]
+  },
+  {
+   "atomicNumber": 44,
+   "symbol": "Ru",
+   "name": "Ruthenium",
+   "nameDe": "Ruthenium",
+   "atomicMass": 101.07,
+   "massIsMassNumber": false,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    3,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 45,
+   "symbol": "Rh",
+   "name": "Rhodium",
+   "nameDe": "Rhodium",
+   "atomicMass": 102.9055,
+   "massIsMassNumber": false,
+   "electronegativity": 2.28,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 46,
+   "symbol": "Pd",
+   "name": "Palladium",
+   "nameDe": "Palladium",
+   "atomicMass": 106.42,
+   "massIsMassNumber": false,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 47,
+   "symbol": "Ag",
+   "name": "Silver",
+   "nameDe": "Silber",
+   "atomicMass": 107.8682,
+   "massIsMassNumber": false,
+   "electronegativity": 1.93,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 48,
+   "symbol": "Cd",
+   "name": "Cadmium",
+   "nameDe": "Cadmium",
+   "atomicMass": 112.411,
+   "massIsMassNumber": false,
+   "electronegativity": 1.69,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 49,
+   "symbol": "In",
+   "name": "Indium",
+   "nameDe": "Indium",
+   "atomicMass": 114.818,
+   "massIsMassNumber": false,
+   "electronegativity": 1.78,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 50,
+   "symbol": "Sn",
+   "name": "Tin",
+   "nameDe": "Zinn",
+   "atomicMass": 118.71,
+   "massIsMassNumber": false,
+   "electronegativity": 1.96,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 51,
+   "symbol": "Sb",
+   "name": "Antimony",
+   "nameDe": "Antimon",
+   "atomicMass": 121.76,
+   "massIsMassNumber": false,
+   "electronegativity": 2.05,
+   "oxidationStates": [
+    -3,
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 52,
+   "symbol": "Te",
+   "name": "Tellurium",
+   "nameDe": "Tellur",
+   "atomicMass": 127.6,
+   "massIsMassNumber": false,
+   "electronegativity": 2.1,
+   "oxidationStates": [
+    -2,
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 53,
+   "symbol": "I",
+   "name": "Iodine",
+   "nameDe": "Iod",
+   "atomicMass": 126.90447,
+   "massIsMassNumber": false,
+   "electronegativity": 2.66,
+   "oxidationStates": [
+    -1,
+    1,
+    5,
+    7
+   ]
+  },
+  {
+   "atomicNumber": 54,
+   "symbol": "Xe",
+   "name": "Xenon",
+   "nameDe": "Xenon",
+   "atomicMass": 131.293,
+   "massIsMassNumber": false,
+   "electronegativity": 2.6,
+   "oxidationStates": [
+    0,
+    2,
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 55,
+   "symbol": "Cs",
+   "name": "Caesium",
+   "nameDe": "Caesium",
+   "atomicMass": 132.9054519,
+   "massIsMassNumber": false,
+   "electronegativity": 0.79,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 56,
+   "symbol": "Ba",
+   "name": "Barium",
+   "nameDe": "Barium",
+   "atomicMass": 137.327,
+   "massIsMassNumber": false,
+   "electronegativity": 0.89,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 57,
+   "symbol": "La",
+   "name": "Lanthanum",
+   "nameDe": "Lanthan",
+   "atomicMass": 138.90547,
+   "massIsMassNumber": false,
+   "electronegativity": 1.1,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 58,
+   "symbol": "Ce",
+   "name": "Cerium",
+   "nameDe": "Cer",
+   "atomicMass": 140.116,
+   "massIsMassNumber": false,
+   "electronegativity": 1.12,
+   "oxidationStates": [
+    3,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 59,
+   "symbol": "Pr",
+   "name": "Praseodymium",
+   "nameDe": "Praseodym",
+   "atomicMass": 140.90765,
+   "massIsMassNumber": false,
+   "electronegativity": 1.13,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 60,
+   "symbol": "Nd",
+   "name": "Neodymium",
+   "nameDe": "Neodym",
+   "atomicMass": 144.242,
+   "massIsMassNumber": false,
+   "electronegativity": 1.14,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 61,
+   "symbol": "Pm",
+   "name": "Promethium",
+   "nameDe": "Promethium",
+   "atomicMass": 145.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.13,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 62,
+   "symbol": "Sm",
+   "name": "Samarium",
+   "nameDe": "Samarium",
+   "atomicMass": 150.36,
+   "massIsMassNumber": false,
+   "electronegativity": 1.17,
+   "oxidationStates": [
+    2,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 63,
+   "symbol": "Eu",
+   "name": "Europium",
+   "nameDe": "Europium",
+   "atomicMass": 151.964,
+   "massIsMassNumber": false,
+   "electronegativity": 1.2,
+   "oxidationStates": [
+    2,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 64,
+   "symbol": "Gd",
+   "name": "Gadolinium",
+   "nameDe": "Gadolinium",
+   "atomicMass": 157.25,
+   "massIsMassNumber": false,
+   "electronegativity": 1.2,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 65,
+   "symbol": "Tb",
+   "name": "Terbium",
+   "nameDe": "Terbium",
+   "atomicMass": 158.92535,
+   "massIsMassNumber": false,
+   "electronegativity": 1.1,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 66,
+   "symbol": "Dy",
+   "name": "Dysprosium",
+   "nameDe": "Dysprosium",
+   "atomicMass": 162.5,
+   "massIsMassNumber": false,
+   "electronegativity": 1.22,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 67,
+   "symbol": "Ho",
+   "name": "Holmium",
+   "nameDe": "Holmium",
+   "atomicMass": 164.93032,
+   "massIsMassNumber": false,
+   "electronegativity": 1.23,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 68,
+   "symbol": "Er",
+   "name": "Erbium",
+   "nameDe": "Erbium",
+   "atomicMass": 167.259,
+   "massIsMassNumber": false,
+   "electronegativity": 1.24,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 69,
+   "symbol": "Tm",
+   "name": "Thulium",
+   "nameDe": "Thulium",
+   "atomicMass": 168.93421,
+   "massIsMassNumber": false,
+   "electronegativity": 1.25,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 70,
+   "symbol": "Yb",
+   "name": "Ytterbium",
+   "nameDe": "Ytterbium",
+   "atomicMass": 173.054,
+   "massIsMassNumber": false,
+   "electronegativity": 1.1,
+   "oxidationStates": [
+    2,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 71,
+   "symbol": "Lu",
+   "name": "Lutetium",
+   "nameDe": "Lutetium",
+   "atomicMass": 174.9668,
+   "massIsMassNumber": false,
+   "electronegativity": 1.27,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 72,
+   "symbol": "Hf",
+   "name": "Hafnium",
+   "nameDe": "Hafnium",
+   "atomicMass": 178.49,
+   "massIsMassNumber": false,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    4
+   ]
+  },
+  {
+   "atomicNumber": 73,
+   "symbol": "Ta",
+   "name": "Tantalum",
+   "nameDe": "Tantal",
+   "atomicMass": 180.94788,
+   "massIsMassNumber": false,
+   "electronegativity": 1.5,
+   "oxidationStates": [
+    5
+   ]
+  },
+  {
+   "atomicNumber": 74,
+   "symbol": "W",
+   "name": "Tungsten",
+   "nameDe": "Wolfram",
+   "atomicMass": 183.84,
+   "massIsMassNumber": false,
+   "electronegativity": 2.36,
+   "oxidationStates": [
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 75,
+   "symbol": "Re",
+   "name": "Rhenium",
+   "nameDe": "Rhenium",
+   "atomicMass": 186.207,
+   "massIsMassNumber": false,
+   "electronegativity": 1.9,
+   "oxidationStates": [
+    4,
+    7
+   ]
+  },
+  {
+   "atomicNumber": 76,
+   "symbol": "Os",
+   "name": "Osmium",
+   "nameDe": "Osmium",
+   "atomicMass": 190.23,
+   "massIsMassNumber": false,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    4,
+    8
+   ]
+  },
+  {
+   "atomicNumber": 77,
+   "symbol": "Ir",
+   "name": "Iridium",
+   "nameDe": "Iridium",
+   "atomicMass": 192.217,
+   "massIsMassNumber": false,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    3,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 78,
+   "symbol": "Pt",
+   "name": "Platinum",
+   "nameDe": "Platin",
+   "atomicMass": 195.084,
+   "massIsMassNumber": false,
+   "electronegativity": 2.28,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 79,
+   "symbol": "Au",
+   "name": "Gold",
+   "nameDe": "Gold",
+   "atomicMass": 196.966569,
+   "massIsMassNumber": false,
+   "electronegativity": 2.54,
+   "oxidationStates": [
+    1,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 80,
+   "symbol": "Hg",
+   "name": "Mercury",
+   "nameDe": "Quecksilber",
+   "atomicMass": 200.59,
+   "massIsMassNumber": false,
+   "electronegativity": 2.0,
+   "oxidationStates": [
+    1,
+    2
+   ]
+  },
+  {
+   "atomicNumber": 81,
+   "symbol": "Tl",
+   "name": "Thallium",
+   "nameDe": "Thallium",
+   "atomicMass": 204.3833,
+   "massIsMassNumber": false,
+   "electronegativity": 1.62,
+   "oxidationStates": [
+    1,
+    3
+   ]
+  },
+  {
+   "atomicNumber": 82,
+   "symbol": "Pb",
+   "name": "Lead",
+   "nameDe": "Blei",
+   "atomicMass": 207.2,
+   "massIsMassNumber": false,
+   "electronegativity": 2.33,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 83,
+   "symbol": "Bi",
+   "name": "Bismuth",
+   "nameDe": "Bismut",
+   "atomicMass": 208.9804,
+   "massIsMassNumber": false,
+   "electronegativity": 2.02,
+   "oxidationStates": [
+    3,
+    5
+   ]
+  },
+  {
+   "atomicNumber": 84,
+   "symbol": "Po",
+   "name": "Polonium",
+   "nameDe": "Polonium",
+   "atomicMass": 209.0,
+   "massIsMassNumber": true,
+   "electronegativity": 2.0,
+   "oxidationStates": [
+    2,
+    4
+   ]
+  },
+  {
+   "atomicNumber": 85,
+   "symbol": "At",
+   "name": "Astatine",
+   "nameDe": "Astat",
+   "atomicMass": 210.0,
+   "massIsMassNumber": true,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    -1,
+    1
+   ]
+  },
+  {
+   "atomicNumber": 86,
+   "symbol": "Rn",
+   "name": "Radon",
+   "nameDe": "Radon",
+   "atomicMass": 222.0,
+   "massIsMassNumber": true,
+   "electronegativity": 2.2,
+   "oxidationStates": [
+    0
+   ]
+  },
+  {
+   "atomicNumber": 87,
+   "symbol": "Fr",
+   "name": "Francium",
+   "nameDe": "Francium",
+   "atomicMass": 223.0,
+   "massIsMassNumber": true,
+   "electronegativity": 0.7,
+   "oxidationStates": [
+    1
+   ]
+  },
+  {
+   "atomicNumber": 88,
+   "symbol": "Ra",
+   "name": "Radium",
+   "nameDe": "Radium",
+   "atomicMass": 226.0,
+   "massIsMassNumber": true,
+   "electronegativity": 0.9,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 89,
+   "symbol": "Ac",
+   "name": "Actinium",
+   "nameDe": "Actinium",
+   "atomicMass": 227.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.1,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 90,
+   "symbol": "Th",
+   "name": "Thorium",
+   "nameDe": "Thorium",
+   "atomicMass": 232.03806,
+   "massIsMassNumber": false,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    4
+   ]
+  },
+  {
+   "atomicNumber": 91,
+   "symbol": "Pa",
+   "name": "Protactinium",
+   "nameDe": "Protactinium",
+   "atomicMass": 231.03588,
+   "massIsMassNumber": false,
+   "electronegativity": 1.5,
+   "oxidationStates": [
+    5
+   ]
+  },
+  {
+   "atomicNumber": 92,
+   "symbol": "U",
+   "name": "Uranium",
+   "nameDe": "Uran",
+   "atomicMass": 238.02891,
+   "massIsMassNumber": false,
+   "electronegativity": 1.38,
+   "oxidationStates": [
+    4,
+    6
+   ]
+  },
+  {
+   "atomicNumber": 93,
+   "symbol": "Np",
+   "name": "Neptunium",
+   "nameDe": "Neptunium",
+   "atomicMass": 237.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.36,
+   "oxidationStates": [
+    5
+   ]
+  },
+  {
+   "atomicNumber": 94,
+   "symbol": "Pu",
+   "name": "Plutonium",
+   "nameDe": "Plutonium",
+   "atomicMass": 244.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.28,
+   "oxidationStates": [
+    4
+   ]
+  },
+  {
+   "atomicNumber": 95,
+   "symbol": "Am",
+   "name": "Americium",
+   "nameDe": "Americium",
+   "atomicMass": 243.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.13,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 96,
+   "symbol": "Cm",
+   "name": "Curium",
+   "nameDe": "Curium",
+   "atomicMass": 247.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.28,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 97,
+   "symbol": "Bk",
+   "name": "Berkelium",
+   "nameDe": "Berkelium",
+   "atomicMass": 247.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 98,
+   "symbol": "Cf",
+   "name": "Californium",
+   "nameDe": "Californium",
+   "atomicMass": 251.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 99,
+   "symbol": "Es",
+   "name": "Einsteinium",
+   "nameDe": "Einsteinium",
+   "atomicMass": 252.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 100,
+   "symbol": "Fm",
+   "name": "Fermium",
+   "nameDe": "Fermium",
+   "atomicMass": 257.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 101,
+   "symbol": "Md",
+   "name": "Mendelevium",
+   "nameDe": "Mendelevium",
+   "atomicMass": 258.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 102,
+   "symbol": "No",
+   "name": "Nobelium",
+   "nameDe": "Nobelium",
+   "atomicMass": 259.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    2
+   ]
+  },
+  {
+   "atomicNumber": 103,
+   "symbol": "Lr",
+   "name": "Lawrencium",
+   "nameDe": "Lawrencium",
+   "atomicMass": 262.0,
+   "massIsMassNumber": true,
+   "electronegativity": 1.3,
+   "oxidationStates": [
+    3
+   ]
+  },
+  {
+   "atomicNumber": 104,
+   "symbol": "Rf",
+   "name": "Rutherfordium",
+   "nameDe": "Rutherfordium",
+   "atomicMass": 267.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 105,
+   "symbol": "Db",
+   "name": "Dubnium",
+   "nameDe": "Dubnium",
+   "atomicMass": 268.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 106,
+   "symbol": "Sg",
+   "name": "Seaborgium",
+   "nameDe": "Seaborgium",
+   "atomicMass": 271.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 107,
+   "symbol": "Bh",
+   "name": "Bohrium",
+   "nameDe": "Bohrium",
+   "atomicMass": 270.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 108,
+   "symbol": "Hs",
+   "name": "Hassium",
+   "nameDe": "Hassium",
+   "atomicMass": 269.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 109,
+   "symbol": "Mt",
+   "name": "Meitnerium",
+   "nameDe": "Meitnerium",
+   "atomicMass": 278.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 110,
+   "symbol": "Ds",
+   "name": "Darmstadtium",
+   "nameDe": "Darmstadtium",
+   "atomicMass": 281.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 111,
+   "symbol": "Rg",
+   "name": "Roentgenium",
+   "nameDe": "Roentgenium",
+   "atomicMass": 282.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 112,
+   "symbol": "Cn",
+   "name": "Copernicium",
+   "nameDe": "Copernicium",
+   "atomicMass": 285.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 113,
+   "symbol": "Nh",
+   "name": "Nihonium",
+   "nameDe": "Nihonium",
+   "atomicMass": 286.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 114,
+   "symbol": "Fl",
+   "name": "Flerovium",
+   "nameDe": "Flerovium",
+   "atomicMass": 289.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 115,
+   "symbol": "Mc",
+   "name": "Moscovium",
+   "nameDe": "Moscovium",
+   "atomicMass": 290.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 116,
+   "symbol": "Lv",
+   "name": "Livermorium",
+   "nameDe": "Livermorium",
+   "atomicMass": 293.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 117,
+   "symbol": "Ts",
+   "name": "Tennessine",
+   "nameDe": "Tennessin",
+   "atomicMass": 294.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  },
+  {
+   "atomicNumber": 118,
+   "symbol": "Og",
+   "name": "Oganesson",
+   "nameDe": "Oganesson",
+   "atomicMass": 294.0,
+   "massIsMassNumber": true,
+   "electronegativity": null,
+   "oxidationStates": []
+  }
+ ]
+}
