@@ -2,12 +2,13 @@
 // steps built from the numbers that were actually used, warnings, assumptions and sources. The UI shows every result
 // the same way through `toRows`.
 
+import { latexToUnicode } from './latex.js';
 import { formatNumber, formatQuantity, unitLatex } from './format.js';
 import { Quantity } from './quantity.js';
 import { ChemError } from './errors.js';
 
 /** A step line in both notations */
-export const L = (latex, text) => ({ latex, text: text === undefined ? latex : text });
+export const L = (latex, text) => ({ latex, text: text === undefined ? latexToUnicode(latex) : text });
 
 export class ChemicalResult {
   constructor(type, title) {

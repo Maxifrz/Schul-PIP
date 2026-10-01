@@ -3,7 +3,7 @@
 
 import { isProgram, openBlocks, KEYWORDS } from './program.js';
 import { COMMAND_NAMES } from './commands.js';
-import { convertLatexToMarkup } from 'mathlive';
+import { convertLatexToMarkup, convertLatexToMathMl } from 'mathlive';
 import { h, toast } from './ui.js';
 import { commandTemplate, showKeyboard } from './keyboard.js';
 import { COMMANDS, searchCommands } from './commands.js';
@@ -450,6 +450,21 @@ export class CasView {
         if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Rechenweg kopiert.'), () => toast('Kopieren nicht möglich.'));
         else toast('Kopieren nicht möglich.');
       } }, 'Rechenweg kopieren'));
+      // The same with real formulas (MathML), which Word turns into equations when pasted.
+      bar.append(h('button', { type: 'button', onclick: () => {
+        const result = r.chemResult;
+        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        let html = `<h3>${esc(result.title || result.type)}</h3>`;
+        for (const step of result.steps) {
+          html += `<p><b>${esc(step.label)}</b></p>`;
+          for (const line of step.lines) html += `<p>${line.latex.startsWith('\\text') ? esc(line.text) : convertLatexToMathMl(line.latex)}</p>`;
+        }
+        const text = toText(result);
+        if (navigator.clipboard && window.ClipboardItem) {
+          navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })])
+            .then(() => toast('Mit Formeln kopiert.'), () => toast('Kopieren nicht möglich.'));
+        } else toast('Kopieren nicht möglich.');
+      } }, 'Mit Formeln kopieren'));
     }
     return bar;
   }
