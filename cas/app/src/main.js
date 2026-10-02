@@ -604,7 +604,9 @@ function toggleKeyboard() {
     setKeyboardOff(false);
     // Shown for the row being edited; without a formula row in focus the keyboard would have nothing to type into.
     const active = state.cas && state.cas.active;
-    if (active && active.mode === 'math') active.field.focus();
+    // A text row cannot take the formula keyboard; asking for it turns the row into a formula row.
+    if (active && active.mode === 'text') state.cas.switchMode(active);
+    else if (active) active.field.focus();
     keyboard.show();
   }
   // The keyboard reports its new size when it has moved.
