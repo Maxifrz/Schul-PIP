@@ -31,7 +31,7 @@ Built as a personal study tool for Abitur preparation and as a portfolio project
 
 The app icon is Pip, generated from the same pixel grid the app draws (`scripts/make-icons.py`): light and dark on iOS, adaptive and themed on Android.
 
-The interface follows **Quill**, a small design system: warm neutrals, a single sage accent, Work Sans for text and the Silkscreen pixel font for labels, in light and dark. The tabs sit in a capsule at the top, the library shows documents as covers like the Files and Books apps, and **Pip**, a pixel cat, walks along the tutor's input bar — it thinks while the model is answering and can be poked or picked up. Tokens and shared components live in `Lernwerk/Theme/`; the fonts are bundled under the SIL Open Font License.
+The interface follows **Quill**, a small design system: warm neutrals, a single sage accent, Hanken Grotesk for text, IBM Plex Mono for captions and figures and the Silkscreen pixel font for the Pip card, in light and dark. On the iPad it uses the **Studio** layout: in landscape a dark rail on the left with the jump bar ("Frag Pip oder springe zu …"), a pixel card that says what the timetable has next, today's study-plan topics to tick off, the cards due, the exam countdown with the plan's progress and a row to continue reading; in portrait the rail becomes a strip above the content. The areas are three groups of switches (Lernen, Organisieren, Werkzeuge) above the content, the library is a table with a preview beside it, and documents and the calculator take the whole screen. Phones keep the tab capsule and the cover grid. And **Pip**, a pixel cat, walks along the tutor's input bar — it thinks while the model is answering and can be poked or picked up. Tokens and shared components live in `Lernwerk/Theme/`; the fonts are bundled under the SIL Open Font License.
 
 ## Why these teaching methods
 
@@ -73,7 +73,7 @@ Lernwerk/
 │   ├── Storage/    MaterialStore (PDFs + drawings), KeychainStore, TextRecognizer (Apple Vision OCR)
 │   └── Demo/       sample PDF and DemoLLMClient
 ├── Theme/          Quill tokens (colors, fonts) and shared components
-├── Resources/      bundled fonts (Work Sans, Silkscreen, and the slide fonts DM Sans, Montserrat, Playfair Display, Lora, Archivo Black) with their licenses
+├── Resources/      bundled fonts (Hanken Grotesk, IBM Plex Mono, Work Sans, Silkscreen, and the slide fonts DM Sans, Montserrat, Playfair Display, Lora, Archivo Black) with their licenses
 └── Views/          Library, Document (notes toolbar and canvas, page overview, search), Tutor with Pip, Plan, Presentation,
                     Calculator (keyboard, history, graphs), Calendar (Stundenplan, Klausuren, Ferien/Feiertage), Review, Settings
 

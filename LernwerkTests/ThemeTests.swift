@@ -6,9 +6,32 @@ import XCTest
 final class ThemeTests: XCTestCase {
     func testBundledFontsRegister() {
         QuillFont.register()
-        for name in ["WorkSans-Light", "WorkSans-Regular", "WorkSans-Medium", "WorkSans-SemiBold", "WorkSans-Italic", QuillFont.pixelName] {
+        for name in ["WorkSans-Light", "WorkSans-Regular", "WorkSans-Medium", "WorkSans-SemiBold", "WorkSans-Italic", QuillFont.pixelName,
+                     "HankenGrotesk-Regular", "HankenGrotesk-Medium", "HankenGrotesk-SemiBold", "HankenGrotesk-Bold", "HankenGrotesk-ExtraBold",
+                     "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold"] {
             XCTAssertNotNil(UIFont(name: name, size: 12), "\(name) is not available")
         }
+    }
+
+    func testEveryWeightResolvesToABundledFont() {
+        QuillFont.register()
+        for weight in [QuillFont.Weight.light, .regular, .medium, .semibold, .bold, .heavy] {
+            XCTAssertNotNil(UIFont(name: weight.postScriptName, size: 12), "\(weight.postScriptName) is not available")
+            XCTAssertNotNil(UIFont(name: weight.monoName, size: 12), "\(weight.monoName) is not available")
+        }
+    }
+
+    func testLibraryLayoutFollowsRailAndWidth() {
+        let phone = LibraryLayout(railOn: false, width: 390)
+        XCTAssertFalse(phone.table)
+        XCTAssertFalse(phone.preview)
+        let portrait = LibraryLayout(railOn: false, width: 768)
+        XCTAssertTrue(portrait.table)
+        XCTAssertFalse(portrait.preview)
+        let landscape = LibraryLayout(railOn: true, width: 894)
+        XCTAssertTrue(landscape.table)
+        XCTAssertTrue(landscape.preview)
+        XCTAssertFalse(LibraryLayout(railOn: true, width: 700).preview)
     }
 
     func testColorsAdaptToDarkMode() {

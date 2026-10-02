@@ -33,6 +33,7 @@ struct RootView: View {
     @State private var tab: AppTab = .library
     @State private var path = NavigationPath()
     @State private var sharedFile: URL?
+    @Environment(\.horizontalSizeClass) private var sizeClass
     /// An exam in the calculator keeps the student there.
     @ObservedObject private var exam = ExamLock.shared
 
@@ -52,23 +53,17 @@ struct RootView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
                         .background(Color(red: 0.70, green: 0.15, blue: 0.12))
+                } else if sizeClass == .regular {
+                    StudioShell(selection: $tab, dueCount: dueCount, openDocument: openFromShell) {
+                        tabContent
+                    }
                 } else {
                     TopTabBar(selection: $tab, reviewBadge: dueCount)
+                    tabContent
                 }
-                Group {
-                    switch exam.active ? AppTab.calculator : tab {
-                    case .library: LibraryView()
-                    case .plans: PlanListView()
-                    case .presentations: PresentationListView()
-                    case .calculator: CalculatorView()
-                    case .calendar: CalendarScreen()
-                    case .review: ReviewView()
-                    case .settings: SettingsView()
-                    }
+                if exam.active {
+                    tabContent
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.opacity)
-                .id(exam.active ? AppTab.calculator : tab)
             }
             .background(Quill.bg.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
@@ -101,6 +96,28 @@ struct RootView: View {
             // Reminders are scheduled two weeks ahead; opening the app moves the window along.
             if phase == .active { PlanNotifications.updateAll(plans) }
         }
+    }
+
+    /// The area on show; an exam keeps it on the calculator.
+    private var tabContent: some View {
+        Group {
+            switch exam.active ? AppTab.calculator : tab {
+            case .library: LibraryView()
+            case .plans: PlanListView()
+            case .presentations: PresentationListView()
+            case .calculator: CalculatorView()
+            case .calendar: CalendarScreen()
+            case .review: ReviewView()
+            case .settings: SettingsView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity)
+        .id(exam.active ? AppTab.calculator : tab)
+    }
+
+    private func openFromShell(_ material: StudyMaterial, _ page: Int?) {
+        path.append(Route.document(material, startPage: page, backTitle: tab.title))
     }
 
     /// A PDF, picture or Word file shared to Lernwerk from Files, Photos or another app. With a document open, the

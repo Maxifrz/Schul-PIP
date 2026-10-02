@@ -8,8 +8,8 @@ struct PixelCaption: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.pixel(size))
-            .tracking(size * 0.1)
+            .font(.mono(size, .medium))
+            .tracking(size * 0.08)
             .foregroundStyle(color)
     }
 }
@@ -22,11 +22,11 @@ struct PageHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 20) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
                 PixelCaption(text: caption)
                 Text(title)
-                    .font(.work(40, .light))
-                    .tracking(-1.1)
+                    .font(.work(36, .heavy))
+                    .tracking(-1.08)
                     .foregroundStyle(Quill.ink)
             }
             Spacer(minLength: 0)
