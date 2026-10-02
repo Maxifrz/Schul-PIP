@@ -2,12 +2,13 @@ import SwiftData
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case library, plans, presentations, calculator, calendar, review, settings
+    case today, library, plans, presentations, calculator, calendar, review, settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .today: return "Heute"
         case .library: return "Bibliothek"
         case .plans: return "Lernplan"
         case .presentations: return "Präsentation"
@@ -30,7 +31,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query private var cards: [ReviewCard]
     @Query private var plans: [StudyPlan]
-    @State private var tab: AppTab = .library
+    @State private var tab: AppTab = .today
     @State private var path = NavigationPath()
     @State private var sharedFile: URL?
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -54,7 +55,7 @@ struct RootView: View {
                         .padding(.vertical, 12)
                         .background(Color(red: 0.70, green: 0.15, blue: 0.12))
                 } else if sizeClass == .regular {
-                    StudioShell(selection: $tab, dueCount: dueCount, openDocument: openFromShell) {
+                    DockShell(selection: $tab, dueCount: dueCount, openDocument: openFromShell) {
                         tabContent
                     }
                 } else {
@@ -102,6 +103,7 @@ struct RootView: View {
     private var tabContent: some View {
         Group {
             switch exam.active ? AppTab.calculator : tab {
+            case .today: TodayView(dueCount: dueCount, select: { tab = $0 }, openDocument: openFromShell)
             case .library: LibraryView()
             case .plans: PlanListView()
             case .presentations: PresentationListView()

@@ -43,7 +43,7 @@ enum StudioToday {
         } else if until <= 15 {
             intro = PixelLine(text: "DU HAST GLEICH", size: 17, tone: .ink)
         } else {
-            intro = PixelLine(text: "DEINE NAECHSTE STUNDE", size: 17, tone: .ink)
+            intro = PixelLine(text: "DEINE NÄCHSTE STUNDE", size: 17, tone: .ink)
         }
         let place = lesson.room.isEmpty ? "" : "RAUM \(pixelText(lesson.room))"
         let when = current != nil ? "BIS \(ClockTime.label(lesson.end))" : "IN \(until) MIN."
@@ -58,19 +58,9 @@ enum StudioToday {
         return result
     }
 
-    /// The pixel font draws capitals and no umlauts, so text is upper-cased and Ä, Ö, Ü, ß are spelled out.
+    /// The pixel font draws capitals; Jersey 10 has the umlauts, so upper-casing is all it takes.
     static func pixelText(_ text: String) -> String {
-        var out = ""
-        for character in text.uppercased() {
-            switch character {
-            case "Ä": out += "AE"
-            case "Ö": out += "OE"
-            case "Ü": out += "UE"
-            case "ß": out += "SS"
-            default: out.append(character)
-            }
-        }
-        return out
+        text.uppercased()
     }
 
     /// The subject's name as large as the card is wide, at most 34 points: a word takes about 0.92 of its size per
@@ -78,6 +68,61 @@ enum StudioToday {
     static func subjectSize(_ subject: String) -> CGFloat {
         let letters = CGFloat(max(1, subject.count))
         return min(34, (236 / (letters * 0.92 + 1)).rounded(.down))
+    }
+
+    /// The hero card's lines at the Dock layout's sizes: the subject is as large as the card is wide.
+    static func heroLines(now: Int, lessons: [Lesson], portrait: Bool) -> [PixelLine] {
+        let base = lines(now: now, lessons: lessons)
+        let sizes: [CGFloat] = [26, 0, 28, 22]
+        return base.enumerated().map { index, line in
+            let size = index == 1 ? heroSize(line.text, portrait: portrait) : sizes[min(index, sizes.count - 1)]
+            return PixelLine(text: line.text, size: size, tone: line.tone)
+        }
+    }
+
+    /// At most 96 points; a letter of Jersey 10 takes about 0.6 of its size.
+    static func heroSize(_ text: String, portrait: Bool) -> CGFloat {
+        let width: CGFloat = portrait ? 440 : 370
+        return min(96, (width / (CGFloat(max(1, text.count)) * 0.6 + 0.4)).rounded(.down))
+    }
+
+    // MARK: Homework
+
+    /// Lessons of one subject that follow each other (at most ten minutes between) count as one block, so a double
+    /// lesson is asked about once.
+    struct Block: Equatable {
+        let subject: String
+        let start: Int
+        var end: Int
+    }
+
+    static func blocks(_ lessons: [Lesson]) -> [Block] {
+        var result: [Block] = []
+        for lesson in lessons.sorted(by: { $0.start < $1.start }) {
+            if let last = result.last, last.subject == lesson.subject, lesson.start - last.end <= 10 {
+                result[result.count - 1].end = lesson.end
+            } else {
+                result.append(Block(subject: lesson.subject, start: lesson.start, end: lesson.end))
+            }
+        }
+        return result
+    }
+
+    /// The block Pip should ask about: the first one that ends within five minutes or has ended and has no answer yet.
+    static func askBlock(blocks: [Block], answered: Set<String>, now: Int) -> Block? {
+        blocks.first { $0.end - 5 <= now && !answered.contains($0.subject) }
+    }
+
+    /// "FR 2.10." for the next day the subject is taught, else "ZUR NÄCHSTEN STUNDE".
+    static func dueLabel(subject: String, week: [(weekday: Int, subject: String)], today: CalendarDay) -> String {
+        let names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
+        for offset in 1...7 {
+            let day = today.adding(days: offset)
+            if week.contains(where: { $0.weekday == day.weekday && $0.subject == subject }) {
+                return "\(names[day.weekday - 1]) \(day.day).\(day.month)."
+            }
+        }
+        return "ZUR NÄCHSTEN STUNDE"
     }
 
     // MARK: Exam countdown

@@ -8,7 +8,7 @@ final class ThemeTests: XCTestCase {
         QuillFont.register()
         for name in ["WorkSans-Light", "WorkSans-Regular", "WorkSans-Medium", "WorkSans-SemiBold", "WorkSans-Italic", QuillFont.pixelName,
                      "HankenGrotesk-Regular", "HankenGrotesk-Medium", "HankenGrotesk-SemiBold", "HankenGrotesk-Bold", "HankenGrotesk-ExtraBold",
-                     "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold"] {
+                     "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold", "Jersey10-Regular"] {
             XCTAssertNotNil(UIFont(name: name, size: 12), "\(name) is not available")
         }
     }

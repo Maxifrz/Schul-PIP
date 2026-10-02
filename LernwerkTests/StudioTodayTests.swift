@@ -24,7 +24,7 @@ final class StudioTodayTests: XCTestCase {
 
     func testDistantLessonIsNamedNextLesson() {
         let lines = StudioToday.lines(now: 7 * 60, lessons: lessons)
-        XCTAssertEqual(lines.first?.text, "DEINE NAECHSTE STUNDE")
+        XCTAssertEqual(lines.first?.text, "DEINE NÄCHSTE STUNDE")
         XCTAssertEqual(lines[1].text, "ENGLISCH.")
     }
 
@@ -33,9 +33,9 @@ final class StudioTodayTests: XCTestCase {
         XCTAssertEqual(StudioToday.lines(now: 8 * 60, lessons: []).map(\.text), ["KEIN UNTERRICHT", "MEHR HEUTE.", "LERNPLAN WARTET."])
     }
 
-    func testPixelTextSpellsOutUmlauts() {
-        XCTAssertEqual(StudioToday.pixelText("Französisch"), "FRANZOESISCH")
-        XCTAssertEqual(StudioToday.pixelText("Mathe-Ü"), "MATHE-UE")
+    func testPixelTextKeepsUmlautsAndUpperCases() {
+        XCTAssertEqual(StudioToday.pixelText("Französisch"), "FRANZÖSISCH")
+        XCTAssertEqual(StudioToday.pixelText("Mathe-Ü"), "MATHE-Ü")
         XCTAssertEqual(StudioToday.pixelText("Straße"), "STRASSE")
     }
 
@@ -88,5 +88,36 @@ final class StudioTodayTests: XCTestCase {
         XCTAssertEqual(hits.first?.kindLabel, "BEREICH")
         XCTAssertTrue(StudioToday.omni(query: "  ", areas: areas, documents: documents).isEmpty)
         XCTAssertTrue(StudioToday.omni(query: "xyz", areas: areas, documents: documents).isEmpty)
+    }
+
+    func testHeroLinesScaleTheSubjectToTheCard() {
+        let hero = StudioToday.heroLines(now: 9 * 60 + 41, lessons: lessons, portrait: false)
+        XCTAssertEqual(hero.map(\.size), [26, StudioToday.heroSize("MATHE.", portrait: false), 28, 22])
+        XCTAssertEqual(hero[1].size, 92)
+        XCTAssertLessThan(StudioToday.heroSize("POLITIKWISSENSCHAFT.", portrait: false), 40)
+        XCTAssertGreaterThan(StudioToday.heroSize("POLITIKWISSENSCHAFT.", portrait: true), StudioToday.heroSize("POLITIKWISSENSCHAFT.", portrait: false))
+    }
+
+    func testDoubleLessonsAreOneBlock() {
+        let blocks = StudioToday.blocks(lessons)
+        XCTAssertEqual(blocks.map(\.subject), ["Englisch", "Deutsch", "Mathe", "Biologie"])
+        XCTAssertEqual(blocks[2], StudioToday.Block(subject: "Mathe", start: 9 * 60 + 50, end: 11 * 60 + 25))
+    }
+
+    func testPipAsksOnceALessonIsAlmostOver() {
+        let blocks = StudioToday.blocks(lessons)
+        XCTAssertNil(StudioToday.askBlock(blocks: blocks, answered: [], now: 7 * 60))
+        XCTAssertEqual(StudioToday.askBlock(blocks: blocks, answered: [], now: 8 * 60 + 36)?.subject, "Englisch")
+        XCTAssertEqual(StudioToday.askBlock(blocks: blocks, answered: ["Englisch"], now: 9 * 60 + 26)?.subject, "Deutsch")
+        XCTAssertNil(StudioToday.askBlock(blocks: blocks, answered: ["Englisch", "Deutsch", "Mathe", "Biologie"], now: 13 * 60))
+    }
+
+    func testDueLabelNamesTheNextLessonOfTheSubject() {
+        // 2026-10-01 is a Thursday; Friday is weekday 5.
+        let today = CalendarDay(year: 2026, month: 10, day: 1)
+        let week = [(weekday: 5, subject: "Englisch"), (weekday: 4, subject: "Mathe")]
+        XCTAssertEqual(StudioToday.dueLabel(subject: "Englisch", week: week, today: today), "FR 2.10.")
+        XCTAssertEqual(StudioToday.dueLabel(subject: "Mathe", week: week, today: today), "DO 8.10.")
+        XCTAssertEqual(StudioToday.dueLabel(subject: "Kunst", week: week, today: today), "ZUR NÄCHSTEN STUNDE")
     }
 }

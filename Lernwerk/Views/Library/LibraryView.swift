@@ -288,7 +288,7 @@ struct LibraryView: View {
         toolbar
             .padding(.bottom, 24)
 
-        let recent = folderID == nil && !searching && !filtered && !railOn
+        let recent = folderID == nil && !searching && !filtered
             ? Array(library.filter { $0.lastOpenedAt != nil }.sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }.prefix(3))
             : []
         if !recent.isEmpty {
@@ -1251,7 +1251,7 @@ struct LibraryLayout: Equatable {
     static let previewWidth: CGFloat = 300
 
     init(railOn: Bool, width: CGFloat) {
-        // The rail only shows on the iPad in landscape, so it also tells the table apart from a phone.
+        // "railOn" is the iPad in landscape, which also tells the table apart from a phone.
         let regular = railOn || width >= 640
         table = regular
         preview = railOn && width >= 760

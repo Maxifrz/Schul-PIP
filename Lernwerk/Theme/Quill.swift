@@ -108,7 +108,7 @@ enum QuillFont {
     static let pixelName = "Silkscreen-Regular"
     private static let files = [
         "HankenGrotesk-Regular", "HankenGrotesk-Medium", "HankenGrotesk-SemiBold", "HankenGrotesk-Bold", "HankenGrotesk-ExtraBold",
-        "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold",
+        "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold", "Jersey10-Regular",
         "WorkSans-Light", "WorkSans-Regular", "WorkSans-Medium", "WorkSans-SemiBold", "WorkSans-Italic", "Silkscreen-Regular",
     ]
 
@@ -133,6 +133,11 @@ extension Font {
 
     static func mono(_ size: CGFloat, _ weight: QuillFont.Weight = .medium) -> Font {
         .custom(weight.monoName, size: size)
+    }
+
+    /// Jersey 10, the pixel face of the Dock layout: big numbers, the hero card and the dock labels.
+    static func jersey(_ size: CGFloat) -> Font {
+        .custom("Jersey10-Regular", size: size)
     }
 
     static func pixel(_ size: CGFloat) -> Font {
