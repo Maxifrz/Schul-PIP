@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import de.maxifrz.lernwerk.holidays.Bundesland
 import de.maxifrz.lernwerk.llm.ClaudeClient
+import de.maxifrz.lernwerk.llm.CustomEndpoint
 import de.maxifrz.lernwerk.llm.FailingClient
 import de.maxifrz.lernwerk.llm.LlmClient
 import de.maxifrz.lernwerk.llm.LlmError
@@ -43,9 +44,30 @@ class AppSettings(context: Context) {
     var providersWithKey by mutableStateOf(LlmProvider.entries.filter { keys.load(account(it)) != null }.toSet())
         private set
 
-    val hasAnyKey get() = providersWithKey.isNotEmpty()
+    /** The address of the custom API as typed; [CustomEndpoint.check] turns it into the endpoint. */
+    var customUrl by mutableStateOf(prefs.getString(KEY_CUSTOM_URL, "") ?: "")
+        private set
 
-    fun hasKey(provider: LlmProvider) = provider in providersWithKey
+    /** The custom API's chat completions address, null while none (or no valid one) is entered. */
+    val customEndpoint: String? get() = (CustomEndpoint.check(customUrl) as? CustomEndpoint.Check.Valid)?.url
+
+    val hasAnyKey get() = providersWithKey.isNotEmpty() || customEndpoint != null
+
+    /** For the custom API an address is all it takes; its key is optional. */
+    fun hasKey(provider: LlmProvider) = if (provider == LlmProvider.CUSTOM) customEndpoint != null else provider in providersWithKey
+
+    fun updateCustomUrl(url: String) {
+        customUrl = url.trim()
+        prefs.edit().putString(KEY_CUSTOM_URL, customUrl).apply()
+        // An address means the student wants real answers.
+        if (customEndpoint != null) updateDemoMode(false)
+    }
+
+    /** Forgets the custom API: its address and its key. */
+    fun removeCustomApi() {
+        updateCustomUrl("")
+        deleteKey(LlmProvider.CUSTOM)
+    }
 
     fun selection(task: LlmTask) = if (task == LlmTask.TUTOR) tutor else plan
 
@@ -89,10 +111,23 @@ class AppSettings(context: Context) {
         val chosen = selection(task)
         val model = chosen.model.trim()
         if (model.isEmpty()) return FailingClient(LlmError.MissingModel)
+        if (chosen.provider == LlmProvider.CUSTOM) {
+            val endpoint = customEndpoint ?: return FailingClient(LlmError.MissingEndpoint)
+            return OpenAiCompatibleClient(
+                provider = LlmProvider.CUSTOM,
+                apiKey = keys.load(account(LlmProvider.CUSTOM)).orEmpty(),
+                model = model,
+                sendsImages = chosen.sendsImages,
+                transport = transport,
+                compressImage = ImageCompressor::jpeg,
+                endpoint = endpoint,
+            )
+        }
         val key = keys.load(account(chosen.provider))
             ?: return FailingClient(LlmError.MissingApiKey(chosen.provider.displayName))
         return when (chosen.provider) {
             LlmProvider.ANTHROPIC -> ClaudeClient(key, model, transport)
+            LlmProvider.CUSTOM -> FailingClient(LlmError.MissingEndpoint)
             LlmProvider.NVIDIA, LlmProvider.OPEN_ROUTER, LlmProvider.GOOGLE -> OpenAiCompatibleClient(
                 provider = chosen.provider,
                 apiKey = key,
@@ -115,5 +150,6 @@ class AppSettings(context: Context) {
         const val KEY_PLAN = "llm.plan"
         const val KEY_DEMO = "demoMode"
         const val KEY_BUNDESLAND = "bundesland"
+        const val KEY_CUSTOM_URL = "llm.customUrl"
     }
 }

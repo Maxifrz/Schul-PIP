@@ -19,7 +19,10 @@ enum class LlmProvider(
     NVIDIA("NVIDIA NIM", "nvapi-…", "https://build.nvidia.com", "https://integrate.api.nvidia.com/v1/chat/completions", 180_000),
     OPEN_ROUTER("OpenRouter", "sk-or-…", "https://openrouter.ai", "https://openrouter.ai/api/v1/chat/completions", null),
     GOOGLE("Gemini", "AIza…", "https://aistudio.google.com/apikey", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", null),
-    ANTHROPIC("Claude API", "sk-ant-…", "https://console.anthropic.com", null, null);
+    ANTHROPIC("Claude API", "sk-ant-…", "https://console.anthropic.com", null, null),
+
+    /** Any OpenAI-compatible API under an address the student enters; see [CustomEndpoint]. It has no key portal. */
+    CUSTOM("Eigene API", "Key (falls der Server einen verlangt)", "", null, null);
 
     val models: List<ModelOption>
         get() = when (this) {
@@ -46,6 +49,8 @@ enum class LlmProvider(
                 ModelOption("claude-sonnet-5", "Claude Sonnet 5", "Schneller, günstiger", true),
                 ModelOption("claude-haiku-4-5", "Claude Haiku 4.5", "Am günstigsten", true),
             )
+            // The student's server decides which models exist; the id is typed in.
+            CUSTOM -> emptyList()
         }
 
     /** Fast, widely available models to fall back on when the chosen one is overloaded. */
@@ -54,10 +59,11 @@ enum class LlmProvider(
             NVIDIA -> listOf("google/gemma-4-31b-it", "z-ai/glm-5.3-flash")
             OPEN_ROUTER -> listOf("google/gemma-4-31b-it:free", "openrouter/free")
             GOOGLE -> listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
-            ANTHROPIC -> emptyList()
+            ANTHROPIC, CUSTOM -> emptyList()
         }
 
     fun defaultModel(task: LlmTask): ModelOption = when {
+        this == CUSTOM -> ModelOption("", "Eigene Modell-ID", "Wie der Server das Modell nennt", false)
         this == OPEN_ROUTER && task == LlmTask.PLAN -> models[2]
         this == NVIDIA && task == LlmTask.TUTOR -> models[1]
         else -> models[0]

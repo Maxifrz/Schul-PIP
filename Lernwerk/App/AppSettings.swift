@@ -6,6 +6,7 @@ final class AppSettings: ObservableObject {
         static let plan = "llm.plan"
         static let demoMode = "demoMode"
         static let bundesland = "bundesland"
+        static let customURL = "llm.customURL"
     }
 
     /// Model for the help panel and the flashcards created from it.
@@ -27,6 +28,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(bundesland?.rawValue, forKey: Keys.bundesland) }
     }
 
+    /// The address of the custom API as typed; `CustomEndpoint.check` turns it into the endpoint.
+    @Published var customURL: String {
+        didSet { defaults.set(customURL, forKey: Keys.customURL) }
+    }
+
     @Published private(set) var providersWithKey: Set<LLMProvider>
 
     private let defaults: UserDefaults
@@ -37,15 +43,22 @@ final class AppSettings: ObservableObject {
         plan = AppSettings.load(Keys.plan, from: defaults) ?? .defaultSelection(for: .plan, provider: .openRouter)
         demoMode = defaults.bool(forKey: Keys.demoMode)
         bundesland = (defaults.string(forKey: Keys.bundesland)).flatMap(Bundesland.init(rawValue:))
+        customURL = defaults.string(forKey: Keys.customURL) ?? ""
         providersWithKey = Set(LLMProvider.allCases.filter { KeychainStore.load(account: $0.keychainAccount) != nil })
     }
 
     var hasAnyKey: Bool {
-        !providersWithKey.isEmpty
+        !providersWithKey.isEmpty || customEndpoint != nil
     }
 
+    /// The custom API's chat completions address, nil while none (or no valid one) is entered.
+    var customEndpoint: URL? {
+        CustomEndpoint.check(customURL).url
+    }
+
+    /// For the custom API an address is all it takes; its key is optional.
     func hasKey(for provider: LLMProvider) -> Bool {
-        providersWithKey.contains(provider)
+        provider == .custom ? customEndpoint != nil : providersWithKey.contains(provider)
     }
 
     func saveKey(_ key: String, for provider: LLMProvider) -> Bool {
@@ -57,6 +70,12 @@ final class AppSettings: ObservableObject {
         // Saving a key means the student wants real answers; a demo mode left on from the sample material would hide them.
         demoMode = false
         return true
+    }
+
+    /// Forgets the custom API: its address and its key.
+    func removeCustomAPI() {
+        customURL = ""
+        deleteKey(for: .custom)
     }
 
     func deleteKey(for provider: LLMProvider) {
@@ -86,12 +105,24 @@ final class AppSettings: ObservableObject {
         guard !model.isEmpty else {
             return FailingClient(error: .missingModel)
         }
+        if chosen.provider == .custom {
+            guard let endpoint = customEndpoint else { return FailingClient(error: .missingEndpoint) }
+            return OpenAICompatibleClient(
+                provider: .custom,
+                apiKey: KeychainStore.load(account: LLMProvider.custom.keychainAccount) ?? "",
+                model: model,
+                sendsImages: chosen.sendsImages,
+                endpoint: endpoint
+            )
+        }
         guard let key = KeychainStore.load(account: chosen.provider.keychainAccount) else {
             return FailingClient(error: .missingAPIKey(provider: chosen.provider.name))
         }
         switch chosen.provider {
         case .anthropic:
             return ClaudeClient(apiKey: key, model: model)
+        case .custom:
+            return FailingClient(error: .missingEndpoint)
         case .nvidia, .openRouter, .google:
             let fallback = chosen.provider.fallbackModelIDs.first { $0 != model }
             return OpenAICompatibleClient(

@@ -1,6 +1,7 @@
 package de.maxifrz.lernwerk
 
 import de.maxifrz.lernwerk.llm.ClaudeClient
+import de.maxifrz.lernwerk.llm.CustomEndpoint
 import de.maxifrz.lernwerk.llm.HttpResult
 import de.maxifrz.lernwerk.llm.HttpTransport
 import de.maxifrz.lernwerk.llm.LlmContent
@@ -339,4 +340,77 @@ class ClaudeClientTest {
         assertTrue(transport.bodies[0]["messages"] is JsonArray)
         assertTrue((transport.bodies[0]["max_tokens"] as JsonPrimitive).content == "500")
     }
+}
+
+class CustomApiTest {
+    private fun url(text: String) = (CustomEndpoint.check(text) as? CustomEndpoint.Check.Valid)?.url
+
+    @Test
+    fun `addresses lead to the chat completions endpoint`() {
+        assertEquals("https://mein-server.de/v1/chat/completions", url("https://mein-server.de/v1"))
+        assertEquals("https://mein-server.de/v1/chat/completions", url("https://mein-server.de/v1/"))
+        assertEquals("https://mein-server.de/v1/chat/completions", url("https://mein-server.de"))
+        assertEquals("https://mein-server.de/api/openai/chat/completions", url("https://mein-server.de/api/openai"))
+        assertEquals("https://mein-server.de/v1/chat/completions", url("https://mein-server.de/v1/chat/completions"))
+        assertEquals("http://192.168.1.20:11434/v1/chat/completions", url("  http://192.168.1.20:11434/v1  "))
+    }
+
+    @Test
+    fun `plain http only in the local network`() {
+        for (local in listOf("http://10.0.0.5/v1", "http://172.20.1.1/v1", "http://localhost:1234/v1", "http://mein-mac.local:1234/v1", "http://server/v1")) {
+            assertTrue(local, url(local) != null)
+        }
+        assertEquals(CustomEndpoint.Check.InsecureRemote, CustomEndpoint.check("http://example.com/v1"))
+        assertEquals(CustomEndpoint.Check.InsecureRemote, CustomEndpoint.check("http://172.32.0.1/v1"))
+        assertEquals(CustomEndpoint.Check.InsecureRemote, CustomEndpoint.check("http://8.8.8.8/v1"))
+    }
+
+    @Test
+    fun `nonsense is rejected with a message`() {
+        assertEquals(CustomEndpoint.Check.Empty, CustomEndpoint.check("   "))
+        assertEquals(CustomEndpoint.Check.Invalid, CustomEndpoint.check("localhost:11434"))
+        assertEquals(CustomEndpoint.Check.Invalid, CustomEndpoint.check("ftp://example.com"))
+        assertEquals(CustomEndpoint.Check.Invalid, CustomEndpoint.check("https://"))
+        assertEquals(CustomEndpoint.Check.Invalid, CustomEndpoint.check("kein url"))
+        assertTrue(CustomEndpoint.message(CustomEndpoint.Check.Invalid) != null)
+        assertNull(CustomEndpoint.message(CustomEndpoint.check("https://a.de/v1")))
+    }
+
+    @Test
+    fun `the custom api goes to its own address and needs no key`() = runTest {
+        val reply = HttpResult(200, """{"choices":[{"message":{"content":"Hallo"},"finish_reason":"stop"}]}""")
+        val transport = ScriptedTransport(mutableListOf(reply, reply))
+        val sent = mutableListOf<String>()
+        val recording = object : HttpTransport {
+            override suspend fun post(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Long): HttpResult {
+                sent += url
+                return transport.post(url, headers, body, timeoutSeconds)
+            }
+        }
+        val noKey = OpenAiCompatibleClient(
+            LlmProvider.CUSTOM, "", "llama3.2", false, recording,
+            endpoint = "http://192.168.1.20:11434/v1/chat/completions",
+        )
+        val withKey = OpenAiCompatibleClient(
+            LlmProvider.CUSTOM, "geheim", "m", false, recording,
+            endpoint = "https://api.example.org/v1/chat/completions",
+        )
+        val tutor = LlmRequest(
+            purpose = LlmPurpose.Tutor(HintLevel.QUESTION), system = "s",
+            messages = listOf(LlmMessage(LlmRole.USER, listOf(LlmContent.Text("x")))), maxTokens = 100,
+        )
+
+        assertEquals("Hallo", noKey.complete(tutor).text)
+        withKey.complete(tutor)
+
+        assertEquals(listOf("http://192.168.1.20:11434/v1/chat/completions", "https://api.example.org/v1/chat/completions"), sent)
+        assertFalse(transport.headers[0].containsKey("authorization"))
+        assertEquals("Bearer geheim", transport.headers[1]["authorization"])
+        assertEquals(listOf("llama3.2", "m"), transport.requestedModels)
+        assertEquals("", ModelSelectionDefaults.customModel)
+    }
+}
+
+private object ModelSelectionDefaults {
+    val customModel = LlmProvider.CUSTOM.defaultModel(de.maxifrz.lernwerk.llm.LlmTask.TUTOR).id
 }

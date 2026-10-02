@@ -161,6 +161,8 @@ On a private repository, macOS runner minutes count ten times against the free A
 
 Gemini is reached through Google's OpenAI-compatible endpoint, so it shares the client with NIM and OpenRouter. Gemini 3 models always think a little; the help panel asks for `reasoning_effort: low`.
 
+**Your own API.** "Eigene API" is a fifth provider for any OpenAI-compatible server: Ollama, LM Studio or vLLM on your own machine or in the school network, or a service the app does not list. Enter its address in the settings (`https://host/v1`, with or without the trailing `/chat/completions`; an address without a path gets `/v1`), a key only if the server wants one, and the model ID the server uses. Plain `http://` is accepted only for local addresses (this device, `.local` names, private ranges), because iOS and Android block it elsewhere; the address check is unit-tested on both platforms. The key goes into the keychain or the Android Keystore like the others.
+
 Any model ID from the provider's catalogue can be entered in the settings; the suggestions are only a starting point, because free models come and go. If a model cannot read images, switch off "Bilder mitschicken". A Claude Pro subscription does not include API access; with OpenRouter credits, Claude models are available there as well.
 
 Free tiers may log prompts. That is fine for school material, less so for private notes.

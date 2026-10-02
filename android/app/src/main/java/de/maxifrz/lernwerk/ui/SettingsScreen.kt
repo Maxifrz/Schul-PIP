@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import de.maxifrz.lernwerk.BuildConfig
 import de.maxifrz.lernwerk.data.AppSettings
+import de.maxifrz.lernwerk.llm.CustomEndpoint
 import de.maxifrz.lernwerk.llm.LlmProvider
 import de.maxifrz.lernwerk.llm.LlmTask
 import de.maxifrz.lernwerk.llm.ModelSelection
@@ -70,7 +72,8 @@ fun SettingsScreen(app: AppState) {
 
             Column(Modifier.padding(bottom = 34.dp)) {
                 PixelCaption("API-Keys", Modifier.padding(bottom = 6.dp))
-                LlmProvider.entries.forEach { ApiKeyRow(it, settings) }
+                LlmProvider.entries.filter { it != LlmProvider.CUSTOM }.forEach { ApiKeyRow(it, settings) }
+                CustomApiRow(settings)
                 Footnote("Keys liegen verschlüsselt im Android-Keystore dieses Geräts. Ein Claude-Pro-Abo enthält keinen API-Zugang.")
             }
 
@@ -101,7 +104,7 @@ private fun ModelSection(header: String, settings: AppSettings, task: LlmTask, f
     Column(Modifier.padding(bottom = 34.dp)) {
         PixelCaption(header, Modifier.padding(bottom = 6.dp))
         QuillRow("Anbieter") {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 LlmProvider.entries.forEach { provider ->
                     val selected = provider == selection.provider
                     Box(
@@ -155,7 +158,11 @@ private fun ModelSection(header: String, settings: AppSettings, task: LlmTask, f
         if (!hasKey) {
             Row(Modifier.fillMaxWidth().padding(vertical = 13.dp, horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 StatusDot(colors.warn)
-                QText("Für ${selection.provider.displayName} ist noch kein API-Key hinterlegt.", work(14f), colors.muted)
+                QText(
+                    if (selection.provider == LlmProvider.CUSTOM) "Für die eigene API fehlt noch die Adresse (unten bei den API-Keys)." else "Für ${selection.provider.displayName} ist noch kein API-Key hinterlegt.",
+                    work(14f),
+                    colors.muted,
+                )
             }
             QuillDivider()
         }
@@ -239,6 +246,58 @@ private fun ApiKeyRow(provider: LlmProvider, settings: AppSettings) {
                 if (saveFailed) QText("Der Key konnte nicht gespeichert werden.", work(12.5f), colors.warn)
             }
         }
+    }
+    QuillDivider()
+}
+
+/** The student's own OpenAI-compatible API: an address, a key if the server wants one, and the model typed in above. */
+@Composable
+private fun CustomApiRow(settings: AppSettings) {
+    val colors = Quill.colors
+    var address by remember { mutableStateOf(settings.customUrl) }
+    var key by remember { mutableStateOf("") }
+    var saveFailed by remember { mutableStateOf(false) }
+    val check = CustomEndpoint.check(address)
+    val configured = settings.customEndpoint != null
+    val hasStoredKey = LlmProvider.CUSTOM in settings.providersWithKey
+
+    Column(Modifier.padding(vertical = 14.dp, horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (configured) StatusDot()
+            QText(
+                LlmProvider.CUSTOM.displayName,
+                work(15.5f, FontWeight.Medium, tracking = -0.15f),
+                colors.ink,
+                Modifier.padding(start = if (configured) 9.dp else 0.dp).weight(1f),
+            )
+            if (configured || hasStoredKey) {
+                LinkButton("Entfernen", {
+                    settings.removeCustomApi()
+                    address = ""
+                    key = ""
+                }, colors.muted, work(14f, FontWeight.Medium))
+            }
+        }
+        InputCapsule(address, { address = it }, "https://mein-server.de/v1")
+        InputCapsule(key, { key = it }, if (hasStoredKey) "Key gespeichert – leer lassen zum Behalten" else LlmProvider.CUSTOM.keyPlaceholder, secret = true) {
+            PrimaryButton(
+                "Speichern",
+                {
+                    if (check is CustomEndpoint.Check.Valid) {
+                        settings.updateCustomUrl(address)
+                        saveFailed = key.isNotBlank() && !settings.saveKey(key, LlmProvider.CUSTOM)
+                        if (!saveFailed) key = ""
+                    }
+                },
+                height = 32.dp,
+                fontSize = 13.5f,
+                enabled = check is CustomEndpoint.Check.Valid,
+            )
+        }
+        val message = CustomEndpoint.message(check)
+        if (message != null && address.isNotBlank()) QText(message, work(12.5f), colors.warn)
+        if (saveFailed) QText("Der Key konnte nicht gespeichert werden.", work(12.5f), colors.warn)
+        Footnote("Jeder Server mit OpenAI-kompatibler Schnittstelle, etwa Ollama, LM Studio oder vLLM. Die App ruft <Adresse>/chat/completions auf. Wähl oben „Eigene API“ als Anbieter und trag dort die Modell-ID ein. Im lokalen Netz geht auch http://.")
     }
     QuillDivider()
 }

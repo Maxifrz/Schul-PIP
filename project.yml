@@ -23,6 +23,10 @@ targets:
       path: Support/Info.plist
       properties:
         LSSupportsOpeningDocumentsInPlace: false
+        # A custom API can live on a server in the home or school network (plain http there).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: Schul-PIP verbindet sich mit deinem eigenen KI-Server im lokalen Netz, wenn du ihn in den Einstellungen einträgst.
         CFBundleDocumentTypes:
           - CFBundleTypeName: PDF
             CFBundleTypeRole: Viewer

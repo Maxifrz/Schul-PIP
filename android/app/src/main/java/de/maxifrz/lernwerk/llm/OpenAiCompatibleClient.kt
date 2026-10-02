@@ -8,7 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.util.Base64
 
-/** Chat Completions client for OpenRouter and NVIDIA NIM, which both speak the OpenAI wire format. */
+/** Chat Completions client for OpenRouter, NVIDIA NIM, Gemini and a custom API, which all speak the OpenAI wire format. */
 class OpenAiCompatibleClient(
     private val provider: LlmProvider,
     private val apiKey: String,
@@ -19,6 +19,8 @@ class OpenAiCompatibleClient(
     private val fallbackModels: List<String> = emptyList(),
     /** Shrinks a JPEG below the given size; the Android implementation lives outside the pure logic. */
     private val compressImage: (ByteArray, Int) -> ByteArray = { data, _ -> data },
+    /** The address of a custom API; the known providers have theirs built in. */
+    private val endpoint: String? = null,
 ) : LlmClient {
     override val capabilities = LlmCapabilities(
         acceptsImages = sendsImages,
@@ -40,10 +42,11 @@ class OpenAiCompatibleClient(
     }
 
     private suspend fun complete(request: LlmRequest, model: String): LlmResponse {
-        val url = provider.chatCompletionsUrl ?: throw LlmError.InvalidResponse
+        val url = endpoint ?: provider.chatCompletionsUrl ?: throw LlmError.InvalidResponse
         val headers = buildMap {
             put("content-type", "application/json")
-            put("authorization", "Bearer $apiKey")
+            // A server of one's own often wants no key at all.
+            if (apiKey.isNotEmpty()) put("authorization", "Bearer $apiKey")
             if (provider == LlmProvider.OPEN_ROUTER) put("X-Title", "Schul-PIP")
         }
         val timeout = request.purpose.timeoutSeconds
@@ -94,7 +97,7 @@ class OpenAiCompatibleClient(
                     LlmProvider.OPEN_ROUTER -> put("reasoning", buildJsonObject { put("effort", "low") })
                     // Gemini 3 cannot switch thinking off; "low" is the shortest it allows.
                     LlmProvider.GOOGLE -> put("reasoning_effort", "low")
-                    LlmProvider.ANTHROPIC -> Unit
+                    LlmProvider.ANTHROPIC, LlmProvider.CUSTOM -> Unit
                 }
             }
             val hasPdf = request.messages.any { message -> message.content.any { it is LlmContent.Pdf } }

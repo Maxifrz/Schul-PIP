@@ -82,6 +82,8 @@ sealed class LlmError(message: String) : Exception(message) {
     data class MissingApiKey(val provider: String) :
         LlmError("Für $provider ist noch kein API-Key hinterlegt. Trag ihn in den Einstellungen ein, wähl dort einen anderen Anbieter oder aktiviere den Demo-Modus.")
 
+    data object MissingEndpoint : LlmError("Für die eigene API fehlt eine gültige Adresse. Trag sie in den Einstellungen ein.")
+
     data object MissingModel : LlmError("Es ist kein Modell eingetragen. Wähl in den Einstellungen ein Modell aus.")
 
     data object InvalidApiKey : LlmError("Der API-Key wurde abgelehnt. Prüf ihn in den Einstellungen.")

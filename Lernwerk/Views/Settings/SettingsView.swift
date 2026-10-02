@@ -31,9 +31,10 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     PixelCaption(text: "API-Keys")
                         .padding(.bottom, 6)
-                    ForEach(LLMProvider.allCases) { provider in
+                    ForEach(LLMProvider.allCases.filter { $0 != .custom }) { provider in
                         APIKeyRow(provider: provider)
                     }
+                    CustomAPIRow()
                     Text("Keys liegen nur im Schlüsselbund dieses Geräts. Ein Claude-Pro-Abo enthält keinen API-Zugang.")
                         .quillFootnote()
                 }
@@ -95,11 +96,14 @@ private struct ModelSection: View {
                 .padding(.bottom, 6)
 
             QuillRow(label: "Anbieter") {
-                HStack(spacing: 6) {
-                    ForEach(LLMProvider.allCases) { provider in
-                        providerPill(provider)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(LLMProvider.allCases) { provider in
+                            providerPill(provider)
+                        }
                     }
                 }
+                .scrollIndicators(.hidden)
             }
 
             Button(action: onPickModel) {
@@ -152,7 +156,7 @@ private struct ModelSection: View {
             if !hasKey {
                 HStack(spacing: 9) {
                     StatusDot(color: Quill.warn)
-                    Text("Für \(selection.provider.name) ist noch kein API-Key hinterlegt.")
+                    Text(selection.provider == .custom ? "Für die eigene API fehlt noch die Adresse (unten bei den API-Keys)." : "Für \(selection.provider.name) ist noch kein API-Key hinterlegt.")
                         .font(.work(14))
                         .foregroundStyle(Quill.muted)
                 }
@@ -298,10 +302,12 @@ private struct APIKeyRow: View {
                             .tracking(-0.15)
                             .foregroundStyle(Quill.ink)
                         Spacer()
-                        Link("Key holen", destination: provider.keyPortal)
-                            .font(.work(14))
-                            .foregroundStyle(Quill.link)
-                            .tint(Quill.link)
+                        if let portal = provider.keyPortal {
+                            Link("Key holen", destination: portal)
+                                .font(.work(14))
+                                .foregroundStyle(Quill.link)
+                                .tint(Quill.link)
+                        }
                     }
                     HStack(spacing: 8) {
                         SecureField(provider.keyPlaceholder, text: $input)
@@ -331,5 +337,101 @@ private struct APIKeyRow: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 2)
         .overlay(alignment: .bottom) { QuillDivider() }
+    }
+}
+
+/// The student's own OpenAI-compatible API: an address, a key if the server wants one, and the model typed in above.
+private struct CustomAPIRow: View {
+    @EnvironmentObject private var settings: AppSettings
+    @State private var address = ""
+    @State private var key = ""
+    @State private var saveFailed = false
+    @State private var loaded = false
+
+    private var check: CustomEndpoint.Check { CustomEndpoint.check(address) }
+    private var configured: Bool { settings.customEndpoint != nil }
+    private var hasStoredKey: Bool { settings.providersWithKey.contains(.custom) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: 9) {
+                    if configured { StatusDot() }
+                    Text(LLMProvider.custom.name)
+                        .font(.work(15.5, .medium))
+                        .tracking(-0.15)
+                        .foregroundStyle(Quill.ink)
+                }
+                Spacer()
+                if configured || hasStoredKey {
+                    Button("Entfernen") {
+                        settings.removeCustomAPI()
+                        address = ""
+                        key = ""
+                    }
+                    .font(.work(14, .medium))
+                    .foregroundStyle(Quill.muted)
+                    .buttonStyle(.plain)
+                }
+            }
+            field {
+                TextField("https://mein-server.de/v1", text: $address)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+            }
+            field {
+                SecureField(hasStoredKey ? "Key gespeichert – leer lassen zum Behalten" : LLMProvider.custom.keyPlaceholder, text: $key)
+            }
+            HStack(spacing: 10) {
+                Button("Speichern") { save() }
+                    .buttonStyle(QuillPrimaryButtonStyle(height: 32, fontSize: 13.5))
+                    .disabled(check.url == nil)
+                if let message = CustomEndpoint.message(for: check), !address.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Text(message)
+                        .font(.work(12.5))
+                        .foregroundStyle(Quill.warn)
+                }
+            }
+            if saveFailed {
+                Text("Der Key konnte nicht gespeichert werden.")
+                    .font(.work(12.5))
+                    .foregroundStyle(Quill.warn)
+            }
+            Text("Jeder Server mit OpenAI-kompatibler Schnittstelle, etwa Ollama, LM Studio oder vLLM. Die App ruft <Adresse>/chat/completions auf. Wähl oben „Eigene API“ als Anbieter und trag dort die Modell-ID ein. Im lokalen Netz geht auch http://.")
+                .quillFootnote()
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 2)
+        .overlay(alignment: .bottom) { QuillDivider() }
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            address = settings.customURL
+        }
+    }
+
+    private func field<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .font(.work(14.5))
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .padding(.horizontal, 16)
+            .frame(height: 40)
+            .background(Quill.surface, in: Capsule())
+            .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+    }
+
+    private func save() {
+        guard check.url != nil else { return }
+        settings.customURL = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            saveFailed = !settings.saveKey(trimmed, for: .custom)
+            if !saveFailed { key = "" }
+        } else {
+            saveFailed = false
+        }
+        // An address means the student wants real answers.
+        settings.demoMode = false
     }
 }
