@@ -345,10 +345,12 @@ class ProviderTest {
 
     @Test
     fun everyDefaultIsInItsModelList() {
-        for (provider in LlmProvider.entries) {
+        // The custom API has no catalogue: its model id is typed in, so it starts empty.
+        for (provider in LlmProvider.entries.filter { it != LlmProvider.CUSTOM }) {
             for (task in LlmTask.entries) {
                 assertTrue(provider.option(ModelSelection.default(task, provider).model) != null)
             }
         }
+        assertTrue(LlmProvider.CUSTOM.models.isEmpty())
     }
 }
