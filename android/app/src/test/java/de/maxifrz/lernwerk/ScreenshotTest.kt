@@ -142,8 +142,11 @@ class ScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Wiederholen").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Antwort zeigen").performClick()
+        compose.onRoot().captureRoboImage("build/screenshots/review-question.png")
+        compose.onNode(hasSetTextAction()).performTextInput("Äußere mal innere Ableitung 6(2x − 7)²")
+        compose.onNodeWithText("Prüfen").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("Richtig").assertExists()
         compose.onRoot().captureRoboImage("build/screenshots/review.png")
     }
 

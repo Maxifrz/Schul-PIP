@@ -59,30 +59,10 @@ struct DockShell<Content: View>: View {
 
     // Dock
 
-    private struct Item: Identifiable {
-        let tab: AppTab
-        let label: String
-        /// For a dock too narrow for the full names (split view).
-        let short: String
-        let icon: [String]
-        var id: String { tab.rawValue }
-    }
-
-    private static let items = [
-        Item(tab: .today, label: "Heute", short: "Heute", icon: PixelIcon.heute),
-        Item(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
-        Item(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
-        Item(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
-        Item(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
-        Item(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),
-        Item(tab: .presentations, label: "Präsentation", short: "Präs.", icon: PixelIcon.presentation),
-        Item(tab: .settings, label: "Einstellungen", short: "Einst.", icon: PixelIcon.settings),
-    ]
-
     private func dock(width: CGFloat) -> some View {
         let narrow = width < 700
         return HStack(spacing: 2) {
-            ForEach(DockShell.items) { item in
+            ForEach(dockItems) { item in
                 let on = selection == item.tab
                 Button { go(item.tab) } label: {
                     VStack(spacing: 7) {
@@ -150,6 +130,27 @@ struct DockShell<Content: View>: View {
         .background(Quill.bg)
     }
 }
+
+// The areas in the dock, in order.
+private struct DockItem: Identifiable {
+    let tab: AppTab
+    let label: String
+    /// For a dock too narrow for the full names (split view).
+    let short: String
+    let icon: [String]
+    var id: String { tab.rawValue }
+}
+
+private let dockItems = [
+    DockItem(tab: .today, label: "Heute", short: "Heute", icon: PixelIcon.heute),
+    DockItem(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
+    DockItem(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
+    DockItem(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
+    DockItem(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
+    DockItem(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),
+    DockItem(tab: .presentations, label: "Präsentation", short: "Präs.", icon: PixelIcon.presentation),
+    DockItem(tab: .settings, label: "Einstellungen", short: "Einst.", icon: PixelIcon.settings),
+]
 
 /// The dock's icons: five by five pixels, drawn in the text color.
 struct PixelIcon: View {
