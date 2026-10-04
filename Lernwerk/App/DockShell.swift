@@ -14,25 +14,20 @@ extension EnvironmentValues {
     }
 }
 
-/// The Dock layout: "Heute" as the home page, a floating dock at the bottom with the main areas and "Mehr" for the
-/// rest, Pip walking on top of the dock, and the calculator as a full screen with a way back. Documents and the
-/// presentation editor are pushed on top of everything.
+/// The Dock layout: "Heute" as the home page, a floating dock at the bottom with every area of the app, Pip walking
+/// on top of it, and the calculator as a full screen with a way back. Documents and the presentation editor are
+/// pushed on top of everything.
 struct DockShell<Content: View>: View {
     @Binding var selection: AppTab
     let dueCount: Int
     let openDocument: (StudyMaterial, Int?) -> Void
     @ViewBuilder var content: Content
 
-    @State private var moreOpen = false
-    @State private var jump = ""
-
-    private static var moreTabs: [AppTab] { [.calendar, .presentations, .settings] }
-
     var body: some View {
         GeometryReader { geometry in
             let landscape = geometry.size.width > geometry.size.height
             let immersive = selection == .calculator
-            let width = min(520, geometry.size.width - 32)
+            let width = min(780, geometry.size.width - 32)
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     if immersive { backBar }
@@ -43,15 +38,8 @@ struct DockShell<Content: View>: View {
                             if !immersive { Color.clear.frame(height: 108) }
                         }
                 }
-                if moreOpen && !immersive {
-                    Quill.scrim
-                        .ignoresSafeArea()
-                        .onTapGesture { closeMore() }
-                        .transition(.opacity)
-                }
                 if !immersive {
                     VStack(spacing: 0) {
-                        if moreOpen { morePanel(width: width).padding(.bottom, 14) }
                         if selection != .today {
                             PipView(isThinking: false)
                                 .frame(width: width)
@@ -61,61 +49,49 @@ struct DockShell<Content: View>: View {
                     .padding(.bottom, 12)
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: moreOpen)
             .animation(.easeOut(duration: 0.2), value: selection)
         }
     }
 
     private func go(_ tab: AppTab) {
-        moreOpen = false
-        jump = ""
         selection = tab
-    }
-
-    private func closeMore() {
-        moreOpen = false
-        jump = ""
     }
 
     // Dock
 
     private struct Item: Identifiable {
-        let id: String
+        let tab: AppTab
         let label: String
+        /// For a dock too narrow for the full names (split view).
+        let short: String
         let icon: [String]
-        let tab: AppTab?
+        var id: String { tab.rawValue }
     }
 
-    private var items: [Item] {
-        [
-            Item(id: "heute", label: "Heute", icon: PixelIcon.heute, tab: .today),
-            Item(id: "bib", label: "Bibliothek", icon: PixelIcon.library, tab: .library),
-            Item(id: "plan", label: "Lernplan", icon: PixelIcon.plan, tab: .plans),
-            Item(id: "review", label: "Karten", icon: PixelIcon.review, tab: .review),
-            Item(id: "calc", label: "Rechner", icon: PixelIcon.calculator, tab: .calculator),
-            Item(id: "mehr", label: "Mehr", icon: PixelIcon.more, tab: nil),
-        ]
-    }
-
-    private func isOn(_ item: Item) -> Bool {
-        if let tab = item.tab { return selection == tab && !moreOpen }
-        return moreOpen || DockShell.moreTabs.contains(selection)
-    }
+    private static let items = [
+        Item(tab: .today, label: "Heute", short: "Heute", icon: PixelIcon.heute),
+        Item(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
+        Item(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
+        Item(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
+        Item(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
+        Item(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),
+        Item(tab: .presentations, label: "Präsentation", short: "Präs.", icon: PixelIcon.presentation),
+        Item(tab: .settings, label: "Einstellungen", short: "Einst.", icon: PixelIcon.settings),
+    ]
 
     private func dock(width: CGFloat) -> some View {
-        HStack(spacing: 4) {
-            ForEach(items) { item in
-                let on = isOn(item)
-                Button {
-                    if let tab = item.tab { go(tab) } else { moreOpen.toggle() }
-                } label: {
+        let narrow = width < 700
+        return HStack(spacing: 2) {
+            ForEach(DockShell.items) { item in
+                let on = selection == item.tab
+                Button { go(item.tab) } label: {
                     VStack(spacing: 7) {
                         PixelIcon(rows: item.icon)
-                        Text(item.label)
-                            .font(.jersey(17))
-                            .tracking(0.7)
+                        Text(narrow ? item.short : item.label)
+                            .font(.jersey(narrow ? 16 : 17))
+                            .tracking(0.5)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(on ? Quill.onAccent : Quill.ink)
                     .frame(maxWidth: .infinity)
@@ -130,8 +106,8 @@ struct DockShell<Content: View>: View {
                                 .padding(.vertical, 1)
                                 .frame(minWidth: 18)
                                 .background(Quill.warn, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .padding(.top, 7)
-                                .padding(.trailing, 12)
+                                .padding(.top, 6)
+                                .padding(.trailing, 6)
                         }
                     }
                     .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -146,59 +122,6 @@ struct DockShell<Content: View>: View {
         .background(Quill.surface, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).stroke(Quill.line2, lineWidth: 1))
         .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
-    }
-
-    // More
-
-    private func morePanel(width: CGFloat) -> some View {
-        let groups: [(String, AppTab)] = [("ORGANISIEREN", .calendar), ("WERKZEUGE", .presentations), ("SYSTEM", .settings)]
-        return VStack(alignment: .leading, spacing: 0) {
-            JumpBar(text: $jump, onDark: false, onArea: go) { material in
-                closeMore()
-                openDocument(material, material.lastOpenedPage)
-            }
-            if jump.trimmingCharacters(in: .whitespaces).isEmpty {
-                ForEach(groups, id: \.1) { group in
-                    let tab = group.1
-                    Text(group.0)
-                        .font(.mono(10, .medium))
-                        .tracking(0.8)
-                        .foregroundStyle(Quill.faint)
-                        .padding(.top, 14)
-                        .padding(.bottom, 8)
-                        .padding(.leading, 4)
-                    Button { go(tab) } label: {
-                        HStack(spacing: 14) {
-                            PixelIcon(rows: PixelIcon.rows(for: tab))
-                            Text(tab.title)
-                                .font(.work(15, .semibold))
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(selection == tab ? Quill.onAccent : Quill.ink)
-                        .padding(.horizontal, 14)
-                        .frame(height: 46)
-                        .background(selection == tab ? Quill.accent : Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer().frame(height: 6)
-            } else {
-                JumpResults(text: jump, onArea: go) { material in
-                    closeMore()
-                    openDocument(material, material.lastOpenedPage)
-                }
-                .padding(.top, 8)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 14)
-        .padding(.bottom, 8)
-        .frame(width: width)
-        .background(Quill.surface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Quill.line2, lineWidth: 1))
-        .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
-        .transition(.opacity.combined(with: .offset(y: 8)))
     }
 
     // Full screen
@@ -257,7 +180,6 @@ struct PixelIcon: View {
     static let calculator = [".....", ".###.", ".....", ".###.", "....."]
     static let presentation = ["#####", "#...#", "#...#", "#####", "..#.."]
     static let settings = [".#.#.", "#####", ".#.#.", "#####", ".#.#."]
-    static let more = [".....", "#.#.#", ".....", "#.#.#", "....."]
 
     static func rows(for tab: AppTab) -> [String] {
         switch tab {

@@ -37,6 +37,15 @@ class AppSettings(context: Context) {
     var demoMode by mutableStateOf(prefs.getBoolean(KEY_DEMO, false))
         private set
 
+    /** After a wrong answer in the flashcards, the same question comes back at once. */
+    var repeatWrongAnswer by mutableStateOf(prefs.getBoolean(KEY_REPEAT_WRONG, false))
+        private set
+
+    fun updateRepeatWrongAnswer(enabled: Boolean) {
+        repeatWrongAnswer = enabled
+        prefs.edit().putBoolean(KEY_REPEAT_WRONG, enabled).apply()
+    }
+
     /** For Ferien and Feiertage; null until the student picks one, so the app never guesses wrong. */
     var bundesland by mutableStateOf(prefs.getString(KEY_BUNDESLAND, null)?.let { Bundesland.fromCode(it) })
         private set
@@ -149,6 +158,7 @@ class AppSettings(context: Context) {
         const val KEY_TUTOR = "llm.tutor"
         const val KEY_PLAN = "llm.plan"
         const val KEY_DEMO = "demoMode"
+        const val KEY_REPEAT_WRONG = "review.repeatWrong"
         const val KEY_BUNDESLAND = "bundesland"
         const val KEY_CUSTOM_URL = "llm.customUrl"
     }
