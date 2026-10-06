@@ -7,6 +7,7 @@ import SwiftUI
 struct ReviewView: View {
     @Query(sort: \ReviewCard.dueDate) private var cards: [ReviewCard]
     @AppStorage("review.repeatWrong") private var repeatWrong = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     /// The card being answered. It stays put while the verdict shows, although a graded card has already left the
     /// due list.
@@ -33,25 +34,34 @@ struct ReviewView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PageHeader(caption: "Karteikarten", title: "Wiederholen") {
-                VStack(alignment: .trailing, spacing: 8) {
-                    Text(dueCards.count == 1 ? "1 fällig" : "\(dueCards.count) fällig")
-                        .font(.work(14))
-                        .foregroundStyle(Quill.muted)
-                    Toggle(isOn: $repeatWrong) {
-                        Text("Bei falsch gleich nochmal")
-                            .font(.work(13))
+            if sizeClass == .compact {
+                VStack(alignment: .leading, spacing: 12) {
+                    PageHeader(caption: "Karteikarten", title: "Wiederholen")
+                    HStack {
+                        Text(dueCards.count == 1 ? "1 fällig" : "\(dueCards.count) fällig")
+                            .font(.work(14))
                             .foregroundStyle(Quill.muted)
+                        Spacer(minLength: 12)
+                        repeatToggle
                     }
-                    .toggleStyle(.switch)
-                    .tint(Quill.accent)
-                    .fixedSize()
                 }
-                .padding(.bottom, 4)
+                .frame(maxWidth: 760)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+            } else {
+                PageHeader(caption: "Karteikarten", title: "Wiederholen") {
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Text(dueCards.count == 1 ? "1 fällig" : "\(dueCards.count) fällig")
+                            .font(.work(14))
+                            .foregroundStyle(Quill.muted)
+                        repeatToggle
+                    }
+                    .padding(.bottom, 4)
+                }
+                .frame(maxWidth: 760)
+                .padding(.horizontal, 40)
+                .padding(.top, 44)
             }
-            .frame(maxWidth: 760)
-            .padding(.horizontal, 40)
-            .padding(.top, 44)
 
             if let card = current {
                 cardView(card)
@@ -70,6 +80,17 @@ struct ReviewView: View {
         }
     }
 
+    private var repeatToggle: some View {
+        Toggle(isOn: $repeatWrong) {
+            Text("Bei falsch gleich nochmal")
+                .font(.work(13))
+                .foregroundStyle(Quill.muted)
+        }
+        .toggleStyle(.switch)
+        .tint(Quill.accent)
+        .fixedSize()
+    }
+
     // The card
 
     private func cardView(_ card: ReviewCard) -> some View {
@@ -78,7 +99,7 @@ struct ReviewView: View {
                 .frame(height: 14)
             Spacer(minLength: 0)
             Text(card.front)
-                .font(.work(30, .semibold))
+                .font(.work(sizeClass == .compact ? 24 : 30, .semibold))
                 .tracking(-0.66)
                 .lineSpacing(6)
                 .multilineTextAlignment(.center)
@@ -93,9 +114,9 @@ struct ReviewView: View {
             actions(card)
         }
         .frame(maxWidth: 640)
-        .padding(.horizontal, 32)
+        .padding(.horizontal, sizeClass == .compact ? 20 : 32)
         .padding(.top, 28)
-        .padding(.bottom, 44)
+        .padding(.bottom, sizeClass == .compact ? 20 : 44)
     }
 
     private func answerField(_ card: ReviewCard) -> some View {
