@@ -195,7 +195,7 @@ final class PageOverlayView: UIView {
         Self.apply(scale: scale, to: self, skipping: canvas)
     }
 
-    private static func apply(scale: CGFloat, to view: UIView, skipping skipped: UIView) {
+    private static func apply(scale: CGFloat, to view: UIView, skipping skipped: UIView? = nil) {
         guard view !== skipped else { return }
         view.contentScaleFactor = scale
         view.layer.contentsScale = scale
