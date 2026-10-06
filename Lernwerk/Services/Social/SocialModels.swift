@@ -144,21 +144,29 @@ enum Social {
     /// The folder in the bucket is the group's id, which is what the storage policy checks.
     static func storagePath(group: UUID, fileName: String) -> String {
         let ext = (fileName as NSString).pathExtension.lowercased().filter { $0.isLetter || $0.isNumber }
-        let stem = ((fileName as NSString).deletingPathExtension as String)
-            .applyingTransform(.stripDiacritics, reverse: false) ?? fileName
-        let safe = String(stem.map { $0.isLetter || $0.isNumber ? $0 : "-" }.prefix(40))
+        let base: String = (fileName as NSString).deletingPathExtension
+        let stem: String = base.applyingTransform(.stripDiacritics, reverse: false) ?? base
+        var safe = ""
+        for character in stem.prefix(40) {
+            safe.append(character.isLetter || character.isNumber ? character : "-")
+        }
         let name = safe.isEmpty ? "datei" : safe
         let suffix = ext.isEmpty ? "" : "." + String(ext.prefix(8))
-        return "\(group.uuidString.lowercased())/\(UUID().uuidString.lowercased().prefix(8))-\(name)\(suffix)"
+        let folder = group.uuidString.lowercased()
+        let unique = String(UUID().uuidString.lowercased().prefix(8))
+        return "\(folder)/\(unique)-\(name)\(suffix)"
     }
 
     /// A query string with every value percent-encoded; "+" in a timestamp must not turn into a space.
     static func queryString(_ items: [(String, String)]) -> String {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~*,()")
-        return items.map { name, value in
-            (name.addingPercentEncoding(withAllowedCharacters: allowed) ?? name) + "="
-                + (value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value)
-        }.joined(separator: "&")
+        var pairs: [String] = []
+        for (name, value) in items {
+            let key: String = name.addingPercentEncoding(withAllowedCharacters: allowed) ?? name
+            let encoded: String = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+            pairs.append(key + "=" + encoded)
+        }
+        return pairs.joined(separator: "&")
     }
 
     /// New messages merged into the ones already shown: no duplicates, oldest first.
@@ -187,7 +195,8 @@ enum Social {
     static func timeLabel(_ iso: String, now: Date = .now, calendar: Calendar = .current) -> String {
         guard let date = parse(iso) else { return "" }
         let parts = calendar.dateComponents([.hour, .minute], from: date)
-        let clock = "\(parts.hour ?? 0):" + String(format: "%02d", parts.minute ?? 0)
+        let minute = String(format: "%02d", parts.minute ?? 0)
+        let clock = "\(parts.hour ?? 0):\(minute)"
         if calendar.isDate(date, inSameDayAs: now) { return clock }
         let day = calendar.dateComponents([.day, .month], from: date)
         let months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
@@ -200,9 +209,11 @@ enum Social {
         if let date = fractional.date(from: iso) { return date }
         // Postgres sends microseconds, which the formatter rejects; cut the fraction to milliseconds.
         if let dot = iso.firstIndex(of: "."), let end = iso[dot...].firstIndex(where: { $0 == "+" || $0 == "-" || $0 == "Z" }) {
-            let digits = iso[iso.index(after: dot)..<end]
-            let short = digits.prefix(3)
-            if let date = fractional.date(from: String(iso[..<iso.index(after: dot)]) + short + String(iso[end...])) { return date }
+            let head = String(iso[...dot])
+            let digits = String(iso[iso.index(after: dot)..<end])
+            let tail = String(iso[end...])
+            let trimmed: String = head + String(digits.prefix(3)) + tail
+            if let date = fractional.date(from: trimmed) { return date }
         }
         let plain = ISO8601DateFormatter()
         return plain.date(from: iso)
