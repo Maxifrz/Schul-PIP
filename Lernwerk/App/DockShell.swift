@@ -214,6 +214,7 @@ private let dockItems = [
     DockItem(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
     DockItem(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
     DockItem(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
+    DockItem(tab: .social, label: "Kurse", short: "Kurse", icon: PixelIcon.social),
     DockItem(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
     DockItem(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),
     DockItem(tab: .presentations, label: "Präsentation", short: "Präs.", icon: PixelIcon.presentation),
@@ -232,6 +233,7 @@ private struct MoreItem: Identifiable {
 
 private let phoneMore = [
     MoreItem(tab: .plans, label: "Lernplan", symbol: "list.bullet.rectangle"),
+    MoreItem(tab: .social, label: "Kurse", symbol: "person.2"),
     MoreItem(tab: .calculator, label: "Rechner", symbol: "function"),
     MoreItem(tab: .presentations, label: "Präsentation", symbol: "rectangle.on.rectangle"),
     MoreItem(tab: .settings, label: "Einstellungen", symbol: "gearshape"),
@@ -266,6 +268,7 @@ struct PixelIcon: View {
     static let calculator = [".....", ".###.", ".....", ".###.", "....."]
     static let presentation = ["#####", "#...#", "#...#", "#####", "..#.."]
     static let settings = [".#.#.", "#####", ".#.#.", "#####", ".#.#."]
+    static let social = ["#####", "#...#", "#...#", "#####", "#...."]
     static let more = [".....", "#.#.#", ".....", ".....", "....."]
 
     static func rows(for tab: AppTab) -> [String] {
@@ -277,6 +280,7 @@ struct PixelIcon: View {
         case .calendar: return calendar
         case .calculator: return calculator
         case .presentations: return presentation
+        case .social: return social
         case .settings: return settings
         }
     }

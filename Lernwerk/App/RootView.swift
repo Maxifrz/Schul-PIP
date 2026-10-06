@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case today, library, plans, presentations, calculator, calendar, review, settings
+    case today, library, plans, presentations, calculator, calendar, review, social, settings
 
     var id: String { rawValue }
 
@@ -15,6 +15,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .calculator: return "Rechner"
         case .calendar: return "Kalender"
         case .review: return "Wiederholen"
+        case .social: return "Kurse"
         case .settings: return "Einstellungen"
         }
     }
@@ -106,6 +107,7 @@ struct RootView: View {
             case .calculator: CalculatorView()
             case .calendar: CalendarScreen()
             case .review: ReviewView()
+            case .social: SocialView()
             case .settings: SettingsView()
             }
         }
