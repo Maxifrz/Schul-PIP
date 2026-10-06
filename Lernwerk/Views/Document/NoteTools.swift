@@ -54,8 +54,9 @@ enum PenKind: String, CaseIterable, Identifiable {
 /// Everything the toolbar sets for the tools.
 struct InkSettings: Equatable {
     static let penColors: [UInt32] = [0x16150F, 0x1F4E9C, 0xC23B3B, 0x2E7D4F, 0xE0892B, 0x7B4BB7]
-    /// Thin like a ballpoint on paper; PencilKit's own default (3) looks like a felt-tip next to GoodNotes.
-    static let penWidths: [CGFloat] = [0.6, 1.2, 2.4]
+    /// A PDF point is 1/72 inch; the pen is set in millimetres on the page.
+    static let pointsPerMillimetre: CGFloat = 72 / 25.4
+    static let penMillimetreRange: ClosedRange<Double> = 0.1...3
     static let highlighterColors: [UInt32] = [0xFFE066, 0xA7E08F, 0x8FD3F4, 0xF7A8C8, 0xFFB86B]
     static let highlighterWidths: [CGFloat] = [12, 20, 30]
     static let eraserWidths: [CGFloat] = [8, 20, 40]
@@ -75,6 +76,20 @@ struct InkSettings: Equatable {
     var textAlign: NoteTextAlign = .left
     /// The lasso of PencilKit, for ink only (it turns and scales), instead of the one that also takes texts and pictures.
     var nativeLasso = false
+
+    /// The pen width in millimetres on the page.
+    var penMillimetres: Double {
+        get { Double(penWidth / Self.pointsPerMillimetre) }
+        set { penWidth = CGFloat(newValue) * Self.pointsPerMillimetre }
+    }
+
+    /// PencilKit does not draw ink as thin as asked (its tools have a smallest width). A finished stroke is made as thin
+    /// as the pen is set by this factor, 1 when PencilKit can draw the width itself.
+    var penThinning: CGFloat {
+        let tool = PKInkingTool(penKind.inkType, color: .black, width: penWidth)
+        guard tool.width > 0, penWidth > 0 else { return 1 }
+        return min(1, penWidth / tool.width)
+    }
 
     func pkTool(for tool: NoteTool) -> (any PKTool)? {
         switch tool {

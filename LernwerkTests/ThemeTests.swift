@@ -34,6 +34,20 @@ final class ThemeTests: XCTestCase {
         XCTAssertFalse(LibraryLayout(railOn: true, width: 700).preview)
     }
 
+    func testPenThicknessIsInMillimetresOnThePage() {
+        var settings = InkSettings()
+        settings.penMillimetres = 0.1
+        // A PDF point is 1/72 inch, 25.4 mm to the inch.
+        XCTAssertEqual(settings.penWidth, 0.1 * 72 / 25.4, accuracy: 0.0001)
+        settings.penMillimetres = 1
+        XCTAssertEqual(settings.penMillimetres, 1, accuracy: 0.0001)
+        XCTAssertEqual(InkSettings.penMillimetreRange.lowerBound, 0.1)
+        settings.penMillimetres = 0.1
+        XCTAssertTrue((0...1).contains(settings.penThinning))
+        settings.penMillimetres = 3
+        XCTAssertEqual(settings.penThinning, 1, "wide enough for PencilKit itself")
+    }
+
     func testColorsAdaptToDarkMode() {
         let light = QuillUIColor.bg.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
         let dark = QuillUIColor.bg.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))

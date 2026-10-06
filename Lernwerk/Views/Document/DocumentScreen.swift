@@ -655,7 +655,7 @@ private struct ToolOptions: View {
             switch editor.tool {
             case .pen, .shapes:
                 penKindMenu
-                widths(InkSettings.penWidths, selected: editor.settings.penWidth, dot: 5) { editor.settings.penWidth = $0 }
+                penThickness
                 colors(InkSettings.penColors, selected: editor.settings.penColor) { editor.settings.penColor = $0 }
                 if editor.tool == .shapes {
                     hint("Zeichne frei: Linien, Kreise, Rechtecke und Vielecke werden automatisch sauber.")
@@ -801,6 +801,24 @@ private struct ToolOptions: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    /// The pen's thickness on the page in millimetres, from 0.1 mm up.
+    private var penThickness: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Quill.ink)
+                .frame(width: min(14, max(2, editor.settings.penMillimetres * 5)), height: min(14, max(2, editor.settings.penMillimetres * 5)))
+                .frame(width: 16, height: 16)
+            Slider(value: $editor.settings.penMillimetres, in: InkSettings.penMillimetreRange, step: 0.05)
+                .tint(Quill.accent)
+                .frame(width: 150)
+                .accessibilityLabel("Stiftdicke")
+            Text(String(format: "%.2f mm", editor.settings.penMillimetres).replacingOccurrences(of: ".", with: ","))
+                .font(.mono(11.5, .medium))
+                .foregroundStyle(Quill.muted)
+                .frame(width: 58, alignment: .leading)
         }
     }
 
