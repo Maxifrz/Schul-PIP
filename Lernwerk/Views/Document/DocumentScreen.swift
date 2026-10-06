@@ -655,7 +655,7 @@ private struct ToolOptions: View {
             switch editor.tool {
             case .pen, .shapes:
                 penKindMenu
-                widths(InkSettings.penWidths, selected: editor.settings.penWidth, dot: 3.2) { editor.settings.penWidth = $0 }
+                widths(InkSettings.penWidths, selected: editor.settings.penWidth, dot: 5) { editor.settings.penWidth = $0 }
                 colors(InkSettings.penColors, selected: editor.settings.penColor) { editor.settings.penColor = $0 }
                 if editor.tool == .shapes {
                     hint("Zeichne frei: Linien, Kreise, Rechtecke und Vielecke werden automatisch sauber.")

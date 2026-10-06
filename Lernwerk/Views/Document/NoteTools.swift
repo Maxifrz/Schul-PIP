@@ -54,14 +54,15 @@ enum PenKind: String, CaseIterable, Identifiable {
 /// Everything the toolbar sets for the tools.
 struct InkSettings: Equatable {
     static let penColors: [UInt32] = [0x16150F, 0x1F4E9C, 0xC23B3B, 0x2E7D4F, 0xE0892B, 0x7B4BB7]
-    static let penWidths: [CGFloat] = [1.5, 3, 5.5]
+    /// Thin like a ballpoint on paper; PencilKit's own default (3) looks like a felt-tip next to GoodNotes.
+    static let penWidths: [CGFloat] = [0.6, 1.2, 2.4]
     static let highlighterColors: [UInt32] = [0xFFE066, 0xA7E08F, 0x8FD3F4, 0xF7A8C8, 0xFFB86B]
     static let highlighterWidths: [CGFloat] = [12, 20, 30]
     static let eraserWidths: [CGFloat] = [8, 20, 40]
 
     var penKind: PenKind = .ballpoint
     var penColor: UInt32 = 0x16150F
-    var penWidth: CGFloat = 3
+    var penWidth: CGFloat = 1.2
     var highlighterColor: UInt32 = 0xFFE066
     var highlighterWidth: CGFloat = 20
     /// Pixel erasing removes only what the eraser touches; otherwise whole strokes go.
