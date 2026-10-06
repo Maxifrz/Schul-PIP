@@ -80,6 +80,9 @@ struct LibraryView: View {
     @Query(sort: \MaterialFolder.name) private var folders: [MaterialFolder]
     @AppStorage("librarySort") private var sortRaw = LibrarySort.recent.rawValue
 
+    @Environment(\.studioRailOn) private var railOn
+    @State private var layout = LibraryLayout(railOn: false, width: 0)
+    @State private var pickedID: UUID?
     @State private var folderID: UUID?
     @State private var query = ""
     @State private var subjectFilter: String?
@@ -118,6 +121,25 @@ struct LibraryView: View {
     private var path: [MaterialFolder] { Library.path(folders, to: folderID?.uuidString) }
 
     var body: some View {
+        GeometryReader { geometry in
+            let computed = LibraryLayout(railOn: railOn, width: geometry.size.width)
+            HStack(spacing: 0) {
+                mainColumn
+                if computed.preview, !showTrash, let shown = previewMaterial {
+                    LibraryPreview(material: shown)
+                }
+            }
+            .onChange(of: computed, initial: true) { _, new in layout = new }
+        }
+    }
+
+    /// The document the preview shows: the one picked in the table, else the first of the folder.
+    private var previewMaterial: StudyMaterial? {
+        if let pickedID, let picked = library.first(where: { $0.id == pickedID }) { return picked }
+        return Library.sort(library.filter { $0.folderID == folderID }, by: sort).first
+    }
+
+    private var mainColumn: some View {
         ScrollView {
             ContentColumn {
                 if showTrash {
@@ -292,14 +314,25 @@ struct LibraryView: View {
             let shownMaterials = filtered
                 ? Library.sort(library.filter(matchesFilter), by: sort)
                 : Library.sort(library.filter { $0.folderID == folderID }, by: sort)
-            if !shownFolders.isEmpty {
+            if layout.table {
+                if shownFolders.isEmpty && shownMaterials.isEmpty {
+                    Text(filtered ? "Keine Dokumente mit diesem Filter." : "Dieser Ordner ist leer. Importiere hierher oder zieh Dokumente auf „Zurück“, um sie eine Ebene nach oben zu holen.")
+                        .font(.work(15))
+                        .foregroundStyle(Quill.faint)
+                } else {
+                    LibraryTable(wide: layout.wide) {
+                        ForEach(shownFolders) { folder in folderTile(folder) }
+                        ForEach(shownMaterials) { material in tile(material) }
+                    }
+                }
+            } else if !shownFolders.isEmpty {
                 PixelCaption(text: "Ordner", size: 9).padding(.bottom, 10)
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 30) {
                     ForEach(shownFolders) { folder in folderTile(folder) }
                 }
                 .padding(.bottom, 30)
             }
-            if !shownMaterials.isEmpty {
+            if !layout.table, !shownMaterials.isEmpty {
                 if !shownFolders.isEmpty || !recent.isEmpty {
                     PixelCaption(text: filtered ? "Gefiltert" : "Dokumente", size: 9).padding(.bottom, 10)
                 }
@@ -307,7 +340,7 @@ struct LibraryView: View {
                     ForEach(shownMaterials) { material in tile(material) }
                 }
             }
-            if shownFolders.isEmpty && shownMaterials.isEmpty {
+            if !layout.table, shownFolders.isEmpty && shownMaterials.isEmpty {
                 Text(filtered ? "Keine Dokumente mit diesem Filter." : "Dieser Ordner ist leer. Importiere hierher oder zieh Dokumente auf „Zurück“, um sie eine Ebene nach oben zu holen.")
                     .font(.work(15))
                     .foregroundStyle(Quill.faint)
@@ -397,9 +430,17 @@ struct LibraryView: View {
         let hits = Library.search(library, folders: folders, query: query) { texts[$0.fileName] }
         PixelCaption(text: hits.isEmpty ? (indexed ? "Keine Treffer" : "Durchsuche Texte …") : (hits.count == 1 ? "1 Treffer" : "\(hits.count) Treffer"), size: 9)
             .padding(.bottom, 10)
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 34) {
-            ForEach(hits, id: \.item.id) { hit in
-                tile(hit.item, page: hit.page, snippet: hit.snippet.map { "S. \(hit.page ?? 1): \($0)" })
+        if layout.table {
+            LibraryTable(wide: layout.wide) {
+                ForEach(hits, id: \.item.id) { hit in
+                    tile(hit.item, page: hit.page, snippet: hit.snippet.map { "S. \(hit.page ?? 1): \($0)" })
+                }
+            }
+        } else {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 34) {
+                ForEach(hits, id: \.item.id) { hit in
+                    tile(hit.item, page: hit.page, snippet: hit.snippet.map { "S. \(hit.page ?? 1): \($0)" })
+                }
             }
         }
     }
@@ -409,13 +450,14 @@ struct LibraryView: View {
     @ViewBuilder
     private func tile(_ material: StudyMaterial, page: Int? = nil, snippet: String? = nil) -> some View {
         let key = "m" + material.id.uuidString
-        let tileView = DocumentTile(material: material, snippet: snippet, selecting: selecting, isSelected: selected.contains(material.id) || dropTarget == key)
+        let marked = selected.contains(material.id) || dropTarget == key
+        let tileView = tileLabel(material, snippet: snippet, marked: marked)
         if selecting {
             Button { toggle(material.id) } label: { tileView }
-                .buttonStyle(TileButtonStyle())
+                .buttonStyle(TileButtonStyle(row: layout.table))
         } else {
-            NavigationLink(value: Route.document(material, startPage: page.map { $0 - 1 }, backTitle: "Bibliothek")) { tileView }
-                .buttonStyle(TileButtonStyle())
+            openLink(material, page: page, label: tileView)
+                .buttonStyle(TileButtonStyle(row: layout.table))
                 .draggable(material.id.uuidString) {
                     DocumentTile(material: material, showsCaption: false).frame(width: 120)
                 }
@@ -443,6 +485,29 @@ struct LibraryView: View {
         }
     }
 
+    /// A cover tile on a phone, a table row on an iPad.
+    @ViewBuilder
+    private func tileLabel(_ material: StudyMaterial, snippet: String?, marked: Bool) -> some View {
+        if layout.table {
+            DocumentRow(
+                material: material, snippet: snippet, wide: layout.wide, selecting: selecting,
+                isSelected: marked, isPicked: layout.preview && previewMaterial?.id == material.id
+            )
+        } else {
+            DocumentTile(material: material, snippet: snippet, selecting: selecting, isSelected: marked)
+        }
+    }
+
+    /// Opens the document; in the table with a preview a tap only picks it, the preview opens it.
+    @ViewBuilder
+    private func openLink<Label: View>(_ material: StudyMaterial, page: Int?, label: Label) -> some View {
+        if layout.preview && page == nil {
+            Button { pickedID = material.id } label: { label }
+        } else {
+            NavigationLink(value: Route.document(material, startPage: page.map { $0 - 1 }, backTitle: "Bibliothek")) { label }
+        }
+    }
+
     private func folderTile(_ folder: MaterialFolder) -> some View {
         let inside = Library.descendants(folders, of: folder.folderID)
         let count = library.filter { material in material.folderKey.map { inside.contains($0) } ?? false }.count
@@ -450,9 +515,13 @@ struct LibraryView: View {
         return Button {
             if !selecting { folderID = folder.id }
         } label: {
-            FolderTile(name: folder.name, count: count, highlighted: dropTarget == key)
+            if layout.table {
+                FolderRow(name: folder.name, count: count, wide: layout.wide, highlighted: dropTarget == key)
+            } else {
+                FolderTile(name: folder.name, count: count, highlighted: dropTarget == key)
+            }
         }
-        .buttonStyle(TileButtonStyle())
+        .buttonStyle(TileButtonStyle(row: layout.table))
         .draggable("folder:" + folder.id.uuidString) {
             FolderTile(name: folder.name, count: count).frame(width: 120)
         }
@@ -1161,10 +1230,226 @@ private struct DocumentTile: View {
 }
 
 private struct TileButtonStyle: ButtonStyle {
+    /// Table rows stay put and only tint while pressed; cover tiles give way a little.
+    var row = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .background(row && configuration.isPressed ? Quill.surface2 : Color.clear)
+            .scaleEffect(!row && configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+/// How the library lays itself out: covers on a phone, a table on an iPad, and next to it a preview when the
+/// "today" rail leaves enough width.
+struct LibraryLayout: Equatable {
+    var table: Bool
+    var wide: Bool
+    var preview: Bool
+
+    static let previewWidth: CGFloat = 300
+
+    init(railOn: Bool, width: CGFloat) {
+        // "railOn" is the iPad in landscape, which also tells the table apart from a phone.
+        let regular = railOn || width >= 640
+        table = regular
+        preview = railOn && width >= 760
+        wide = width - (preview ? LibraryLayout.previewWidth : 0) >= 600
+    }
+}
+
+/// The table's frame and its header; rows are the content.
+private struct LibraryTable<Rows: View>: View {
+    let wide: Bool
+    @ViewBuilder var rows: Rows
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Text("NAME").frame(maxWidth: .infinity, alignment: .leading)
+                Text("FACH").frame(width: 90, alignment: .leading)
+                if wide {
+                    Text("ZULETZT").frame(width: 80, alignment: .leading)
+                    Text("HINZUGEFÜGT").frame(width: 110, alignment: .leading)
+                }
+            }
+            .font(.mono(10, .medium))
+            .tracking(0.8)
+            .foregroundStyle(Quill.faint)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Quill.surface2)
+            rows
+        }
+        .background(Quill.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Quill.line, lineWidth: 1))
+    }
+}
+
+private struct FolderRow: View {
+    let name: String
+    let count: Int
+    let wide: Bool
+    var highlighted = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 2).fill(Quill.accent.opacity(0.8)).frame(width: 9, height: 4)
+                    RoundedRectangle(cornerRadius: 3).fill(Quill.accent).frame(width: 20, height: 12).offset(y: 3)
+                }
+                .frame(width: 20, height: 15)
+                Text(name)
+                    .font(.work(14.5, .bold))
+                    .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Ordner")
+                .font(.work(13))
+                .foregroundStyle(Quill.faint)
+                .frame(width: 90, alignment: .leading)
+            if wide {
+                Text(count == 1 ? "1 Dokument" : "\(count) Dokumente")
+                    .font(.mono(12, .medium))
+                    .foregroundStyle(Quill.faint)
+                    .frame(width: 190, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(highlighted ? Quill.accentSoft : Color.clear)
+        .overlay(alignment: .top) { QuillDivider() }
+        .contentShape(Rectangle())
+    }
+}
+
+private struct DocumentRow: View {
+    let material: StudyMaterial
+    var snippet: String?
+    let wide: Bool
+    var selecting = false
+    var isSelected = false
+    var isPicked = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if selecting {
+                    CheckCircle(isOn: isSelected, size: 20)
+                } else {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Subjects.color(material.subject).map { Color(SlideDrawing.uiColor($0)) } ?? Quill.faint)
+                        .frame(width: 8, height: 8)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(material.title)
+                            .font(.work(14.5, .bold))
+                            .foregroundStyle(Quill.ink)
+                            .lineLimit(1)
+                        if material.isFavorite {
+                            Text("★").font(.system(size: 12)).foregroundStyle(Color(SlideDrawing.uiColor(0xE0A93B)))
+                        }
+                    }
+                    if let snippet {
+                        Text(snippet)
+                            .font(.work(12.5))
+                            .foregroundStyle(Quill.muted)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(material.subject.isEmpty ? "–" : material.subject)
+                .font(.work(13))
+                .foregroundStyle(Quill.faint)
+                .lineLimit(1)
+                .frame(width: 90, alignment: .leading)
+            if wide {
+                Text(material.lastOpenedPage > 0 ? "S. \(material.lastOpenedPage + 1)" : "–")
+                    .font(.mono(12, .medium))
+                    .foregroundStyle(Quill.faint)
+                    .frame(width: 80, alignment: .leading)
+                Text(material.createdAt.formatted(.dateTime.day().month(.abbreviated)))
+                    .font(.mono(12, .medium))
+                    .foregroundStyle(Quill.faint)
+                    .frame(width: 110, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(isPicked || isSelected ? Quill.accentSoft : Color.clear)
+        .overlay(alignment: .top) { QuillDivider() }
+        .contentShape(Rectangle())
+    }
+}
+
+/// The panel beside the table: the first page, the name, where the student stopped and a button to open it.
+private struct LibraryPreview: View {
+    let material: StudyMaterial
+    @State private var cover: UIImage?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            PixelCaption(text: "Vorschau")
+            Group {
+                if let cover {
+                    Image(uiImage: cover)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(Quill.line, lineWidth: 1))
+                        .shadow(color: .black.opacity(0.08), radius: 10, y: 6)
+                } else {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Quill.paper)
+                        .aspectRatio(0.707, contentMode: .fit)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(Quill.line, lineWidth: 1))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(maxHeight: 360)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(material.title)
+                    .font(.work(17, .bold))
+                    .foregroundStyle(Quill.ink)
+                    .lineLimit(3)
+                Text(meta)
+                    .font(.mono(11, .medium))
+                    .foregroundStyle(Quill.faint)
+            }
+            NavigationLink(value: Route.document(material, startPage: material.lastOpenedPage, backTitle: "Bibliothek")) {
+                Text("Öffnen")
+                    .font(.work(14, .bold))
+                    .foregroundStyle(Quill.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Quill.accent, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(width: LibraryLayout.previewWidth)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Quill.surface)
+        .overlay(alignment: .leading) { Rectangle().fill(Quill.line).frame(width: 1) }
+        .task(id: material.fileName) {
+            cover = await DocumentCover.firstPage(of: material.fileURL)
+        }
+    }
+
+    private var meta: String {
+        var parts: [String] = []
+        if !material.subject.isEmpty { parts.append(material.subject) }
+        parts.append(material.createdAt.formatted(.dateTime.day().month(.abbreviated)))
+        if material.lastOpenedPage > 0 { parts.append("S. \(material.lastOpenedPage + 1)") }
+        return parts.joined(separator: " · ")
     }
 }
 

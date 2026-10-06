@@ -71,6 +71,16 @@ await page.click('.kb-toggle');
 await page.waitForTimeout(500);
 check('button brings it back', await page.evaluate(() => window.mathVirtualKeyboard.visible));
 
+// A text row is typed with the device keyboard: the formula keyboard goes away, and its button turns the row into a formula row
+await page.evaluate(() => { const c = window.Mathe.state.cas; c.switchMode(c.rows[0]); });
+await page.waitForTimeout(400);
+await page.evaluate(() => document.querySelector('.cas-pane textarea.text-input').focus());
+await page.waitForTimeout(500);
+check('formula keyboard hidden for a text row', !(await page.evaluate(() => window.mathVirtualKeyboard.visible)));
+await page.click('.kb-toggle');
+await page.waitForTimeout(700);
+check('keyboard button turns a text row into a formula row', await page.evaluate(() => window.Mathe.state.cas.active.mode === 'math' && window.mathVirtualKeyboard.visible));
+
 // The command list ends above the keyboard and nothing is cut off at the right
 await page.click('text=Befehle');
 await page.waitForTimeout(400);

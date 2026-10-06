@@ -107,6 +107,7 @@ extension URLSession {
 enum LLMError: LocalizedError, Equatable {
     case missingAPIKey(provider: String)
     case missingModel
+    case missingEndpoint
     case invalidAPIKey
     case rateLimited(String)
     case paymentRequired(String)
@@ -124,6 +125,8 @@ enum LLMError: LocalizedError, Equatable {
         switch self {
         case let .missingAPIKey(provider):
             return "Für \(provider) ist noch kein API-Key hinterlegt. Trag ihn in den Einstellungen ein, wähl dort einen anderen Anbieter oder aktiviere den Demo-Modus."
+        case .missingEndpoint:
+            return "Für die eigene API fehlt eine gültige Adresse. Trag sie in den Einstellungen ein."
         case .missingModel:
             return "Es ist kein Modell eingetragen. Wähl in den Einstellungen ein Modell aus."
         case .invalidAPIKey:

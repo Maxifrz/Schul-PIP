@@ -160,12 +160,14 @@ final class PlanContentTests: XCTestCase {
     }
 
     func testEveryProviderDefaultIsInItsModelList() {
-        for provider in LLMProvider.allCases {
+        // The custom API has no catalogue: its model id is typed in, so it starts empty.
+        for provider in LLMProvider.allCases where provider != .custom {
             for task in [LLMTask.tutor, .plan] {
                 let selection = ModelSelection.defaultSelection(for: task, provider: provider)
                 XCTAssertNotNil(provider.option(for: selection.model))
             }
         }
+        XCTAssertTrue(LLMProvider.custom.models.isEmpty)
         XCTAssertFalse(ModelSelection.defaultSelection(for: .plan, provider: .openRouter).sendsImages)
         XCTAssertTrue(ModelSelection.defaultSelection(for: .tutor, provider: .nvidia).sendsImages)
     }

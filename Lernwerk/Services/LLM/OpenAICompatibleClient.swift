@@ -1,6 +1,6 @@
 import Foundation
 
-/// Chat Completions client for OpenRouter and NVIDIA NIM, which both speak the OpenAI wire format.
+/// Chat Completions client for OpenRouter, NVIDIA NIM, Gemini and a custom API, which all speak the OpenAI wire format.
 struct OpenAICompatibleClient: LLMClient {
     static let ocrEngine = "mistral-ocr"
     static let imageHint = " – Falls das Modell keine Bilder versteht: In den Einstellungen „Bilder mitschicken“ ausschalten."
@@ -11,6 +11,8 @@ struct OpenAICompatibleClient: LLMClient {
     var sendsImages: Bool
     /// Tried in order when the chosen model is overloaded, times out or no longer exists.
     var fallbackModels: [String] = []
+    /// The address of a custom API; the known providers have theirs built in.
+    var endpoint: URL?
     var session: URLSession = .shared
 
     var capabilities: LLMCapabilities {
@@ -35,14 +37,17 @@ struct OpenAICompatibleClient: LLMClient {
     }
 
     private func complete(_ request: LLMRequest, model: String) async throws -> LLMResponse {
-        guard let url = provider.chatCompletionsURL else {
+        guard let url = endpoint ?? provider.chatCompletionsURL else {
             throw LLMError.invalidResponse
         }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.timeoutInterval = request.purpose.timeout
         urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization")
+        // A server of one's own often wants no key at all.
+        if !apiKey.isEmpty {
+            urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization")
+        }
         if provider == .openRouter {
             urlRequest.setValue("Schul-PIP", forHTTPHeaderField: "X-Title")
         }
@@ -90,7 +95,7 @@ struct OpenAICompatibleClient: LLMClient {
             case .google:
                 // Gemini 3 cannot switch thinking off; "low" is the shortest it allows.
                 body["reasoning_effort"] = "low"
-            case .anthropic:
+            case .anthropic, .custom:
                 break
             }
         }

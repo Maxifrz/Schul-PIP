@@ -139,7 +139,12 @@ export class CasView {
         area.style.height = area.scrollHeight + 'px';
       };
       area.value = row.text;
-      area.addEventListener('focus', () => this.activate(row));
+      area.addEventListener('focus', () => {
+        this.activate(row);
+        // A text row is typed with the device's own keyboard. The formula keyboard cannot type into it, and left open it
+        // would sit under the system keyboard with keys that do nothing.
+        window.mathVirtualKeyboard.hide();
+      });
       area.addEventListener('input', () => {
         row.text = area.value;
         paint();

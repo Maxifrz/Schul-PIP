@@ -95,6 +95,45 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(ScriptedProtocol.requestedModels, ["z-ai/glm-5.3-flash", "google/gemma-4-31b-it"])
     }
 
+    func testCustomAPIGoesToItsOwnAddressAndNeedsNoKey() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ScriptedProtocol.self]
+        ScriptedProtocol.reset(replies: [(200, #"{"choices":[{"message":{"content":"Hallo"},"finish_reason":"stop"}]}"#)])
+        let endpoint = try XCTUnwrap(CustomEndpoint.check("http://192.168.1.20:11434/v1").url)
+        let client = OpenAICompatibleClient(
+            provider: .custom, apiKey: "", model: "llama3.2", sendsImages: false,
+            endpoint: endpoint, session: URLSession(configuration: configuration)
+        )
+        let tutor = LLMRequest(
+            purpose: .tutor(.question), system: "s",
+            messages: [LLMMessage(role: .user, content: [.text("x")])], maxTokens: 100
+        )
+
+        let response = try await client.complete(tutor)
+
+        XCTAssertEqual(response.text, "Hallo")
+        XCTAssertEqual(ScriptedProtocol.requestedURLs.map(\.absoluteString), ["http://192.168.1.20:11434/v1/chat/completions"])
+        XCTAssertEqual(ScriptedProtocol.authorizations.count, 1)
+        XCTAssertNil(ScriptedProtocol.authorizations[0] ?? nil)
+        XCTAssertEqual(ScriptedProtocol.requestedModels, ["llama3.2"])
+    }
+
+    func testCustomAPIWithAKeySendsItAsBearer() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ScriptedProtocol.self]
+        ScriptedProtocol.reset(replies: [(200, #"{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}"#)])
+        let client = OpenAICompatibleClient(
+            provider: .custom, apiKey: "geheim", model: "m", sendsImages: false,
+            endpoint: URL(string: "https://api.example.org/v1/chat/completions"), session: URLSession(configuration: configuration)
+        )
+        let tutor = LLMRequest(
+            purpose: .tutor(.question), system: "s",
+            messages: [LLMMessage(role: .user, content: [.text("x")])], maxTokens: 100
+        )
+        _ = try await client.complete(tutor)
+        XCTAssertEqual(ScriptedProtocol.authorizations.first ?? nil, "Bearer geheim")
+    }
+
     func testFallbackGivesUpWithAClearError() async {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ScriptedProtocol.self]
@@ -247,16 +286,22 @@ final class OpenAICompatibleClientTests: XCTestCase {
 private final class ScriptedProtocol: URLProtocol {
     private static var replies: [(Int, String)] = []
     private(set) static var requestedModels: [String] = []
+    private(set) static var requestedURLs: [URL] = []
+    private(set) static var authorizations: [String?] = []
 
     static func reset(replies: [(Int, String)]) {
         self.replies = replies
         requestedModels = []
+        requestedURLs = []
+        authorizations = []
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
+        if let url = request.url { Self.requestedURLs.append(url) }
+        Self.authorizations.append(request.value(forHTTPHeaderField: "authorization"))
         if let body = Self.body(of: request),
            let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
            let model = json["model"] as? String {

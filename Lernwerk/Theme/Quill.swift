@@ -22,6 +22,15 @@ enum Quill {
     static let warn = Color(QuillUIColor.warn)
     static let link = Color(QuillUIColor.link)
     static let canvas = Color(QuillUIColor.canvas)
+    /// The second surface: table headers, segmented controls, hover rows.
+    static let surface2 = Color(QuillUIColor.surface2)
+    static let accentSoft = Color(QuillUIColor.accentSoft)
+    /// The dark "today" rail of the Studio layout. It stays dark in both themes, a little deeper at night.
+    static let rail = Color(QuillUIColor.rail)
+    static let railInk = Color(QuillUIColor.hex(0xF1EFE7))
+    static let railMuted = Color(QuillUIColor.hex(0x9B978D))
+    static let railLine = Color(QuillUIColor.hex(0xF1EFE7, alpha: 0.13))
+    static let railSurface = Color(QuillUIColor.hex(0xF1EFE7, alpha: 0.07))
     /// Printed material stays black on white in both themes.
     static let paper = Color.white
     static let paperInk = Color(QuillUIColor.hex(0x16150F))
@@ -49,6 +58,11 @@ enum QuillUIColor {
     static let link = dynamic(0x4F7A63, 0x8FBE9C)
     /// The page backdrop behind PDFs: `hover` flattened onto `bg`, since PDFKit needs an opaque color.
     static let canvas = dynamic(0xEEEDE9, 0x25241F)
+    static let surface2 = dynamic(0xF4F2EC, 0x1C1C18)
+    static let accentSoft = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? hex(0x8FBE9C, alpha: 0.20) : hex(0x7FA98C, alpha: 0.18)
+    }
+    static let rail = dynamic(0x1B1A14, 0x121210)
 
     static func hex(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {
         UIColor(
@@ -68,20 +82,33 @@ enum QuillUIColor {
 
 enum QuillFont {
     enum Weight {
-        case light, regular, medium, semibold
+        case light, regular, medium, semibold, bold, heavy
 
+        /// Hanken Grotesk, the Studio layout's text face. It has no light cut, so light reads as regular.
         var postScriptName: String {
             switch self {
-            case .light: return "WorkSans-Light"
-            case .regular: return "WorkSans-Regular"
-            case .medium: return "WorkSans-Medium"
-            case .semibold: return "WorkSans-SemiBold"
+            case .light, .regular: return "HankenGrotesk-Regular"
+            case .medium: return "HankenGrotesk-Medium"
+            case .semibold: return "HankenGrotesk-SemiBold"
+            case .bold: return "HankenGrotesk-Bold"
+            case .heavy: return "HankenGrotesk-ExtraBold"
+            }
+        }
+
+        /// IBM Plex Mono, used for captions, figures and metadata.
+        var monoName: String {
+            switch self {
+            case .light, .regular: return "IBMPlexMono-Regular"
+            case .medium: return "IBMPlexMono-Medium"
+            case .semibold, .bold, .heavy: return "IBMPlexMono-SemiBold"
             }
         }
     }
 
     static let pixelName = "Silkscreen-Regular"
     private static let files = [
+        "HankenGrotesk-Regular", "HankenGrotesk-Medium", "HankenGrotesk-SemiBold", "HankenGrotesk-Bold", "HankenGrotesk-ExtraBold",
+        "IBMPlexMono-Regular", "IBMPlexMono-Medium", "IBMPlexMono-SemiBold", "Jersey10-Regular",
         "WorkSans-Light", "WorkSans-Regular", "WorkSans-Medium", "WorkSans-SemiBold", "WorkSans-Italic", "Silkscreen-Regular",
     ]
 
@@ -102,6 +129,15 @@ extension Font {
 
     static func workItalic(_ size: CGFloat) -> Font {
         .custom("WorkSans-Italic", size: size)
+    }
+
+    static func mono(_ size: CGFloat, _ weight: QuillFont.Weight = .medium) -> Font {
+        .custom(weight.monoName, size: size)
+    }
+
+    /// Jersey 10, the pixel face of the Dock layout: big numbers, the hero card and the dock labels.
+    static func jersey(_ size: CGFloat) -> Font {
+        .custom("Jersey10-Regular", size: size)
     }
 
     static func pixel(_ size: CGFloat) -> Font {

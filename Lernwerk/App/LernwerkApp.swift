@@ -18,7 +18,7 @@ struct LernwerkApp: App {
         }
         .modelContainer(for: [
             StudyMaterial.self, MaterialFolder.self, StudyPlan.self, PlanTopic.self, ReviewCard.self,
-            TimetableEntry.self, Exam.self,
+            TimetableEntry.self, Exam.self, Homework.self,
         ])
     }
 }

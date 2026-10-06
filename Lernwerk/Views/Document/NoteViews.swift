@@ -99,6 +99,9 @@ final class PageOverlayView: UIView {
     private(set) var annotationViews: [String: AnnotationView] = [:]
     let tap = UITapGestureRecognizer()
     private var renderedScale: CGFloat = 0
+    /// How much larger than the page the ink canvas is laid out; see `layoutCanvas`.
+    private var canvasZoom: CGFloat = 1
+    private var canvasLayout: (size: CGSize, zoom: CGFloat)?
 
     init(pageIndex: Int, controller: NotesController) {
         self.pageIndex = pageIndex
@@ -147,7 +150,7 @@ final class PageOverlayView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         annotationLayer.frame = bounds
-        canvas.frame = bounds
+        layoutCanvas()
         lassoLayer.frame = bounds
         instrumentLayer.frame = bounds
         targetLayer.frame = bounds
@@ -181,15 +184,50 @@ final class PageOverlayView: UIView {
     func renderSharp(at zoom: CGFloat) {
         let native = window?.screen.nativeScale ?? UIScreen.main.nativeScale
         let scale = min(max(native * zoom, native), native * 8)
+        // PencilKit draws the ink on its own and ignores the scale factor, so the canvas gets its own treatment.
+        let canvasZoom = zoom > 1.5 ? min(zoom.rounded(.up), 8) : 1
+        if abs(canvasZoom - self.canvasZoom) > 0.01 {
+            self.canvasZoom = canvasZoom
+            layoutCanvas()
+        }
         guard abs(scale - renderedScale) > 0.01 else { return }
         renderedScale = scale
-        Self.apply(scale: scale, to: self)
+        Self.apply(scale: scale, to: self, skipping: canvas)
     }
 
-    private static func apply(scale: CGFloat, to view: UIView) {
+    private static func apply(scale: CGFloat, to view: UIView, skipping skipped: UIView? = nil) {
+        guard view !== skipped else { return }
         view.contentScaleFactor = scale
         view.layer.contentsScale = scale
-        view.subviews.forEach { apply(scale: scale, to: $0) }
+        view.subviews.forEach { apply(scale: scale, to: $0, skipping: skipped) }
+    }
+
+    /// PDFKit enlarges the page by a transform, and PencilKit renders ink at the size it was first laid out, so ink
+    /// turns blurry (and the pen, whose width is in page units, looks fat) when zoomed in. Zoomed in, the canvas is laid
+    /// out `canvasZoom` times larger, shown at that zoom scale and shrunk back by the inverse transform: it covers the
+    /// same area on the page and the ink keeps its page coordinates, but PencilKit draws it at the larger size.
+    private func layoutCanvas() {
+        // Layout passes are frequent; touching the canvas in the middle of a stroke is not worth it for nothing.
+        if let canvasLayout, canvasLayout.size == bounds.size, canvasLayout.zoom == canvasZoom { return }
+        canvasLayout = (bounds.size, canvasZoom)
+        canvas.transform = .identity
+        canvas.pinchGestureRecognizer?.isEnabled = false
+        guard canvasZoom > 1 else {
+            canvas.minimumZoomScale = 1
+            canvas.maximumZoomScale = 1
+            canvas.zoomScale = 1
+            canvas.frame = bounds
+            return
+        }
+        let scale = canvasZoom
+        canvas.minimumZoomScale = 1
+        canvas.maximumZoomScale = 8
+        canvas.bounds = CGRect(x: 0, y: 0, width: bounds.width * scale, height: bounds.height * scale)
+        canvas.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        canvas.contentSize = bounds.size
+        canvas.zoomScale = scale
+        canvas.contentOffset = .zero
+        canvas.transform = CGAffineTransform(scaleX: 1 / scale, y: 1 / scale)
     }
 
     /// The calculated result offered after a written "=", or nil to take it away.

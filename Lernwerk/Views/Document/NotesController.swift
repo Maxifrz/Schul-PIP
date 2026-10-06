@@ -335,6 +335,10 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         if tool == .shapes, count > (strokeCounts[index] ?? 0) {
             recognizeLastStroke(on: canvasView)
         }
+        // One new pen stroke: thinner than PencilKit's smallest width if the pen is set that thin.
+        if tool == .pen, count == (strokeCounts[index] ?? 0) + 1, settings.penThinning < 0.999 {
+            thinLastStroke(on: canvasView, by: settings.penThinning)
+        }
         if count > (strokeCounts[index] ?? 0) {
             hideMathPreview()
             if tool == .pen, settings.mathPreview { watchForEquals(on: index, drawing: canvasView.drawing) }
@@ -344,6 +348,33 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         if zoomTarget?.page == index { updateZoomBackground() }
         scheduleSave()
         notifyUndo()
+    }
+
+    /// Scales the nib of the last stroke, which is how a pen set thinner than PencilKit allows gets its line.
+    private func thinLastStroke(on canvas: PKCanvasView, by ratio: CGFloat) {
+        guard let stroke = canvas.drawing.strokes.last else { return }
+        let points = stroke.path.map { point in
+            PKStrokePoint(
+                location: point.location,
+                timeOffset: point.timeOffset,
+                size: CGSize(width: point.size.width * ratio, height: point.size.height * ratio),
+                opacity: point.opacity,
+                force: point.force,
+                azimuth: point.azimuth,
+                altitude: point.altitude
+            )
+        }
+        let thin = PKStroke(
+            ink: stroke.ink,
+            path: PKStrokePath(controlPoints: points, creationDate: stroke.path.creationDate),
+            transform: stroke.transform,
+            mask: stroke.mask
+        )
+        var strokes = canvas.drawing.strokes
+        strokes[strokes.count - 1] = thin
+        isReplacingDrawing = true
+        canvas.drawing = PKDrawing(strokes: strokes)
+        isReplacingDrawing = false
     }
 
     /// The shape tool replaces a freehand stroke with the clean line, polygon or ellipse it resembles.
