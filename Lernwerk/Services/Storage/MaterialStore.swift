@@ -154,6 +154,22 @@ enum MaterialStore {
         }
     }
 
+    /// A scan as a PDF with one page per picture, each as wide as A4 and as tall as the picture needs. The pictures are
+    /// recompressed as JPEG first, so a ten-page scan is a few megabytes and not a few hundred.
+    static func pdf(fromScan images: [UIImage]) -> Data {
+        let width: CGFloat = 595
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: width, height: 842))
+        return renderer.pdfData { context in
+            for image in images {
+                let height = max(1, (width * image.size.height / max(image.size.width, 1)).rounded())
+                let bounds = CGRect(x: 0, y: 0, width: width, height: height)
+                context.beginPage(withBounds: bounds, pageInfo: [:])
+                let compact = image.jpegData(compressionQuality: 0.7).flatMap { UIImage(data: $0) } ?? image
+                compact.draw(in: bounds)
+            }
+        }
+    }
+
     static func save(pdfData: Data, title: String) throws -> StudyMaterial {
         let stored = try store(pdfData: pdfData, title: title)
         return StudyMaterial(title: stored.title, fileName: stored.fileName)
@@ -281,18 +297,25 @@ enum MaterialStore {
 
     /// One picture as a new page after `index`, fit to the size of the document's other pages.
     static func insertImagePage(_ image: UIImage, in material: StudyMaterial, after index: Int) -> Bool {
-        guard let target = PDFDocument(url: material.fileURL) else { return false }
+        insertImagePages([image], in: material, after: index)
+    }
+
+    /// Several pictures (a scan) as new pages after `index`, each fit to the size of the document's other pages.
+    static func insertImagePages(_ images: [UIImage], in material: StudyMaterial, after index: Int) -> Bool {
+        guard !images.isEmpty, let target = PDFDocument(url: material.fileURL) else { return false }
         let reference = target.page(at: min(max(index, 0), target.pageCount - 1))
         let size = reference?.bounds(for: .cropBox).size ?? PaperRenderer.a4
         let bounds = CGRect(origin: .zero, size: size)
         let data = UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
-            context.beginPage()
-            UIColor.white.setFill()
-            context.cgContext.fill(bounds)
-            let scale = min(size.width / max(image.size.width, 1), size.height / max(image.size.height, 1))
-            let fitted = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-            let origin = CGPoint(x: (size.width - fitted.width) / 2, y: (size.height - fitted.height) / 2)
-            image.draw(in: CGRect(origin: origin, size: fitted))
+            for image in images {
+                context.beginPage()
+                UIColor.white.setFill()
+                context.cgContext.fill(bounds)
+                let scale = min(size.width / max(image.size.width, 1), size.height / max(image.size.height, 1))
+                let fitted = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                let origin = CGPoint(x: (size.width - fitted.width) / 2, y: (size.height - fitted.height) / 2)
+                image.draw(in: CGRect(origin: origin, size: fitted))
+            }
         }
         guard let document = PDFDocument(data: data) else { return false }
         return insertPages(document, in: material, after: index)
