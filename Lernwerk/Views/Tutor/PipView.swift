@@ -53,7 +53,7 @@ final class PipSimulation {
     static let size = CGSize(width: CGFloat(gridWidth) * pixel, height: CGFloat(gridHeight) * pixel)
 
     private static let bodyY = 5
-    fileprivate static let cat: [[Character]] = [
+    static let cat: [[Character]] = [
         ".............",
         ".oo.......oo.",
         ".opo.....opo.",

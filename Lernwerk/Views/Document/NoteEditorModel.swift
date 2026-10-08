@@ -218,6 +218,15 @@ final class NoteEditorModel: ObservableObject {
         reopen(at: index + 1)
     }
 
+    /// Scanned pages after `page`, in the order they were scanned.
+    func insertImagePages(_ images: [UIImage], after page: Int? = nil) {
+        guard !images.isEmpty else { return }
+        let index = page ?? currentPage
+        controller?.saveNow()
+        guard MaterialStore.insertImagePages(images, in: material, after: index) else { return }
+        reopen(at: index + 1)
+    }
+
     func deletePage(_ page: Int) {
         controller?.saveNow()
         guard MaterialStore.deletePage(in: material, at: page) else { return }

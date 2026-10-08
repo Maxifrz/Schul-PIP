@@ -27,7 +27,8 @@ struct DockShell<Content: View>: View {
         GeometryReader { geometry in
             let landscape = geometry.size.width > geometry.size.height
             let immersive = selection == .calculator
-            let width = min(780, geometry.size.width - 32)
+            let phone = geometry.size.width < 600
+            let width = min(780, geometry.size.width - (phone ? 20 : 32))
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     if immersive { backBar }
@@ -35,18 +36,24 @@ struct DockShell<Content: View>: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .environment(\.studioRailOn, landscape)
                         .safeAreaInset(edge: .bottom, spacing: 0) {
-                            if !immersive { Color.clear.frame(height: 108) }
+                            if !immersive { Color.clear.frame(height: phone ? 84 : 108) }
                         }
                 }
                 if !immersive {
                     VStack(spacing: 0) {
-                        if selection != .today {
+                        if selection != .today, !phone {
                             PipView(isThinking: false)
                                 .frame(width: width)
                         }
-                        dock(width: width)
+                        if phone {
+                            phoneDock(width: width)
+                        } else {
+                            dock(width: width)
+                        }
                     }
-                    .padding(.bottom, 12)
+                    .padding(.bottom, phone ? 6 : 12)
+                    // The keyboard covers the dock instead of pushing it up and eating the screen.
+                    .ignoresSafeArea(.keyboard)
                 }
             }
             .animation(.easeOut(duration: 0.2), value: selection)
@@ -104,6 +111,67 @@ struct DockShell<Content: View>: View {
         .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
     }
 
+    // Phone dock: four areas and a menu with the rest.
+
+    private func phoneDock(width: CGFloat) -> some View {
+        let moreOn = phoneMore.contains { $0.tab == selection }
+        return HStack(spacing: 2) {
+            ForEach(phoneItems) { item in
+                phoneButton(label: item.short, icon: item.icon, on: selection == item.tab, badge: item.tab == .review ? dueCount : 0) {
+                    go(item.tab)
+                }
+                .accessibilityLabel(item.label)
+            }
+            Menu {
+                ForEach(phoneMore) { item in
+                    Button { go(item.tab) } label: { Label(item.label, systemImage: item.symbol) }
+                }
+            } label: {
+                phoneLabel(label: "Mehr", icon: PixelIcon.more, on: moreOn, badge: 0)
+            }
+            .accessibilityLabel("Mehr")
+        }
+        .padding(6)
+        .frame(width: width)
+        .background(Quill.surface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Quill.line2, lineWidth: 1))
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+    }
+
+    private func phoneButton(label: String, icon: [String], on: Bool, badge: Int, action: @escaping () -> Void) -> some View {
+        Button(action: action) { phoneLabel(label: label, icon: icon, on: on, badge: badge) }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func phoneLabel(label: String, icon: [String], on: Bool, badge: Int) -> some View {
+        VStack(spacing: 5) {
+            PixelIcon(rows: icon)
+            Text(label)
+                .font(.jersey(16))
+                .tracking(0.4)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundStyle(on ? Quill.onAccent : Quill.ink)
+        .frame(maxWidth: .infinity)
+        .frame(height: 56)
+        .background(on ? Quill.accent : Color.clear, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            if badge > 0 {
+                Text("\(badge)")
+                    .font(.jersey(14))
+                    .foregroundStyle(Quill.onAccent)
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 16)
+                    .background(Quill.warn, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .padding(.top, 4)
+                    .padding(.trailing, 6)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
     // Full screen
 
     private var backBar: some View {
@@ -146,10 +214,29 @@ private let dockItems = [
     DockItem(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
     DockItem(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
     DockItem(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
+    DockItem(tab: .social, label: "Kurse", short: "Kurse", icon: PixelIcon.social),
     DockItem(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
     DockItem(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),
     DockItem(tab: .presentations, label: "Präsentation", short: "Präs.", icon: PixelIcon.presentation),
     DockItem(tab: .settings, label: "Einstellungen", short: "Einst.", icon: PixelIcon.settings),
+]
+
+/// What the phone dock shows directly, and what sits behind "Mehr".
+private let phoneItems = dockItems.filter { [AppTab.today, .library, .review, .calendar].contains($0.tab) }
+
+private struct MoreItem: Identifiable {
+    let tab: AppTab
+    let label: String
+    let symbol: String
+    var id: String { tab.rawValue }
+}
+
+private let phoneMore = [
+    MoreItem(tab: .plans, label: "Lernplan", symbol: "list.bullet.rectangle"),
+    MoreItem(tab: .social, label: "Kurse", symbol: "person.2"),
+    MoreItem(tab: .calculator, label: "Rechner", symbol: "function"),
+    MoreItem(tab: .presentations, label: "Präsentation", symbol: "rectangle.on.rectangle"),
+    MoreItem(tab: .settings, label: "Einstellungen", symbol: "gearshape"),
 ]
 
 /// The dock's icons: five by five pixels, drawn in the text color.
@@ -181,6 +268,8 @@ struct PixelIcon: View {
     static let calculator = [".....", ".###.", ".....", ".###.", "....."]
     static let presentation = ["#####", "#...#", "#...#", "#####", "..#.."]
     static let settings = [".#.#.", "#####", ".#.#.", "#####", ".#.#."]
+    static let social = ["#####", "#...#", "#...#", "#####", "#...."]
+    static let more = [".....", "#.#.#", ".....", ".....", "....."]
 
     static func rows(for tab: AppTab) -> [String] {
         switch tab {
@@ -191,6 +280,7 @@ struct PixelIcon: View {
         case .calendar: return calendar
         case .calculator: return calculator
         case .presentations: return presentation
+        case .social: return social
         case .settings: return settings
         }
     }

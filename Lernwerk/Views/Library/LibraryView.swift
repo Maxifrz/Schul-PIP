@@ -100,6 +100,7 @@ struct LibraryView: View {
     @State private var dropTarget: String?
     @State private var errorMessage: String?
     @State private var photoItems: [PhotosPickerItem] = []
+    @State private var scanning = false
     @State private var namePrompt: NamePrompt?
     @State private var nameText = ""
     @State private var moveRequest: MoveRequest?
@@ -204,6 +205,20 @@ struct LibraryView: View {
         }
         .navigationDestination(item: $openedNotebook) { material in
             DocumentScreen(material: material)
+        }
+        .fullScreenCover(isPresented: $scanning) {
+            DocumentScanner(
+                onScan: { images in
+                    scanning = false
+                    importScan(images)
+                },
+                onCancel: { scanning = false },
+                onError: { error in
+                    scanning = false
+                    errorMessage = error.localizedDescription
+                }
+            )
+            .ignoresSafeArea()
         }
         .sheet(item: $subjectRequest) { request in
             SubjectSheet { subject in
@@ -831,6 +846,13 @@ struct LibraryView: View {
             } label: {
                 Label("Ganzen Ordner", systemImage: "folder")
             }
+            if DocumentScanner.isSupported {
+                Button {
+                    scanning = true
+                } label: {
+                    Label("Dokument scannen", systemImage: "doc.viewfinder")
+                }
+            }
         } label: {
             Text("Importieren")
                 .font(.work(fontSize, .medium))
@@ -954,6 +976,19 @@ struct LibraryView: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    /// A scan becomes one document with a page per scanned sheet.
+    private func importScan(_ images: [UIImage]) {
+        guard !images.isEmpty else { return }
+        let date = Date.now.formatted(.dateTime.day().month(.abbreviated).hour().minute())
+        do {
+            let material = try MaterialStore.save(pdfData: MaterialStore.pdf(fromScan: images), title: "Scan \(date)")
+            material.folderID = folderID
+            modelContext.insert(material)
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

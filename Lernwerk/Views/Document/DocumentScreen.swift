@@ -25,6 +25,10 @@ struct DocumentScreen: View {
     @State private var exported: ExportedFile?
     @State private var photoItem: PhotosPickerItem?
     @State private var pageImageItem: PhotosPickerItem?
+    // The photo pickers are presented from here: a PhotosPicker inside a Menu is torn down with the menu and never opens.
+    @State private var showPhotoPicker = false
+    @State private var showPageImagePicker = false
+    @State private var scanningPages = false
     @State private var isRenaming = false
     @State private var draftTitle = ""
     @State private var pageToDelete: Int?
@@ -123,6 +127,22 @@ struct DocumentScreen: View {
             Button("Abbrechen", role: .cancel) { pageToDelete = nil }
         } message: {
             Text("Die Seite verschwindet samt allem, was darauf geschrieben ist.")
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .photosPicker(isPresented: $showPageImagePicker, selection: $pageImageItem, matching: .images)
+        .fullScreenCover(isPresented: $scanningPages) {
+            DocumentScanner(
+                onScan: { images in
+                    scanningPages = false
+                    editor.insertImagePages(images)
+                },
+                onCancel: { scanningPages = false },
+                onError: { error in
+                    scanningPages = false
+                    importError = error.localizedDescription
+                }
+            )
+            .ignoresSafeArea()
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -299,7 +319,9 @@ struct DocumentScreen: View {
                 Label("PDF", systemImage: "doc.badge.plus")
             }
             Menu {
-                PhotosPicker(selection: $pageImageItem, matching: .images) {
+                Button {
+                    showPageImagePicker = true
+                } label: {
                     Label("Aus Fotos", systemImage: "photo.on.rectangle")
                 }
                 Button {
@@ -309,6 +331,13 @@ struct DocumentScreen: View {
                 }
             } label: {
                 Label("Bild", systemImage: "photo.badge.plus")
+            }
+            if DocumentScanner.isSupported {
+                Button {
+                    scanningPages = true
+                } label: {
+                    Label("Dokument scannen", systemImage: "doc.viewfinder")
+                }
             }
         }
     }
@@ -417,7 +446,9 @@ struct DocumentScreen: View {
             ToolButton(icon: "lasso", label: "Lasso", isOn: editor.tool == .lasso) { editor.tool = .lasso }
             ToolButton(icon: "star.circle", label: "Sticker", isOn: false) { sheet = .stickers }
             Menu {
-                PhotosPicker(selection: $photoItem, matching: .images) {
+                Button {
+                    showPhotoPicker = true
+                } label: {
                     Label("Aus Fotos", systemImage: "photo.on.rectangle")
                 }
                 Button {
@@ -545,13 +576,24 @@ struct DocumentScreen: View {
     }
 
     private func insertPhoto(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+        guard let image = await Self.loadImage(item) else {
+            importError = "Das Foto lässt sich nicht laden. Liegt es nur in iCloud, warte, bis es heruntergeladen ist."
+            return
+        }
         editor.insertImage(image)
     }
 
     private func insertPhotoPage(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+        guard let image = await Self.loadImage(item) else {
+            importError = "Das Foto lässt sich nicht laden. Liegt es nur in iCloud, warte, bis es heruntergeladen ist."
+            return
+        }
         editor.insertImagePage(image)
+    }
+
+    private static func loadImage(_ item: PhotosPickerItem) async -> UIImage? {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+        return UIImage(data: data)
     }
 
     /// A file the student picked from Files, loaded as a picture.

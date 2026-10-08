@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var draft = ""
     @State private var flash: String?
     @FocusState private var draftFocused: Bool
+    @StateObject private var game = PipRunModel()
 
     private let gap: CGFloat = 16
 
@@ -59,8 +60,33 @@ struct TodayView: View {
                     .padding(.bottom, 24)
                 }
                 .scrollIndicators(.hidden)
+                .background { gameKeys }
             }
         }
+    }
+
+    /// Right arrow starts the game in the hero card; with the game open, up jumps, down ducks, escape leaves. Hidden
+    /// buttons carry the shortcuts, so they work without a focused field and leave the arrows alone while no game runs.
+    private var gameKeys: some View {
+        Group {
+            Button {
+                game.rightArrow()
+            } label: { EmptyView() }
+            .keyboardShortcut(.rightArrow, modifiers: [])
+            if game.isOpen {
+                Button { game.jump() } label: { EmptyView() }
+                    .keyboardShortcut(.upArrow, modifiers: [])
+                Button { game.jump() } label: { EmptyView() }
+                    .keyboardShortcut(.space, modifiers: [])
+                Button { game.duck() } label: { EmptyView() }
+                    .keyboardShortcut(.downArrow, modifiers: [])
+                Button { game.close() } label: { EmptyView() }
+                    .keyboardShortcut(.escape, modifiers: [])
+            }
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 
     // Live data
@@ -143,6 +169,12 @@ struct TodayView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 290, alignment: .topLeading)
+        .overlay {
+            if game.isOpen {
+                PipRunView(model: game)
+                    .background { HeroBackground() }
+            }
+        }
         .background { HeroBackground() }
         .clipShape(PixelCorners(step: 4))
         .padding(4)
@@ -160,6 +192,7 @@ struct TodayView: View {
                         .frame(height: 2)
                     PipLogo(pixel: compact ? 5 : 8)
                         .padding(.leading, compact ? 0 : 24)
+                        .onTapGesture { game.open() }
                 }
                 .padding(.bottom, compact ? 0 : 26)
             }

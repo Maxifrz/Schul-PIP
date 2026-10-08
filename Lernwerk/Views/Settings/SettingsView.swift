@@ -194,23 +194,54 @@ private struct ModelSection: View {
 
 private struct ModelPickerSheet: View {
     @Binding var selection: ModelSelection
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
     private static let customID = "__custom__"
+
+    @State private var query = ""
+    @State private var remote: [RemoteModel] = []
+    @State private var loading = false
+    @State private var failure: String?
+
+    private var searching: Bool {
+        !query.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var hits: [RemoteModel] {
+        Array(ModelCatalog.search(remote, query: query).prefix(80))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PixelCaption(text: "Modell · \(selection.provider.name)")
                 .padding(.bottom, 10)
+            searchField
+                .padding(.bottom, 8)
+            statusLine
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(selection.provider.models) { option in
-                        row(id: option.id, name: option.name, note: option.note)
+                    if searching {
+                        ForEach(hits) { model in
+                            remoteRow(model)
+                        }
+                        if hits.isEmpty, !loading {
+                            Text(remote.isEmpty ? "Die Modellliste ist noch leer." : "Kein Modell passt zu „\(query)“.")
+                                .font(.work(14))
+                                .foregroundStyle(Quill.faint)
+                                .padding(.vertical, 16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    } else {
+                        ForEach(selection.provider.models) { option in
+                            row(id: option.id, name: option.name, note: option.note)
+                        }
+                        row(id: Self.customID, name: "Eigene Modell-ID", note: "Jedes Modell aus dem Katalog des Anbieters")
                     }
-                    row(id: Self.customID, name: "Eigene Modell-ID", note: "Jedes Modell aus dem Katalog des Anbieters")
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
         }
         .padding(.horizontal, 24)
         .padding(.top, 22)
@@ -218,10 +249,120 @@ private struct ModelPickerSheet: View {
         .presentationDetents([.medium, .large])
         .presentationBackground(Quill.bg)
         .presentationCornerRadius(24)
+        .task(id: selection.provider) { await load() }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Quill.faint)
+            TextField("Alle Modelle durchsuchen", text: $query)
+                .font(.work(15))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            if searching {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(Quill.hint)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .background(Quill.surface, in: Capsule())
+        .overlay(Capsule().stroke(Quill.line2, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var statusLine: some View {
+        if loading {
+            Text("Lade die Modellliste von \(selection.provider.name) …")
+                .font(.work(13)).foregroundStyle(Quill.faint).padding(.bottom, 8)
+        } else if let failure {
+            HStack(spacing: 10) {
+                Text(failure).font(.work(13)).foregroundStyle(Quill.warn)
+                Spacer(minLength: 0)
+                Button("Nochmal") { Task { await load() } }
+                    .font(.work(13, .medium)).foregroundStyle(Quill.link).buttonStyle(.plain)
+            }
+            .padding(.bottom, 8)
+        } else if !remote.isEmpty, !searching {
+            Text("\(remote.count) Modelle verfügbar. Tipp einen Namen, um sie zu durchsuchen.")
+                .font(.work(13)).foregroundStyle(Quill.faint).padding(.bottom, 8)
+        }
+    }
+
+    private func load() async {
+        remote = []
+        failure = nil
+        let provider = selection.provider
+        let key = KeychainStore.load(account: provider.keychainAccount) ?? ""
+        if ModelCatalog.needsKey(provider), key.isEmpty {
+            failure = ModelCatalog.Failure.needsKey.errorDescription
+            return
+        }
+        if provider == .custom, settings.customEndpoint == nil {
+            failure = ModelCatalog.Failure.needsAddress.errorDescription
+            return
+        }
+        loading = true
+        defer { loading = false }
+        do {
+            let models = try await ModelCatalog.fetch(provider: provider, apiKey: key, endpoint: settings.customEndpoint)
+            if provider == selection.provider { remote = models }
+        } catch {
+            failure = error.localizedDescription
+        }
     }
 
     private var isCustom: Bool {
         selection.provider.option(for: selection.model) == nil
+    }
+
+    private func remoteRow(_ model: RemoteModel) -> some View {
+        let isSelected = model.id == selection.model
+        return Button {
+            selection.model = model.id
+            if let vision = model.vision { selection.sendsImages = vision }
+            dismiss()
+        } label: {
+            HStack(alignment: .top, spacing: 13) {
+                radio(isSelected)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.name)
+                        .font(.work(15.5, .medium))
+                        .tracking(-0.15)
+                        .foregroundStyle(Quill.ink)
+                        .lineLimit(2)
+                    Text(model.id)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(Quill.faint)
+                        .lineLimit(1)
+                    if !model.note.isEmpty {
+                        Text(model.note)
+                            .font(.work(13))
+                            .foregroundStyle(Quill.faint)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 2)
+            .overlay(alignment: .bottom) { QuillDivider() }
+        }
+        .buttonStyle(QuillPressStyle())
+    }
+
+    private func radio(_ isSelected: Bool) -> some View {
+        ZStack {
+            Circle().strokeBorder(isSelected ? Quill.accent : Quill.line3, lineWidth: 1.5)
+            if isSelected {
+                Circle().fill(Quill.accent).frame(width: 9, height: 9)
+            }
+        }
+        .frame(width: 18, height: 18)
+        .padding(.top, 1)
     }
 
     private func row(id: String, name: String, note: String) -> some View {
@@ -230,14 +371,7 @@ private struct ModelPickerSheet: View {
             pick(id)
         } label: {
             HStack(alignment: .top, spacing: 13) {
-                ZStack {
-                    Circle().strokeBorder(isSelected ? Quill.accent : Quill.line3, lineWidth: 1.5)
-                    if isSelected {
-                        Circle().fill(Quill.accent).frame(width: 9, height: 9)
-                    }
-                }
-                .frame(width: 18, height: 18)
-                .padding(.top, 1)
+                radio(isSelected)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name)
                         .font(.work(15.5, .medium))
