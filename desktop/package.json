@@ -1,0 +1,78 @@
+{
+  "name": "schul-pip-desktop",
+  "productName": "Schul-PIP",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schul-PIP for Windows: courses and the shared Tafelbild, flashcards, library, calculator.",
+  "author": "Schul-PIP",
+  "license": "GPL-3.0-or-later",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "prepare-assets": "node scripts/prepare-assets.mjs",
+    "dev": "npm run prepare-assets && vite",
+    "build:renderer": "npm run prepare-assets && vite build",
+    "build:electron": "node scripts/build-electron.mjs",
+    "build": "npm run build:renderer && npm run build:electron",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "@vitejs/plugin-react": "4.7.0",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "0.24.2",
+    "pdfjs-dist": "4.10.38",
+    "playwright": "1.56.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "5.9.3",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
+  },
+  "build": {
+    "appId": "de.schulpip.desktop",
+    "productName": "Schul-PIP",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../cas/web",
+        "to": "cas",
+        "filter": [
+          "**/*",
+          "!cas.html"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Schul-PIP-Setup-${version}.${ext}",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  },
+  "dependencies": {}
+}

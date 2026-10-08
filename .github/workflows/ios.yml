@@ -3,9 +3,9 @@ name: iOS
 on:
   push:
     branches: ["**"]
-    paths-ignore: ["android/**", ".github/workflows/android.yml"]
+    paths-ignore: ["android/**", ".github/workflows/android.yml", "desktop/**", ".github/workflows/desktop.yml"]
   pull_request:
-    paths-ignore: ["android/**", ".github/workflows/android.yml"]
+    paths-ignore: ["android/**", ".github/workflows/android.yml", "desktop/**", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 
 concurrency:
