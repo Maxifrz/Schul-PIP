@@ -198,15 +198,20 @@ actor SocialAPI {
 
     // MARK: Plumbing
 
-    private func get<T: Decodable>(_ path: String, _ query: [(String, String)]) async throws -> T {
+    func get<T: Decodable>(_ path: String, _ query: [(String, String)]) async throws -> T {
         let data = try await authorized("GET", path, query: query)
         return try decode(data)
     }
 
-    private func rpc<T: Decodable>(_ name: String, _ params: [String: Any]) async throws -> T {
+    func rpc<T: Decodable>(_ name: String, _ params: [String: Any]) async throws -> T {
         let body = try JSONSerialization.data(withJSONObject: params)
         let data = try await authorized("POST", "/rest/v1/rpc/\(name)", body: body)
         return try decode(data)
+    }
+
+    func call(_ name: String, _ params: [String: Any]) async throws {
+        let body = try JSONSerialization.data(withJSONObject: params)
+        _ = try await authorized("POST", "/rest/v1/rpc/\(name)", body: body)
     }
 
     private func decode<T: Decodable>(_ data: Data) throws -> T {
@@ -217,7 +222,7 @@ actor SocialAPI {
         }
     }
 
-    private func authorized(_ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil, headers: [String: String] = [:]) async throws -> Data {
+    func authorized(_ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil, headers: [String: String] = [:]) async throws -> Data {
         try await refreshIfNeeded()
         return try await send(method, path, query: query, body: body, headers: headers, authorized: true).0
     }

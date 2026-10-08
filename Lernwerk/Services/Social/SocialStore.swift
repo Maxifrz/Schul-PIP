@@ -35,6 +35,27 @@ final class SocialStore: ObservableObject {
         }
     }
 
+    /// For the board store, which talks to the same server.
+    var apiClient: SocialAPI? { api }
+
+    func present(_ failure: Error, quiet: Bool = false) {
+        handle(failure, quiet: quiet)
+    }
+
+    /// True for the founder and for members the founder made moderators.
+    func isModerator(in group: UUID) -> Bool {
+        guard let me = me?.userId else { return false }
+        let role = members[group]?.first { $0.userId == me }?.role
+        return role == "owner" || role == "mod"
+    }
+
+    func setRole(_ role: String, of user: UUID, in group: SocialGroup) async {
+        await run(showBusy: false) { api in
+            try await api.call("set_member_role", ["p_group": group.id.uuidString.lowercased(), "p_user": user.uuidString.lowercased(), "p_role": role])
+        }
+        await refreshMembers(group)
+    }
+
     var serverText: String { UserDefaults.standard.string(forKey: Self.urlKey) ?? "" }
 
     // MARK: Server and account

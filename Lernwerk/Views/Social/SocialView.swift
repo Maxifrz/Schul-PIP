@@ -33,7 +33,7 @@ struct SocialView: View {
     }
 }
 
-private struct ErrorBanner: View {
+struct ErrorBanner: View {
     @ObservedObject private var store = SocialStore.shared
 
     var body: some View {
@@ -62,7 +62,7 @@ private struct ErrorBanner: View {
 }
 
 /// A plain text field in the app's look.
-private struct QuillField: View {
+struct QuillField: View {
     let title: String
     @Binding var text: String
     var secure = false
@@ -269,13 +269,14 @@ private struct GroupList: View {
 // MARK: Inside a group
 
 private enum GroupTab: String, CaseIterable, Identifiable {
-    case chat, results, groups, members
+    case chat, board, results, groups, members
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .chat: return "Chat"
-        case .results: return "Ergebnisse"
+        case .board: return "Tafelbild"
+        case .results: return "Dateien"
         case .groups: return "Gruppen"
         case .members: return "Mitglieder"
         }
@@ -295,14 +296,28 @@ private struct GroupScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Picker("Bereich", selection: $tab) {
-                ForEach(tabs) { Text($0.title).tag($0) }
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(tabs) { option in
+                        Button { tab = option } label: {
+                            Text(option.title)
+                                .font(.work(13.5, .medium))
+                                .foregroundStyle(option == tab ? Quill.bg : Quill.ink)
+                                .padding(.horizontal, 14)
+                                .frame(height: 34)
+                                .background(option == tab ? Quill.ink : Color.clear, in: Capsule())
+                                .overlay(Capsule().stroke(option == tab ? Color.clear : Quill.line2, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, margin)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, margin)
+            .scrollIndicators(.hidden)
             .padding(.bottom, 10)
             switch tab {
             case .chat: ChatPane(group: group, margin: margin)
+            case .board: BoardsPane(group: group, margin: margin)
             case .results: ResultsPane(group: group, margin: margin)
             case .groups: SubgroupsPane(course: group, margin: margin)
             case .members: MembersPane(group: group, margin: margin)
@@ -746,6 +761,7 @@ private struct SubgroupsPane: View {
         }
         .fullScreenCover(item: $opened) { group in
             GroupScreen(group: group, margin: margin) { opened = nil }
+                .overlay(alignment: .top) { ErrorBanner() }
                 .background(Quill.bg.ignoresSafeArea())
         }
     }
@@ -767,6 +783,10 @@ private struct MembersPane: View {
     let margin: CGFloat
     @ObservedObject private var store = SocialStore.shared
 
+    private var iAmOwner: Bool {
+        store.members[group.id]?.first { $0.userId == store.me?.userId }?.role == "owner"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
@@ -776,6 +796,19 @@ private struct MembersPane: View {
                         Spacer(minLength: 0)
                         if member.role == "owner" {
                             Text("GRÜNDER").font(.mono(10.5, .medium)).tracking(0.6).foregroundStyle(Quill.faint)
+                        } else if member.role == "mod" {
+                            Text("MODERATOR").font(.mono(10.5, .medium)).tracking(0.6).foregroundStyle(Quill.link)
+                        }
+                        if iAmOwner, member.role != "owner" {
+                            Menu {
+                                if member.role == "mod" {
+                                    Button("Moderation entziehen") { Task { await store.setRole("member", of: member.userId, in: group) } }
+                                } else {
+                                    Button("Zum Moderator machen") { Task { await store.setRole("mod", of: member.userId, in: group) } }
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis").foregroundStyle(Quill.faint).frame(width: 32, height: 24)
+                            }
                         }
                     }
                     .padding(.vertical, 10)
