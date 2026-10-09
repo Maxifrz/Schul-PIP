@@ -313,7 +313,9 @@ struct LearnPathView: View {
     private func fetchDistractors(for deck: [CardSnapshot]) async {
         let cache = DistractorCache()
         distractors = cache.all()
-        guard settings.demoMode || settings.hasKey(for: settings.tutor.provider) else { return }
+        guard deck.count >= LearnPath.minimumCards, settings.demoMode || settings.hasKey(for: settings.tutor.provider) else {
+            return
+        }
         let wanted = ExerciseBuilder.cardsNeedingDistractors(in: deck)
             .filter { cache.distractors(for: $0.key) == nil && !LearnPathView.askedThisLaunch.contains($0.key) }
         guard !wanted.isEmpty else { return }
