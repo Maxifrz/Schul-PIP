@@ -188,6 +188,53 @@ final class ExerciseBuilderTests: XCTestCase {
         XCTAssertFalse(exercises([berlin], deck: small, cached: tooFew).contains { $0.kind == .multipleChoice })
     }
 
+    func testACardWithTheSameQuestionIsNoWrongAnswer() {
+        let rule = card("Wie lautet die Kettenregel?", "Äußere Ableitung mal innere Ableitung", 0)
+        let formula = card("Wie lautet die Kettenregel?", "f′(x) = u′(v(x)) · v′(x)", 1)
+        let longer = card("Wie lautet die Kettenregel für verkettete Funktionen?", "Nachdifferenzieren", 2)
+        let others = [card("Produktregel?", "u′v + uv′", 3), card("Quotientenregel?", "(u′v − uv′) / v²", 4), card("Ableitung von sin?", "cos", 5)]
+        XCTAssertTrue(ExerciseBuilder.asksTheSame(rule, formula))
+        XCTAssertTrue(ExerciseBuilder.asksTheSame(rule, longer))
+        XCTAssertFalse(ExerciseBuilder.asksTheSame(rule, others[0]))
+        XCTAssertFalse(ExerciseBuilder.asksTheSame(capitals[0], capitals[1]))
+        let deck = [rule, formula, longer] + others
+        for seed in UInt64(1)...20 {
+            let choice = exercises([rule], deck: deck, seed: seed).first { $0.kind == .multipleChoice }
+            XCTAssertNotNil(choice)
+            XCTAssertFalse(choice?.options.contains(formula.back) ?? true)
+            XCTAssertFalse(choice?.options.contains(longer.back) ?? true)
+        }
+        // Without the cards that ask the same, the deck has too few wrong answers for the rule.
+        XCTAssertEqual(ExerciseBuilder.cardsNeedingDistractors(in: [rule, formula, longer, others[0], others[1]]).map(\.key).contains(rule.key), true)
+    }
+
+    func testFromFourCardsALessonAlwaysReachesEight() {
+        // Formulas for the same question: no word bank, no pairs and no multiple choice.
+        let formulas = [
+            card("Nenne eine binomische Formel.", "(a + b)² = a² + 2ab + b²", 0),
+            card("Nenne eine binomische Formel.", "(a − b)² = a² − 2ab + b²", 1),
+            card("Nenne eine binomische Formel.", "(a + b) · (a − b) = a² − b²", 2),
+            card("Nenne eine binomische Formel.", "(a + b)³ = a³ + 3a²b + 3ab² + b³", 3),
+        ]
+        let only = exercises(formulas, deck: formulas)
+        XCTAssertEqual(only.count, 8)
+        XCTAssertTrue(only.allSatisfy { $0.kind == .typeAnswer })
+        XCTAssertEqual(Set(only.map(\.id)).count, 8)
+        for card in formulas {
+            XCTAssertEqual(only.filter { $0.cardKeys == [card.key] }.count, 2)
+        }
+        for count in 4...9 {
+            let lesson = (0..<count).map { card("Frage \($0)?", "Antwort mit \($0) Punkten und Komma, lang genug für keine Paare hier", $0) }
+            for seed in UInt64(1)...5 {
+                let built = exercises(lesson, deck: lesson, seed: seed)
+                XCTAssertTrue((8...12).contains(built.count), "\(count) cards: \(built.count)")
+                let difficulties = built.map(\.kind.difficulty)
+                XCTAssertEqual(difficulties, difficulties.sorted())
+                XCTAssertEqual(Set(built.map(\.id)).count, built.count)
+            }
+        }
+    }
+
     func testAShortLessonRepeatsItsEasyExercisesOnce() {
         let two = Array(capitals.prefix(2))
         let built = exercises(two, deck: capitals)

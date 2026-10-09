@@ -125,6 +125,26 @@ final class LearnProgressTests: XCTestCase {
         XCTAssertEqual(LearnDay(early, calendar: auckland), LearnDay(year: 2026, month: 10, day: 10))
     }
 
+    func testALocalDateThatGoesBackKeepsTheDay() {
+        // Two lessons in Berlin on consecutive days, then one an hour later in New York, where it is the day before.
+        var progress = LearnProgress()
+        progress.setDailyGoal(50)
+        progress.record(result(right: 1, of: 1), now: date(9, 18), calendar: berlin)
+        let second = progress.record(result(right: 1, of: 1), now: date(10, 0, 30), calendar: berlin)
+        XCTAssertEqual(second?.streak, 2)
+        XCTAssertEqual(second?.goalReached, false)
+        let thirdReward = progress.record(result(right: 1, of: 1), now: date(10, 0, 30).addingTimeInterval(3600), calendar: calendar("America/New_York"))
+        XCTAssertEqual(thirdReward?.streak, 2)
+        XCTAssertEqual(thirdReward?.streakExtended, false)
+        XCTAssertEqual(thirdReward?.xpToday, 80)
+        XCTAssertEqual(thirdReward?.goalReached, true)
+        XCTAssertEqual(progress.xpToday(now: date(10, 2), calendar: calendar("America/New_York")), 80)
+        XCTAssertEqual(progress.currentStreak(now: date(10, 2), calendar: calendar("America/New_York")), 2)
+        let fourth = progress.record(result(right: 1, of: 1), now: date(10, 3), calendar: calendar("America/New_York"))
+        XCTAssertEqual(fourth?.goalReached, false, "the goal is reached once on that day")
+        XCTAssertEqual(progress.longestStreak, 2)
+    }
+
     func testFinishedLessonsAreRememberedAndARunCountsOnce() {
         var progress = LearnProgress()
         let run = result(right: 4, of: 4, lesson: "L7")

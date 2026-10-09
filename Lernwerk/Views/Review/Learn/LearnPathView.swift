@@ -24,6 +24,8 @@ struct LearnPathView: View {
 
     /// Cards asked about since launch, so the path asks the model about a card at most once per launch.
     private static var askedThisLaunch: Set<String> = []
+    /// Wrong answers the demo wrote this launch, kept out of the persistent cache.
+    private static var demoDistractors: [String: [String]] = [:]
 
     /// A lesson as it was when the student started it.
     struct ActiveLesson: Identifiable {
@@ -309,20 +311,35 @@ struct LearnPathView: View {
     }
 
     /// Wrong answers from the tutor model for cards the deck has too few for, fetched in the background while the path
-    /// is open and never during a lesson. Without a key, offline or on any error the cards are simply typed.
+    /// is open and never during a lesson. Without a key, offline or on any error the cards are simply typed. The demo's
+    /// answers are about the chain rule, so they stay in memory for this launch and never reach the cache of the
+    /// student's own cards.
     private func fetchDistractors(for deck: [CardSnapshot]) async {
         let cache = DistractorCache()
-        distractors = cache.all()
-        guard deck.count >= LearnPath.minimumCards, settings.demoMode || settings.hasKey(for: settings.tutor.provider) else {
+        let demo = settings.demoMode
+        distractors = known(cache, demo: demo)
+        guard deck.count >= LearnPath.minimumCards, demo || settings.hasKey(for: settings.tutor.provider) else { return }
+        let asked = { (key: String) in demo ? "demo:" + key : key }
+        // Comparing every card with the others takes a moment on a big deck; it runs off the main thread.
+        let needing = await Task.detached(priority: .utility) { ExerciseBuilder.cardsNeedingDistractors(in: deck) }.value
+        guard !Task.isCancelled else { return }
+        let wanted = needing.filter { distractors[$0.key] == nil && !LearnPathView.askedThisLaunch.contains(asked($0.key)) }
+        guard !wanted.isEmpty else { return }
+        let keys = Set(wanted.map { asked($0.key) })
+        LearnPathView.askedThisLaunch.formUnion(keys)
+        let service = DistractorService(client: settings.makeClient(for: .tutor), cache: cache)
+        let fetched = await service.fetch(for: wanted, persist: !demo)
+        if demo { LearnPathView.demoDistractors.merge(fetched) { _, new in new } }
+        if Task.isCancelled {
+            // Leaving the path cancels the request; the cards it got no answer for may be asked again next time.
+            LearnPathView.askedThisLaunch.subtract(keys.subtracting(fetched.keys.map(asked)))
             return
         }
-        let wanted = ExerciseBuilder.cardsNeedingDistractors(in: deck)
-            .filter { cache.distractors(for: $0.key) == nil && !LearnPathView.askedThisLaunch.contains($0.key) }
-        guard !wanted.isEmpty else { return }
-        LearnPathView.askedThisLaunch.formUnion(wanted.map(\.key))
-        let service = DistractorService(client: settings.makeClient(for: .tutor), cache: cache)
-        await service.fetch(for: wanted)
         cache.prune(keeping: Set(deck.map(\.key)))
-        distractors = cache.all()
+        distractors = known(cache, demo: demo)
+    }
+
+    private func known(_ cache: DistractorCache, demo: Bool) -> [String: [String]] {
+        demo ? cache.all().merging(LearnPathView.demoDistractors) { own, _ in own } : cache.all()
     }
 }

@@ -119,10 +119,11 @@ struct DistractorService {
         return ExerciseBuilder.pickDistractors(for: answer, from: short)
     }
 
-    /// Asks about the cards and caches what passes; returns the keys now cached. Stops at the first error.
+    /// Asks about the cards and returns what passed, by card key; with `persist` it also goes into the cache. Stops at
+    /// the first error, a cancelled task included.
     @discardableResult
-    func fetch(for cards: [CardSnapshot]) async -> Set<String> {
-        var cached = Set<String>()
+    func fetch(for cards: [CardSnapshot], persist: Bool = true) async -> [String: [String]] {
+        var fetched: [String: [String]] = [:]
         var start = 0
         while start < cards.count {
             let batch = Array(cards[start..<min(start + DistractorService.cardsPerRequest, cards.count)])
@@ -135,15 +136,16 @@ struct DistractorService {
                 guard let written = answers[index + 1] else { continue }
                 entries[card.key] = DistractorService.validated(written, for: card.back)
             }
-            cache.store(entries)
-            cached.formUnion(entries.keys)
+            if persist { cache.store(entries) }
+            fetched.merge(entries) { _, new in new }
         }
-        return cached
+        return fetched
     }
 
     // Demo
 
-    /// Three wrong answers per card of the request, from a fixed list on the chain rule like the demo's cards.
+    /// Wrong answers per card of the request, from a fixed list on the chain rule like the demo's cards. Four each, so
+    /// three remain when the check drops one that shares the numbers of a card's answer.
     static func demo(_ request: LLMRequest) -> String {
         let text = request.messages.flatMap(\.content).compactMap { content -> String? in
             if case let .text(text) = content { return text }
@@ -151,7 +153,7 @@ struct DistractorService {
         }.joined(separator: "\n")
         let count = text.components(separatedBy: "<card id=\"").count - 1
         let items = (0..<max(0, count)).map { index -> [String: Any] in
-            let picks = (0..<3).map { demoAnswers[(index * 3 + $0) % demoAnswers.count] }
+            let picks = (0..<4).map { demoAnswers[(index * 4 + $0) % demoAnswers.count] }
             return ["id": String(index + 1), "distractors": picks]
         }
         guard let data = try? JSONSerialization.data(withJSONObject: ["cards": items], options: [.sortedKeys]) else {
@@ -162,13 +164,13 @@ struct DistractorService {
 
     static let demoAnswers = [
         "Mit der Produktregel: u′ · v + u · v′",
-        "g(x) = (2x − 7)³",
+        "Nur die innere Funktion wird abgeleitet.",
         "e^(3x)",
         "1 / (2√(x² + 1))",
         "Zwei Funktionen werden addiert, z. B. sin(x) + x².",
         "cos(4x)",
         "Nur die äußere Funktion wird abgeleitet.",
-        "3 · e^x",
+        "Man leitet beide Funktionen einzeln ab und addiert.",
         "4 · sin(4x)",
     ]
 }

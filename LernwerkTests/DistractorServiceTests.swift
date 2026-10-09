@@ -65,7 +65,8 @@ final class DistractorServiceTests: XCTestCase {
         let service = DistractorService(client: client, cache: cache)
         let cached = await service.fetch(for: [berlin, paris])
 
-        XCTAssertEqual(cached, [berlin.key, paris.key])
+        XCTAssertEqual(Set(cached.keys), [berlin.key, paris.key])
+        XCTAssertEqual(cached[paris.key], ["Lyon", "Marseille"])
         XCTAssertEqual(cache.distractors(for: berlin.key), ["Hamburg", "München", "Köln"])
         XCTAssertEqual(cache.distractors(for: paris.key), ["Lyon", "Marseille"])
         XCTAssertNil(cache.distractors(for: "unbekannt"))
@@ -77,6 +78,14 @@ final class DistractorServiceTests: XCTestCase {
         guard case let .text(prompt) = request.messages[0].content[0] else { return XCTFail("expected text") }
         XCTAssertTrue(prompt.contains("<card id=\"2\">") && prompt.contains("<back>Paris</back>") && prompt.contains("Hauptstadt von Deutschland?"))
         XCTAssertTrue(request.system.contains("German") && request.system.contains("clearly wrong"))
+    }
+
+    func testDemoAnswersAreReturnedButNotSaved() async {
+        let cache = DistractorCache(defaults: freshDefaults())
+        let client = DistractorScriptedClient([#"{"cards":[{"id":"1","distractors":["Hamburg","München","Köln"]}]}"#])
+        let fetched = await DistractorService(client: client, cache: cache).fetch(for: [berlin], persist: false)
+        XCTAssertEqual(fetched, [berlin.key: ["Hamburg", "München", "Köln"]])
+        XCTAssertTrue(cache.all().isEmpty)
     }
 
     func testOfflineOrWithoutAKeyNothingIsCachedAndTheCardsAreTyped() async {
@@ -116,9 +125,21 @@ final class DistractorServiceTests: XCTestCase {
         let reply = DistractorService.demo(DistractorService.request(for: cards))
         let parsed = DistractorService.parse(StructuredOutput.extractJSON(from: reply))
         XCTAssertEqual(parsed?.count, 3)
-        XCTAssertTrue(parsed?.values.allSatisfy { $0.count == 3 } ?? false)
-        XCTAssertEqual(parsed?[3]?.count, 3)
+        XCTAssertTrue(parsed?.values.allSatisfy { $0.count == 4 } ?? false)
         XCTAssertEqual(DistractorService.validated(parsed?[3] ?? [], for: cards[2].back).count, 3)
         XCTAssertEqual(DistractorService.parse(DistractorService.demo(LLMRequest(purpose: .distractors, system: "", messages: [], maxTokens: 1)))?.count, 0)
+    }
+
+    func testEveryDemoHelpCardGetsThreeWrongAnswersThatPass() {
+        // The demo's help card, as DemoContent.flashcardJSON makes it, several times over.
+        let back = "Mit der Kettenregel: äußere Ableitung mal innere Ableitung. Hier 3(2x − 7)² · 2 = 6(2x − 7)²."
+        let cards = (0..<9).map { index in
+            CardSnapshot(front: "Wie leitest du (2x − 7)³ ab? \(index)", back: back, materialID: nil, createdAt: start.addingTimeInterval(Double(index)), dueDate: start)
+        }
+        let parsed = DistractorService.parse(DistractorService.demo(DistractorService.request(for: cards)))
+        XCTAssertEqual(parsed?.count, 9)
+        for index in 1...9 {
+            XCTAssertEqual(DistractorService.validated(parsed?[index] ?? [], for: back).count, 3, "card \(index)")
+        }
     }
 }

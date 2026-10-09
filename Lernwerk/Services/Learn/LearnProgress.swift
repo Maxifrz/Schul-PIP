@@ -77,7 +77,7 @@ struct LearnProgress: Codable, Equatable {
     }
 
     func xpToday(now: Date, calendar: Calendar) -> Int {
-        xpDay == LearnDay(now, calendar: calendar) ? xpOfDay : 0
+        xpDay == day(now, calendar: calendar) ? xpOfDay : 0
     }
 
     func goalFraction(now: Date, calendar: Calendar) -> Double {
@@ -96,6 +96,15 @@ struct LearnProgress: Codable, Equatable {
         completedLessons.contains(lessonID)
     }
 
+    /// Today in the calendar, but never before the last lesson's day: after a change of time zone or clock, or a
+    /// flight across the date line, the local date can go back, and a lesson then belongs to the last lesson day
+    /// instead of starting the day's XP, goal and streak over.
+    private func day(_ now: Date, calendar: Calendar) -> LearnDay {
+        let today = LearnDay(now, calendar: calendar)
+        guard let last = lastLessonDay, let gap = last.days(to: today, calendar: calendar), gap < 0 else { return today }
+        return last
+    }
+
     mutating func setDailyGoal(_ goal: Int) {
         guard LearnProgress.dailyGoals.contains(goal) else { return }
         dailyGoal = goal
@@ -109,7 +118,7 @@ struct LearnProgress: Codable, Equatable {
             recentRuns.removeFirst(recentRuns.count - LearnProgress.rememberedRuns)
         }
 
-        let today = LearnDay(now, calendar: calendar)
+        let today = day(now, calendar: calendar)
         let earned = LearnProgress.xp(for: result)
         if xpDay != today {
             xpDay = today

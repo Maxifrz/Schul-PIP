@@ -27,6 +27,8 @@ struct ExerciseBuilder {
     /// Answers with these (or with digits) are formulas, and formulas are typed, not put together from tiles.
     static let formulaSymbols = CharacterSet(charactersIn: "=+−*/^²³√π·×()<>[]{}|∫′⇒→←↔≤≥≈≠∑∞%_\\")
     static let pairsPrompt = "Finde die Paare"
+    /// From this many cards on, a lesson always has at least `minExercises`.
+    static let fullLessonCards = 4
 
     let lesson: [CardSnapshot]
     /// Every card of the student, the lesson's own included or not.
@@ -80,9 +82,12 @@ struct ExerciseBuilder {
             extras.append(exercise)
             used.insert(exercise.id)
         }
-        // A short lesson repeats its easy exercises once, shuffled anew, to reach the minimum length.
-        let firstRound = extras
-        for exercise in firstRound where cards.count + extras.count < ExerciseBuilder.minExercises {
+        // Too short a lesson repeats exercises once, shuffled anew: its easy ones and, from four cards on, typing a
+        // card a second time, which always reaches the minimum. Below four cards it stays short rather than repeat
+        // the same few questions over and over.
+        var again = extras
+        if cards.count >= ExerciseBuilder.fullLessonCards { again += cards.map(typeAnswer) }
+        for exercise in again where cards.count + extras.count < ExerciseBuilder.minExercises {
             extras.append(repeated(exercise, using: &random))
         }
 
@@ -99,7 +104,10 @@ struct ExerciseBuilder {
     // Multiple choice
 
     private func multipleChoice<R: RandomNumberGenerator>(for card: CardSnapshot, using random: inout R) -> LearnExercise? {
-        var picked = ExerciseBuilder.pickDistractors(for: card.back, from: distractorCandidates(for: card, using: &random))
+        let candidates = distractorCandidates(for: card, using: &random).lazy
+            .filter { !ExerciseBuilder.asksTheSame(card, $0) }
+            .map(\.back)
+        var picked = ExerciseBuilder.pickDistractors(for: card.back, from: candidates)
         if picked.count < ExerciseBuilder.distractorCount, let cached = cachedDistractors[card.key] {
             picked += ExerciseBuilder.pickDistractors(
                 for: card.back, from: cached, count: ExerciseBuilder.distractorCount - picked.count, excluding: picked
@@ -114,23 +122,29 @@ struct ExerciseBuilder {
     }
 
     /// The backs of the unit's other cards first, then of the other units.
-    private func distractorCandidates<R: RandomNumberGenerator>(for card: CardSnapshot, using random: inout R) -> [String] {
-        let pool = ExerciseBuilder.unique(lesson + deck)
-        var sameUnit = pool.filter { $0.key != card.key && $0.materialID == card.materialID }.map(\.back)
-        var otherUnits = pool.filter { $0.materialID != card.materialID }.map(\.back)
+    /// The other cards of the unit first, then of the other units. A card that asks the same question is skipped by
+    /// the caller, lazily, since its back is a right answer worded differently.
+    private func distractorCandidates<R: RandomNumberGenerator>(for card: CardSnapshot, using random: inout R) -> [CardSnapshot] {
+        let pool = ExerciseBuilder.unique(lesson + deck).filter { $0.key != card.key }
+        var sameUnit = pool.filter { $0.materialID == card.materialID }
+        var otherUnits = pool.filter { $0.materialID != card.materialID }
         sameUnit.shuffle(using: &random)
         otherUnits.shuffle(using: &random)
         return sameUnit + otherUnits
     }
 
-    /// Up to `count` clearly wrong answers, in the order given and none twice.
-    static func pickDistractors(for answer: String, from candidates: [String], count: Int = distractorCount, excluding taken: [String] = []) -> [String] {
+    /// Up to `count` clearly wrong answers, in the order given and none twice; stops reading once it has them.
+    static func pickDistractors<S: Sequence>(
+        for answer: String, from candidates: S, count: Int = distractorCount, excluding taken: [String] = []
+    ) -> [String] where S.Element == String {
         var seen = Set(taken.map(LearnExercise.folded))
         var picked: [String] = []
-        for candidate in candidates where picked.count < count {
+        guard count > 0 else { return picked }
+        for candidate in candidates {
             let text = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
             guard isValidDistractor(text, for: answer), seen.insert(LearnExercise.folded(text)).inserted else { continue }
             picked.append(text)
+            if picked.count == count { break }
         }
         return picked
     }
@@ -148,11 +162,19 @@ struct ExerciseBuilder {
         return true
     }
 
+    /// The same card, or one whose question the answer check would take for this one's in either direction ("Wie
+    /// lautet die Kettenregel?" twice, or once more with "für verkettete Funktionen").
+    static func asksTheSame(_ card: CardSnapshot, _ other: CardSnapshot) -> Bool {
+        if card.key == other.key || LearnExercise.folded(card.front) == LearnExercise.folded(other.front) { return true }
+        return AnswerCheck.evaluate(answer: card.front, expected: other.front) == .correct
+            || AnswerCheck.evaluate(answer: other.front, expected: card.front) == .correct
+    }
+
     /// The cards for which the deck has fewer than three wrong answers; only these are worth asking a model about.
     static func cardsNeedingDistractors(in deck: [CardSnapshot]) -> [CardSnapshot] {
         let cards = unique(deck)
         return cards.filter { card in
-            let candidates = cards.filter { $0.key != card.key }.map(\.back)
+            let candidates = cards.lazy.filter { !asksTheSame(card, $0) }.map(\.back)
             return pickDistractors(for: card.back, from: candidates).count < distractorCount
         }
     }
@@ -233,8 +255,7 @@ struct ExerciseBuilder {
             var skipped: [CardSnapshot] = []
             for card in rest {
                 let fits = group.count < ExerciseBuilder.pairCount && group.allSatisfy { other in
-                    LearnExercise.folded(other.front) != LearnExercise.folded(card.front)
-                        && ExerciseBuilder.isValidDistractor(card.back, for: other.back)
+                    !ExerciseBuilder.asksTheSame(card, other) && ExerciseBuilder.isValidDistractor(card.back, for: other.back)
                 }
                 if fits { group.append(card) } else { skipped.append(card) }
             }
