@@ -167,6 +167,8 @@ struct DemoLLMClient: LLMClient {
             text = DemoPresentation.critique(request)
         case .studyAid:
             text = StudyAids.demo(request)
+        case .distractors:
+            text = DistractorService.demo(request)
         case .mathRecognition:
             // The demo cannot read handwriting; the app falls back to on-device text recognition.
             text = #"{"kind": "expression", "lines": []}"#
