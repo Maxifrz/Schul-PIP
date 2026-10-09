@@ -125,8 +125,10 @@ struct LessonSession {
 enum LessonGrading {
     /// Only the cards that were due when the lesson started get a grade: right on every first try is "good",
     /// anything else "again". Practising cards that are not due leaves their SM-2 intervals alone.
+    /// Each card at most once, even if a result lists it twice.
     static func gradesToApply(_ result: LessonResult, dueKeys: Set<String>) -> [(key: String, grade: ReviewGrade)] {
-        result.cardKeys.filter(dueKeys.contains).map { key in
+        var seen = Set<String>()
+        return result.cardKeys.filter { dueKeys.contains($0) && seen.insert($0).inserted }.map { key in
             (key: key, grade: result.cardsRightFirstTry.contains(key) ? ReviewGrade.good : ReviewGrade.again)
         }
     }

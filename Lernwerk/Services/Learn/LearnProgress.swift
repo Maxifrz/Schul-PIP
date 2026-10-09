@@ -101,9 +101,9 @@ struct LearnProgress: Codable, Equatable {
         dailyGoal = goal
     }
 
-    /// Counts a finished lesson; nil if this run was counted before.
+    /// Counts a finished lesson; nil if this run was counted before or had no exercise to count.
     mutating func record(_ result: LessonResult, now: Date, calendar: Calendar) -> Reward? {
-        guard !recentRuns.contains(result.sessionID) else { return nil }
+        guard result.exerciseCount > 0, !recentRuns.contains(result.sessionID) else { return nil }
         recentRuns.append(result.sessionID)
         if recentRuns.count > LearnProgress.rememberedRuns {
             recentRuns.removeFirst(recentRuns.count - LearnProgress.rememberedRuns)
@@ -176,7 +176,7 @@ final class LearnProgressStore: ObservableObject {
         save()
     }
 
-    /// Counts a finished lesson once; nil if this run was counted before.
+    /// Counts a finished lesson once; nil if this run was counted before or had no exercise.
     @discardableResult
     func record(_ result: LessonResult, now: Date, calendar: Calendar) -> LearnProgress.Reward? {
         var updated = progress

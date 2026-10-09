@@ -139,6 +139,14 @@ final class LearnProgressTests: XCTestCase {
         XCTAssertEqual(progress.recentRuns.count, LearnProgress.rememberedRuns)
     }
 
+    func testARunWithoutExercisesCountsNothing() {
+        var progress = LearnProgress()
+        XCTAssertNil(progress.record(result(right: 0, of: 0), now: date(9), calendar: berlin))
+        XCTAssertEqual(progress.totalXP, 0)
+        XCTAssertEqual(progress.currentStreak(now: date(9), calendar: berlin), 0)
+        XCTAssertTrue(progress.completedLessons.isEmpty)
+    }
+
     func testJSONRoundTrip() throws {
         var progress = LearnProgress()
         progress.setDailyGoal(50)

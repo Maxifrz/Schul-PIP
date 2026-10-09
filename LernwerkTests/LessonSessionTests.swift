@@ -155,6 +155,47 @@ final class LessonSessionTests: XCTestCase {
         XCTAssertEqual(lesson.result?.accuracy, 0)
     }
 
+    func testAFinishedLessonStaysFinished() {
+        var lesson = session([exercise(.typeAnswer, "a")], cards: ["a"])
+        lesson.submit(.typed("Berlin"))
+        lesson.advance()
+        let result = lesson.result
+        XCTAssertNotNil(result)
+        lesson.advance()
+        XCTAssertNil(lesson.submit(.typed("Paris")))
+        lesson.overrule()
+        lesson.advance()
+        XCTAssertEqual(lesson.phase, .finished)
+        XCTAssertEqual(lesson.position, 1)
+        XCTAssertEqual(lesson.result, result)
+    }
+
+    func testOverrulingTwiceCountsOnce() {
+        var lesson = session([exercise(.typeAnswer, "a"), exercise(.typeAnswer, "b")])
+        lesson.submit(.typed("Paris"))
+        lesson.overrule()
+        lesson.overrule()
+        lesson.advance()
+        lesson.overrule()
+        lesson.submit(.typed("Rom"))
+        lesson.advance()
+        lesson.submit(.typed("Berlin"))
+        lesson.advance()
+        XCTAssertEqual(lesson.result?.rightFirstTry, 1)
+        XCTAssertEqual(lesson.result?.rightOnRetry, 1)
+        XCTAssertEqual(lesson.result?.cardsRightFirstTry, ["a"])
+    }
+
+    func testACardListedTwiceIsGradedOnce() {
+        let result = LessonResult(
+            lessonID: "L1", sessionID: "s1", exerciseCount: 2, rightFirstTry: 2, rightOnRetry: 0,
+            cardKeys: ["a", "b", "a"], cardsRightFirstTry: ["a", "b"]
+        )
+        XCTAssertEqual(LessonGrading.gradesToApply(result, dueKeys: ["a", "b"]).map(\.key), ["a", "b"])
+        let session = LessonSession(lessonID: "L1", cardKeys: ["a", "a", "b"], exercises: [exercise(.typeAnswer, "a")], sessionID: "s")
+        XCTAssertEqual(session.cardKeys, ["a", "b"])
+    }
+
     func testOnlyDueCardsAreGraded() {
         let result = LessonResult(
             lessonID: "L1", sessionID: "s1", exerciseCount: 6, rightFirstTry: 4, rightOnRetry: 1,
