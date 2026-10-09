@@ -106,7 +106,7 @@ struct RootView: View {
             case .presentations: PresentationListView()
             case .calculator: CalculatorView()
             case .calendar: CalendarScreen()
-            case .review: ReviewView()
+            case .review: ReviewView(select: { tab = $0 })
             case .social: SocialView()
             case .settings: SettingsView()
             }
