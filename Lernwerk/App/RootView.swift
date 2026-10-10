@@ -14,7 +14,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .presentations: return "Präsentation"
         case .calculator: return "Rechner"
         case .calendar: return "Kalender"
-        case .review: return "Wiederholen"
+        case .review: return "Lernen"
         case .social: return "Kurse"
         case .settings: return "Einstellungen"
         }

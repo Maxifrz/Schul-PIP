@@ -2,9 +2,9 @@ import SwiftUI
 
 /// One lesson of the Lernpfad, full screen: progress at the top, the exercise in the middle and, after each answer,
 /// a bar with the verdict that slides up from the bottom. It grades no card itself; the finished lesson goes to
-/// `onFinish` once, and whoever opened the lesson records it.
+/// `onFinish` once, and whoever opened the lesson records it and says what it brought.
 struct LessonView: View {
-    let onFinish: (LessonResult) -> Void
+    let onFinish: (LessonResult) -> LessonRewards
 
     @StateObject private var model: LessonModel
     @EnvironmentObject private var progress: LearnProgressStore
@@ -13,6 +13,7 @@ struct LessonView: View {
     @AppStorage("learn.haptics") private var haptics = true
     @State private var confirmingClose = false
     @State private var result: LessonResult?
+    @State private var rewards = LessonRewards()
 
     /// `deck` is every card of the student, for wrong answers; `distractors` the checked ones a model wrote.
     init(
@@ -20,7 +21,7 @@ struct LessonView: View {
         dueKeys: Set<String>,
         deck: [CardSnapshot] = [],
         distractors: [String: [String]] = [:],
-        onFinish: @escaping (LessonResult) -> Void
+        onFinish: @escaping (LessonResult) -> LessonRewards
     ) {
         self.onFinish = onFinish
         let seed = UInt64.random(in: 1...UInt64.max)
@@ -29,8 +30,14 @@ struct LessonView: View {
         ))
     }
 
+    /// A lesson of a course: its exercises come ready and no card is graded.
+    init(lessonID: String, exercises: [LearnExercise], onFinish: @escaping (LessonResult) -> LessonRewards) {
+        self.onFinish = onFinish
+        _model = StateObject(wrappedValue: LessonModel(lessonID: lessonID, exercises: exercises, sessionID: UUID().uuidString))
+    }
+
     /// With ready-made exercises, for the previews.
-    init(cards: [CardSnapshot], exercises: [LearnExercise], onFinish: @escaping (LessonResult) -> Void = { _ in }) {
+    init(cards: [CardSnapshot], exercises: [LearnExercise], onFinish: @escaping (LessonResult) -> LessonRewards = { _ in LessonRewards() }) {
         self.onFinish = onFinish
         _model = StateObject(wrappedValue: LessonModel(cards: cards, exercises: exercises, sessionID: UUID().uuidString))
     }
@@ -47,6 +54,7 @@ struct LessonView: View {
                     streak: progress.progress.currentStreak(now: Date(), calendar: .current),
                     xpToday: progress.progress.xpToday(now: Date(), calendar: .current),
                     dailyGoal: progress.progress.dailyGoal,
+                    rewards: rewards,
                     onDone: { dismiss() }
                 )
                 .transition(.opacity)
@@ -123,6 +131,7 @@ struct LessonView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
             }
+            ExerciseMediaView(exercise: exercise)
             exerciseView(exercise)
         }
         .frame(maxWidth: 640, alignment: .leading)
@@ -170,7 +179,19 @@ struct LessonView: View {
                 }
             )
         case .typeAnswer:
-            TypeAnswerView(text: $model.typed, verdict: model.verdict, onSubmit: check)
+            TypeAnswerView(text: $model.typed, verdict: model.verdict, mode: exercise.mode, onSubmit: check)
+        case .chessMove:
+            if case let .board(spec)? = exercise.media {
+                ChessMoveView(
+                    spec: spec, from: model.moveFrom, to: model.moveTo, correctMoves: exercise.correctAnswers,
+                    verdict: model.verdict, onTap: { square in
+                        LearnHaptics.selection(haptics)
+                        model.tapSquare(square)
+                    }
+                )
+            }
+        case .pianoKey:
+            PianoKeyView(correct: exercise.correctAnswers.compactMap { Int($0) }, choice: $model.choice, verdict: model.verdict)
         }
     }
 
@@ -180,6 +201,8 @@ struct LessonView: View {
         case .matchPairs: return "Finde die Paare"
         case .wordBank: return "Bilde die Antwort"
         case .typeAnswer: return "Schreib die Antwort"
+        case .chessMove: return "Finde den Zug"
+        case .pianoKey: return "Tippe die Taste"
         }
     }
 
@@ -191,6 +214,7 @@ struct LessonView: View {
             LessonFeedbackBar(
                 verdict: verdict,
                 solution: verdict == .wrong ? exercise.solution : nil,
+                explanation: exercise.explanation,
                 comesBack: verdict == .wrong && !model.session.isRetry,
                 canOverrule: verdict == .wrong && exercise.kind == .typeAnswer,
                 compact: compact,
@@ -239,7 +263,7 @@ struct LessonView: View {
 
     private func reportIfFinished() {
         guard result == nil, let finished = model.takeResult() else { return }
-        onFinish(finished)
+        rewards = onFinish(finished)
         LearnHaptics.finished(haptics)
         result = finished
     }
@@ -249,6 +273,8 @@ struct LessonView: View {
 struct LessonFeedbackBar: View {
     let verdict: LearnVerdict
     let solution: String?
+    /// A sentence of why; shown after right and wrong answers alike.
+    var explanation = ""
     let comesBack: Bool
     let canOverrule: Bool
     let compact: Bool
@@ -279,6 +305,13 @@ struct LessonFeedbackBar: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
+            }
+            if !explanation.isEmpty {
+                Text(explanation)
+                    .font(.work(14.5))
+                    .lineSpacing(3)
+                    .foregroundStyle(Quill.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if comesBack {
                 Text("Diese Aufgabe kommt am Ende noch einmal.")

@@ -64,7 +64,7 @@ enum LearnSamples {
 }
 
 #Preview("Ganze Lektion") {
-    LessonView(cards: LearnSamples.lesson, dueKeys: Set(LearnSamples.lesson.map(\.key)), deck: LearnSamples.cards) { _ in }
+    LessonView(cards: LearnSamples.lesson, dueKeys: Set(LearnSamples.lesson.map(\.key)), deck: LearnSamples.cards) { _ in LessonRewards() }
         .environmentObject(LearnSamples.store)
 }
 

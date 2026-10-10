@@ -63,6 +63,19 @@ final class CoursePathTests: XCTestCase {
         }
     }
 
+    func testTextOnACourseColorIsTheOneThatContrastsMore() {
+        func course(_ color: UInt32) -> Course {
+            Course(id: "c", title: "C", subtitle: "", kind: .math, color: color, symbol: "x", sections: [])
+        }
+        XCTAssertTrue(course(0xFFFFFF).prefersDarkText)
+        XCTAssertFalse(course(0x000000).prefersDarkText)
+        XCTAssertTrue(course(0xB8A04A).prefersDarkText, "the yellow of Deutsch als Fremdsprache")
+        XCTAssertTrue(course(0xD9903A).prefersDarkText, "orange")
+        XCTAssertFalse(course(0x3D6FB6).prefersDarkText, "blue")
+        XCTAssertFalse(course(0x5A5AA8).prefersDarkText, "indigo")
+        XCTAssertFalse(course(0x9E6B8E).prefersDarkText, "plum")
+    }
+
     func testStructureProblemsAreFound() {
         struct Broken: CourseProvider {
             var course: Course {

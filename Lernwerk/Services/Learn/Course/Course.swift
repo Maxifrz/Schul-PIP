@@ -92,6 +92,20 @@ struct Course: Identifiable, Equatable {
     }
 }
 
+extension Course {
+    /// Whether text on the course's color should be dark: only on light colors. White text on a mid-tone color reads
+    /// better to the eye than the maths of contrast says, and still has at least 3:1.
+    var prefersDarkText: Bool {
+        func channel(_ shift: UInt32) -> Double {
+            let value = Double((color >> shift) & 0xFF) / 255
+            return value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+        // White's contrast is 1.05 / (L + 0.05): 3:1 at L = 0.30.
+        return luminance > 0.30
+    }
+}
+
 /// One course's content: its structure and the exercises of each of its steps.
 protocol CourseProvider {
     var course: Course { get }

@@ -1,5 +1,15 @@
 import Foundation
 
+/// What a finished lesson brought besides XP, for the end screen. The one who records the lesson fills it in.
+struct LessonRewards: Equatable {
+    var gems = 0
+    /// The titles of the quests this lesson completed.
+    var quests: [String] = []
+    /// Streak freezes that covered skipped days with this lesson.
+    var freezesUsed = 0
+    var streakExtended = false
+}
+
 /// The lesson on screen: the session plus what the student has picked, put together or typed for the current
 /// exercise. All of it lives in this one object, so turning the device or showing the keyboard keeps every choice.
 final class LessonModel: ObservableObject {

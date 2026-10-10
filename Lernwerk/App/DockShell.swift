@@ -213,7 +213,7 @@ private let dockItems = [
     DockItem(tab: .today, label: "Heute", short: "Heute", icon: PixelIcon.heute),
     DockItem(tab: .library, label: "Bibliothek", short: "Bibl.", icon: PixelIcon.library),
     DockItem(tab: .plans, label: "Lernplan", short: "Plan", icon: PixelIcon.plan),
-    DockItem(tab: .review, label: "Karten", short: "Karten", icon: PixelIcon.review),
+    DockItem(tab: .review, label: "Lernen", short: "Lernen", icon: PixelIcon.review),
     DockItem(tab: .social, label: "Kurse", short: "Kurse", icon: PixelIcon.social),
     DockItem(tab: .calendar, label: "Kalender", short: "Kal.", icon: PixelIcon.calendar),
     DockItem(tab: .calculator, label: "Rechner", short: "Rechn.", icon: PixelIcon.calculator),

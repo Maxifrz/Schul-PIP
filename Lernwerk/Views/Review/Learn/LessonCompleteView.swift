@@ -7,6 +7,7 @@ struct LessonCompleteView: View {
     let streak: Int
     let xpToday: Int
     let dailyGoal: Int
+    var rewards = LessonRewards()
     let onDone: () -> Void
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -43,6 +44,7 @@ struct LessonCompleteView: View {
                         stat("\(streak)", label: streak == 1 ? "Tag in Folge" : "Tage in Folge", accessibility: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage")")
                     }
                     goal
+                    extras
                     PipView(isThinking: false)
                         .frame(maxWidth: 360)
                 }
@@ -56,6 +58,46 @@ struct LessonCompleteView: View {
                 .keyboardShortcut(.defaultAction)
                 .padding(.top, 10)
                 .padding(.bottom, compact ? 16 : 28)
+        }
+    }
+
+    /// Gems, quests finished and streak freezes used with this lesson.
+    @ViewBuilder
+    private var extras: some View {
+        if rewards.gems > 0 || !rewards.quests.isEmpty || rewards.freezesUsed > 0 {
+            VStack(alignment: .leading, spacing: 10) {
+                if rewards.gems > 0 {
+                    extraRow(symbol: "diamond.fill", text: "+\(rewards.gems) Gems", color: Quill.link)
+                }
+                ForEach(rewards.quests, id: \.self) { title in
+                    extraRow(symbol: "checkmark.seal.fill", text: "Quest geschafft: \(title)", color: Quill.accent)
+                }
+                if rewards.freezesUsed > 0 {
+                    extraRow(
+                        symbol: "snowflake",
+                        text: rewards.freezesUsed == 1 ? "Ein Streak-Schutz hat deine Serie gerettet" : "\(rewards.freezesUsed) Streak-Schütze haben deine Serie gerettet",
+                        color: Quill.warn
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .background(Quill.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Quill.line, lineWidth: 1))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func extraRow(symbol: String, text: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 22)
+            Text(text)
+                .font(.work(15, .medium))
+                .foregroundStyle(Quill.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

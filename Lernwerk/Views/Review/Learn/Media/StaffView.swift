@@ -122,7 +122,7 @@ private struct StaffPainter {
                 context.stroke(line, with: .color(ink), lineWidth: max(1, s * 0.12))
             }
             if let accidental = StaffDrawingRules.accidental(for: note.pitch, key: spec.keySignature) {
-                drawAccidental(accidental, x: x - 1.5 * s - CGFloat(index % 2) * 0.0, step: step, space: s, in: context)
+                drawAccidental(accidental, x: x - 1.5 * s, step: step, space: s, in: context)
             }
             drawHead(value, x: headX, y: y(step), space: s, in: context)
         }
