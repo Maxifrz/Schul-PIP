@@ -321,5 +321,6 @@ enum MathMiddleCatalog {
         MathMiddleUnit07.templates,
         MathMiddleUnit08.templates,
         MathMiddleUnit09.templates,
+        MathMiddleUnit10.templates,
     ]
 }

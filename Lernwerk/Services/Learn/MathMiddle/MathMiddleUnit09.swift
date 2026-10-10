@@ -399,6 +399,9 @@ enum MathMiddleUnit09 {
         if let bigRoot = rationalRoot(p * p - q) { wrongSets.append((p.negated + bigRoot, p.negated - bigRoot)) }
         if let plusRoot = rationalRoot(half * half + q) { wrongSets.append((half.negated + plusRoot, half.negated - plusRoot)) }
         wrongSets.append((half.negated + discriminant, half.negated - discriminant))
+        // The sign of p/2 not turned, p not halved but the right root.
+        wrongSets.append((half + root, half - root))
+        wrongSets.append((p.negated + root, p.negated - root))
         let wrong = wrongSets.filter { Set([$0.0, $0.1]) != Set([r1, r2]) }.map { pair($0.0, $0.1) }
         guard Set(wrong).count >= 2 else { return nil }
         let equation = quadratic(Q(1), p, q) + " = 0"

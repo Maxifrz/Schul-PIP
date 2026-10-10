@@ -566,7 +566,7 @@ enum MathMiddleUnit08 {
     private static func pickTriple(_ level: Int, _ gen: MathMiddleGen) -> (Q, Q, Q) {
         switch level {
         case 1:
-            let t = gen.pick(Array(triples.prefix(2)))
+            let t = gen.pick(Array(triples.prefix(3)))
             return (Q(t.0), Q(t.1), Q(t.2))
         case 2:
             let t = gen.pick(Array(triples.prefix(6)))
@@ -663,7 +663,7 @@ enum MathMiddleUnit08 {
     }
 
     private static func rightAngleTestAttempt(_ level: Int, _ gen: MathMiddleGen) -> MathMiddleProblem? {
-        let pool = level == 1 ? Array(triples.prefix(3)) : (level == 2 ? Array(triples.prefix(6)) : triples)
+        let pool = level == 1 ? Array(triples.prefix(5)) : (level == 2 ? Array(triples.prefix(6)) : triples)
         let (a, b, c) = gen.pick(pool)
         func isRight(_ x: Int, _ y: Int, _ z: Int) -> Bool {
             let sides = [x, y, z].sorted()

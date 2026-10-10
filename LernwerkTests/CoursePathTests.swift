@@ -63,6 +63,23 @@ final class CoursePathTests: XCTestCase {
         }
     }
 
+    func testTheShippedCoursesAreSoundAndDoNotCollide() {
+        let providers = CourseCatalog.providers
+        XCTAssertEqual(providers.count, 9)
+        let ids = providers.map { $0.course.id }
+        XCTAssertEqual(Set(ids).count, ids.count, "course ids are unique")
+        for first in ids {
+            for second in ids where first != second {
+                XCTAssertFalse(second.hasPrefix(first + "."), "\(first) is a prefix of \(second)")
+            }
+        }
+        var nodeIDs = Set<String>()
+        for provider in providers {
+            XCTAssertEqual(provider.structureProblems(), [], provider.course.id)
+            for node in provider.course.nodes { XCTAssertTrue(nodeIDs.insert(node.id).inserted, node.id) }
+        }
+    }
+
     func testTextOnACourseColorIsTheOneThatContrastsMore() {
         func course(_ color: UInt32) -> Course {
             Course(id: "c", title: "C", subtitle: "", kind: .math, color: color, symbol: "x", sections: [])

@@ -159,7 +159,7 @@ enum ChessUnit8 {
         }
         let actual = after.attackedEnemies(by: move.to).compactMap { after[$0]?.kind }
         let right = pairText(actual)
-        let present = Array(Set(after.squares(of: position.sideToMove.opposite).compactMap { after[$0]?.kind }))
+        let present = Array(Set(after.squares(of: position.sideToMove.opposite).compactMap { after[$0]?.kind })).sorted()
         let all = ChessPieceKind.allCases
         var wrong: [String] = []
         for pool in [present, all] {

@@ -228,7 +228,7 @@ final class MathCourseMiddleUnit08Tests: XCTestCase {
             if let m = Kit.match(#"die Katheten "# + n + #" cm und "# + n + #" cm lang\. Wie lang ist die Hypotenuse\?"#, text) {
                 let (a, b) = (Kit.number(m[1])!, Kit.number(m[2])!)
                 guard let c = Kit.number(p.correct), Kit.close(a * a + b * b, c * c), c > max(a, b) else { return "a² + b² is not c²" }
-                if level == 1, a > 8 || b > 8 { return "level 1 small triples" }
+                if level == 1, a > 12 || b > 12 { return "level 1 small triples" }
                 return self.check(p, expected: (a * a + b * b).squareRoot())
             }
             if let m = Kit.match(#"die Hypotenuse "# + n + #" cm und eine Kathete "# + n + #" cm lang\. Wie lang ist die andere Kathete\?"#, text) {

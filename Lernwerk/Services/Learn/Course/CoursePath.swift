@@ -78,7 +78,11 @@ enum CoursePath {
 
 /// The courses the app ships with; each engine's provider is listed here once it exists.
 enum CourseCatalog {
-    static let providers: [any CourseProvider] = []
+    static let providers: [any CourseProvider] = [
+        SpanishCourse.provider, FrenchCourse.provider, LatinCourse.provider, GermanForeignCourse.provider,
+        GermanSchoolCourse.provider, MathMiddleCourse.provider, MathUpperCourse.provider, ChessCourse.provider,
+        MusicCourse.provider,
+    ]
 
     static var courses: [Course] { providers.map(\.course) }
 
