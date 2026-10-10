@@ -12,6 +12,7 @@ struct LearnHomeView: View {
     @Query private var materials: [StudyMaterial]
     @Environment(\.modelContext) private var context
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var progress: LearnProgressStore
     @EnvironmentObject private var quests: QuestStore
     @EnvironmentObject private var settings: AppSettings
@@ -105,6 +106,10 @@ struct LearnHomeView: View {
             await fetcher.refresh(deck: library.snapshots, settings: settings)
         }
         .onAppear { quests.refresh(now: Date(), calendar: .current) }
+        .onChange(of: scenePhase) { _, phase in
+            // A day can pass while the app waits in the background.
+            if phase == .active { quests.refresh(now: Date(), calendar: .current) }
+        }
     }
 
     // MARK: Pieces
