@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Tab, cardStore, libraryStore, startStores, ui } from './store/app';
 import { startSocial } from './store/social';
 import { dueCards } from './lib/review';
+import { Spring, smooth } from './lib/spring';
 import { Banner, Icon } from './ui/kit';
 import { Calculator } from './views/Calculator';
 import { Courses } from './views/Courses';
@@ -24,6 +25,25 @@ export function App() {
   const cards = cardStore.use().list;
   libraryStore.use();
   const due = dueCards(cards).length;
+
+  // One indicator slides to the active item on a spring, so switching areas is a movement, not a swap.
+  const nav = useRef<HTMLElement>(null);
+  const indicator = useRef<HTMLDivElement>(null);
+  const slide = useRef<Spring>();
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    if (!slide.current) {
+      slide.current = new Spring(0, smooth, (y) => {
+        if (indicator.current) indicator.current.style.transform = `translateY(${y}px)`;
+      });
+    }
+    const active = nav.current?.querySelector<HTMLElement>('.nav.on');
+    if (!active || !indicator.current) return;
+    indicator.current.style.height = `${active.offsetHeight}px`;
+    if (placed.current) slide.current.to(active.offsetTop);
+    else slide.current.jump(active.offsetTop);
+    placed.current = true;
+  }, [tab]);
 
   useEffect(() => {
     void startStores();
@@ -49,7 +69,8 @@ export function App() {
 
   return (
     <div className="shell">
-      <nav className="sidebar">
+      <nav className="sidebar" ref={nav}>
+        <div className="indicator" ref={indicator} />
         <div className="brand">SCHUL-PIP</div>
         {items.map((item, index) => (
           <button key={item.id} className={`nav ${tab === item.id ? 'on' : ''}`} onClick={() => ui.set({ tab: item.id })} title={`Strg+${index + 1}`}>

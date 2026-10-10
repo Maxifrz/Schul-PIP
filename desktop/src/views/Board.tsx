@@ -13,7 +13,7 @@ import {
   acceptBlock, boards, closePoll, createBoard, download, editBlock, finalizeBoard, isModerator, propose, refreshBoard, refreshBoards,
   refreshMembers, refreshVersions, rejectBlock, restoreVersion, reviewBoard, setBoardStatus, social, startPoll, vote, withdrawBlock,
 } from '../store/social';
-import { Caption, ConfirmDialog, Dialog, Pills, PromptDialog } from '../ui/kit';
+import { Caption, CancelButton, ConfirmDialog, Dialog, Pills, PromptDialog } from '../ui/kit';
 
 
 // The Tafelbild: the class builds one lesson result together. Everybody proposes blocks, moderators accept, edit and reject
@@ -74,7 +74,7 @@ function NewBoardDialog({ group, onClose, onCreated }: { group: Group; onClose: 
         <Pills items={templates.map((t) => ({ id: t, label: templateTitle(t) }))} value={template} onChange={setTemplate} />
         <span className="faint small">Bausteine: {templateKinds(template).map(kindTitle).join(', ')}</span>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn outline" onClick={onClose}>Abbrechen</button>
+          <CancelButton />
           <button className="btn" disabled={title.trim() === '' || busy} onClick={async () => { const b = await createBoard(group, title, topic, template); if (b) onCreated(b); }}>Starten</button>
         </div>
       </div>
@@ -457,7 +457,7 @@ function ComposeDialog({ board, request, moderator, onClose }: { board: Board; r
           </div>
         )}
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn outline" onClick={onClose}>Abbrechen</button>
+          <CancelButton />
           {moderator && !request.editing && board.status === 'open' && <button className="btn outline" disabled={!canSend} onClick={() => void send(true)}>Direkt übernehmen</button>}
           <button className="btn" disabled={!canSend} onClick={() => void send(false)}>{request.editing ? 'Speichern' : 'Vorschlagen'}</button>
         </div>
