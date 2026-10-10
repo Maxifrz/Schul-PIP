@@ -26,6 +26,9 @@ enum AnswerMode: String, Codable {
     case text
     /// `NumberCheck`: the same number, whether typed as a fraction, a decimal fraction or a whole number.
     case number
+    /// The same letters in the same order: forgives capitals, accents and punctuation, nothing else. For answers in a
+    /// language being learned, where "hermana" is not "hermano" and word order matters.
+    case exact
 }
 
 /// One step of a lesson. `Exercise` is taken by the study plan's Übungsaufgaben.
@@ -70,6 +73,10 @@ struct LearnExercise: Identifiable, Equatable {
             guard let expected = correctAnswers.first else { return all }
             if mode == .number {
                 return correctAnswers.contains { NumberCheck.matches(text, expected: $0) } ? [] : all
+            }
+            if mode == .exact {
+                let given = LearnExercise.folded(text)
+                return !given.isEmpty && correctAnswers.contains { LearnExercise.folded($0) == given } ? [] : all
             }
             _ = expected
             return correctAnswers.contains { AnswerCheck.evaluate(answer: text, expected: $0) == .correct } ? [] : all

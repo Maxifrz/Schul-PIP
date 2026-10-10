@@ -28,6 +28,16 @@ final class ExerciseFactoryTests: XCTestCase {
         XCTAssertNil(Exercises.typed(id: "e", prompt: "?", answer: "  "))
     }
 
+    func testExactAnswersForgiveOnlyCapitalsAccentsAndPunctuation() throws {
+        let exercise = try XCTUnwrap(Exercises.typed(id: "x", key: "k", prompt: "?", answer: "¿Cómo te llamas?", mode: .exact))
+        XCTAssertEqual(exercise.missedKeys(for: .typed("como te llamas")), [])
+        XCTAssertEqual(exercise.missedKeys(for: .typed("CÓMO TE LLAMAS?")), [])
+        XCTAssertEqual(exercise.missedKeys(for: .typed("te llamas cómo")), ["k"])
+        XCTAssertEqual(exercise.missedKeys(for: .typed("como te llamar")), ["k"])
+        XCTAssertEqual(exercise.missedKeys(for: .typed("  ")), ["k"])
+        XCTAssertEqual(exercise.missedKeys(for: .typed("¿?")), ["k"])
+    }
+
     func testBankTilesNeverComeInTheRightOrder() throws {
         for seed in UInt64(1)...30 {
             var rng = LearnRandom(seed: seed)
