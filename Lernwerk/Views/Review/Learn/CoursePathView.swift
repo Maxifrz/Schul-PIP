@@ -27,9 +27,27 @@ struct CoursePathView<Footer: View>: View {
     let onStep: (PathStep) -> Void
     let onTip: (CourseUnit) -> Void
     let onQuests: () -> Void
-    @ViewBuilder var footer: Footer
+    private let footer: Footer
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+
+    init(
+        course: Course,
+        units: [PathUnit],
+        tiles: PathTiles,
+        onStep: @escaping (PathStep) -> Void,
+        onTip: @escaping (CourseUnit) -> Void,
+        onQuests: @escaping () -> Void,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.course = course
+        self.units = units
+        self.tiles = tiles
+        self.onStep = onStep
+        self.onTip = onTip
+        self.onQuests = onQuests
+        self.footer = footer()
+    }
 
     private var compact: Bool { sizeClass == .compact }
     private var current: PathStep? { CoursePath.current(in: units) }
