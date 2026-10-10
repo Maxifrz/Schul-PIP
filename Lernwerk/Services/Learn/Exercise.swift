@@ -3,16 +3,29 @@ import Foundation
 /// The kinds of exercise in a lesson, from easy to hard.
 enum ExerciseKind: String, CaseIterable, Codable {
     case multipleChoice, matchPairs, wordBank, typeAnswer
+    /// Chess: tap a piece, then its square; the answer is a move like "e2e4".
+    case chessMove
+    /// A piano keyboard: tap a key; the answer is its MIDI number as text, like "60" for the middle C.
+    case pianoKey
 
     /// Lessons go from recognising an answer to recalling it.
     var difficulty: Int {
         switch self {
-        case .multipleChoice: return 0
+        case .multipleChoice, .pianoKey: return 0
         case .matchPairs: return 1
+        case .chessMove: return 2
         case .wordBank: return 2
         case .typeAnswer: return 3
         }
     }
+}
+
+/// How a typed answer is compared with the right one.
+enum AnswerMode: String, Codable {
+    /// `AnswerCheck`: words, typos, endings, umlauts.
+    case text
+    /// `NumberCheck`: the same number, whether typed as a fraction, a decimal fraction or a whole number.
+    case number
 }
 
 /// One step of a lesson. `Exercise` is taken by the study plan's Übungsaufgaben.
@@ -37,16 +50,29 @@ struct LearnExercise: Identifiable, Equatable {
     let pairs: [Pair]
     /// What the feedback shows after a wrong answer.
     let solution: String
+    /// Something to look at or listen to above the question: a spoken word, a position, a staff, notes to play.
+    var media: ExerciseMedia? = nil
+    /// Typing only: how the answer is compared.
+    var mode: AnswerMode = .text
+    /// A sentence of why, shown with the verdict ("Nach „weil“ steht das Verb am Ende."). Empty for none.
+    var explanation: String = ""
 
-    /// The cards answered wrong, empty when the answer is right.
+    /// The cards answered wrong, empty when the answer is right. An exercise without cards (a course's) stands for
+    /// itself, so a wrong answer is never an empty set.
     func missedKeys(for answer: LearnAnswer) -> Set<String> {
-        let all = Set(cardKeys)
+        let all: Set<String> = cardKeys.isEmpty ? [id] : Set(cardKeys)
         switch (kind, answer) {
-        case let (.multipleChoice, .option(choice)):
-            return choice == correctAnswers.first ? [] : all
+        case let (.multipleChoice, .option(choice)), let (.pianoKey, .option(choice)):
+            return correctAnswers.contains(choice) ? [] : all
+        case let (.chessMove, .move(uci)):
+            return correctAnswers.contains(uci) ? [] : all
         case let (.typeAnswer, .typed(text)):
             guard let expected = correctAnswers.first else { return all }
-            return AnswerCheck.evaluate(answer: text, expected: expected) == .correct ? [] : all
+            if mode == .number {
+                return correctAnswers.contains { NumberCheck.matches(text, expected: $0) } ? [] : all
+            }
+            _ = expected
+            return correctAnswers.contains { AnswerCheck.evaluate(answer: text, expected: $0) == .correct } ? [] : all
         case let (.wordBank, .words(words)):
             return LearnExercise.sameWords(words, correctAnswers) ? [] : all
         case let (.matchPairs, .pairs(missed)):
@@ -79,6 +105,8 @@ enum LearnAnswer: Equatable {
     case words([String])
     /// The cards whose front was paired with a wrong back at least once.
     case pairs(missed: Set<String>)
+    /// A chess move in coordinate notation, "e2e4".
+    case move(String)
 }
 
 enum LearnVerdict: Equatable {

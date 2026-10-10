@@ -221,6 +221,8 @@ final class LessonSessionTests: XCTestCase {
             case .typeAnswer: lesson.submit(.typed(current.correctAnswers[0]))
             case .wordBank: lesson.submit(.words(current.correctAnswers))
             case .matchPairs: lesson.submit(.pairs(missed: []))
+            case .chessMove: lesson.submit(.move(current.correctAnswers[0]))
+            case .pianoKey: lesson.submit(.option(current.correctAnswers[0]))
             }
             lesson.advance()
             steps += 1

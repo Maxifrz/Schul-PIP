@@ -17,6 +17,9 @@ final class LessonModel: ObservableObject {
     @Published private(set) var session: LessonSession
     @Published var typed = ""
     @Published var choice: String?
+    /// Chess: the square of the piece to move, then the square to move it to.
+    @Published var moveFrom: String?
+    @Published var moveTo: String?
     /// Word bank: positions in the options, in the order tapped.
     @Published var tiles: [Int] = []
     @Published private(set) var matched: Set<String> = []
@@ -33,6 +36,11 @@ final class LessonModel: ObservableObject {
             lessonID: LearnPath.lessonID(for: cards.map(\.key)), cardKeys: cards.map(\.key), exercises: exercises,
             sessionID: sessionID
         )
+    }
+
+    /// A lesson of a course: the exercises come ready, and no cards are graded.
+    init(lessonID: String, exercises: [LearnExercise], sessionID: String) {
+        session = LessonSession(lessonID: lessonID, cardKeys: [], exercises: exercises, sessionID: sessionID)
     }
 
     convenience init(cards: [CardSnapshot], deck: [CardSnapshot], distractors: [String: [String]], seed: UInt64, sessionID: String) {
@@ -52,7 +60,8 @@ final class LessonModel: ObservableObject {
     var canCheck: Bool {
         guard isAnswering, let exercise = current else { return false }
         switch exercise.kind {
-        case .multipleChoice: return choice != nil
+        case .multipleChoice, .pianoKey: return choice != nil
+        case .chessMove: return moveFrom != nil && moveTo != nil
         case .typeAnswer: return !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .wordBank: return !tiles.isEmpty
         case .matchPairs: return false
@@ -64,7 +73,8 @@ final class LessonModel: ObservableObject {
         guard canCheck, let exercise = current else { return nil }
         let answer: LearnAnswer
         switch exercise.kind {
-        case .multipleChoice: answer = .option(choice ?? "")
+        case .multipleChoice, .pianoKey: answer = .option(choice ?? "")
+        case .chessMove: answer = .move((moveFrom ?? "") + (moveTo ?? ""))
         case .typeAnswer: answer = .typed(typed)
         case .wordBank: answer = .words(tiles.filter { exercise.options.indices.contains($0) }.map { exercise.options[$0] })
         case .matchPairs: answer = .pairs(missed: missed)
@@ -87,6 +97,22 @@ final class LessonModel: ObservableObject {
         guard !reported, let result = session.result else { return nil }
         reported = true
         return result
+    }
+
+    // Chess
+
+    /// A tap on a square: the first picks the piece to move (a tap on it again puts it down), the next the square to
+    /// move it to; a third starts over from that square.
+    func tapSquare(_ square: String) {
+        guard isAnswering, current?.kind == .chessMove else { return }
+        if moveFrom == nil || moveTo != nil {
+            moveFrom = square
+            moveTo = nil
+        } else if moveFrom == square {
+            moveFrom = nil
+        } else {
+            moveTo = square
+        }
     }
 
     // Word bank
@@ -140,6 +166,8 @@ final class LessonModel: ObservableObject {
     private func resetDrafts() {
         typed = ""
         choice = nil
+        moveFrom = nil
+        moveTo = nil
         tiles = []
         matched = []
         matchedBacks = []

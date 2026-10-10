@@ -40,6 +40,12 @@ struct LearnProgress: Codable, Equatable {
     static let bonusPercent = 90
     /// Runs remembered to ignore the same result arriving twice.
     static let rememberedRuns = 50
+    static let gemsLesson = 2
+    /// More for a lesson in which every exercise was right on the first try.
+    static let gemsPerfect = 3
+    static let gemsGoal = 5
+    static let freezePrice = 30
+    static let maxFreezes = 2
 
     /// What a finished lesson brought.
     struct Reward: Equatable {
@@ -50,6 +56,10 @@ struct LearnProgress: Codable, Equatable {
         let streak: Int
         /// The first lesson of the day, which counts for the streak.
         let streakExtended: Bool
+        /// Gems for the lesson, with the daily goal's if this lesson reached it.
+        let gems: Int
+        /// Days of the streak a streak freeze covered with this lesson.
+        let freezesUsed: Int
     }
 
     private(set) var dailyGoal = LearnProgress.defaultGoal
@@ -65,6 +75,11 @@ struct LearnProgress: Codable, Equatable {
     /// Lesson ids come from their cards, so a lesson whose cards changed is not in here.
     private(set) var completedLessons: Set<String> = []
     private(set) var recentRuns: [String] = []
+    private(set) var gems = 0
+    /// Streak freezes in stock: each covers one skipped day.
+    private(set) var freezes = 0
+    /// XP per course id, for the number next to the course's icon.
+    private(set) var courseXP: [String: Int] = [:]
 
     init() {}
 
@@ -76,6 +91,15 @@ struct LearnProgress: Codable, Equatable {
         return xp
     }
 
+    /// Gems for a lesson: a little for finishing it, more when nothing went wrong.
+    static func gems(for result: LessonResult) -> Int {
+        gemsLesson + (result.exerciseCount > 0 && result.rightFirstTry == result.exerciseCount ? gemsPerfect : 0)
+    }
+
+    func xp(inCourse courseID: String) -> Int {
+        courseXP[courseID] ?? 0
+    }
+
     func xpToday(now: Date, calendar: Calendar) -> Int {
         xpDay == day(now, calendar: calendar) ? xpOfDay : 0
     }
@@ -84,12 +108,13 @@ struct LearnProgress: Codable, Equatable {
         min(1, Double(xpToday(now: now, calendar: calendar)) / Double(max(1, dailyGoal)))
     }
 
-    /// The streak as it stands: it holds through today if the last lesson was today or yesterday.
+    /// The streak as it stands: it holds through today if the last lesson was today or yesterday, or if freezes cover
+    /// the days since.
     func currentStreak(now: Date, calendar: Calendar) -> Int {
         guard let last = lastLessonDay, let gap = last.days(to: LearnDay(now, calendar: calendar), calendar: calendar) else {
             return 0
         }
-        return gap <= 1 ? streak : 0
+        return gap - 1 <= freezes ? streak : 0
     }
 
     func isCompleted(_ lessonID: String) -> Bool {
@@ -110,8 +135,28 @@ struct LearnProgress: Codable, Equatable {
         dailyGoal = goal
     }
 
-    /// Counts a finished lesson; nil if this run was counted before or had no exercise to count.
-    mutating func record(_ result: LessonResult, now: Date, calendar: Calendar) -> Reward? {
+    mutating func addGems(_ amount: Int) {
+        gems += max(0, amount)
+    }
+
+    /// Buys a streak freeze; false if there are not enough gems or two are in stock already.
+    mutating func buyFreeze() -> Bool {
+        guard gems >= LearnProgress.freezePrice, freezes < LearnProgress.maxFreezes else { return false }
+        gems -= LearnProgress.freezePrice
+        freezes += 1
+        return true
+    }
+
+    /// Opens a chest once: false if it was open already.
+    mutating func openChest(_ nodeID: String, gems amount: Int) -> Bool {
+        guard completedLessons.insert(nodeID).inserted else { return false }
+        addGems(amount)
+        return true
+    }
+
+    /// Counts a finished lesson; nil if this run was counted before or had no exercise to count. `courseID` adds its
+    /// XP to the course's own count.
+    mutating func record(_ result: LessonResult, courseID: String? = nil, now: Date, calendar: Calendar) -> Reward? {
         guard result.exerciseCount > 0, !recentRuns.contains(result.sessionID) else { return nil }
         recentRuns.append(result.sessionID)
         if recentRuns.count > LearnProgress.rememberedRuns {
@@ -126,25 +171,42 @@ struct LearnProgress: Codable, Equatable {
         }
         xpOfDay += earned
         totalXP += earned
+        if let courseID { courseXP[courseID, default: 0] += earned }
         let goalReached = goalReachedDay != today && xpOfDay >= dailyGoal
         if goalReached { goalReachedDay = today }
 
         var extended = false
+        var used = 0
         if lastLessonDay != today {
             let gap = lastLessonDay.flatMap { $0.days(to: today, calendar: calendar) }
-            streak = gap == 1 ? streak + 1 : 1
+            if gap == 1 {
+                streak += 1
+            } else if let gap, gap > 1, gap - 1 <= freezes {
+                // A freeze covers each skipped day, so the streak goes on.
+                used = gap - 1
+                freezes -= used
+                streak += 1
+            } else {
+                streak = 1
+            }
             lastLessonDay = today
             extended = true
         }
         longestStreak = max(longestStreak, streak)
         completedLessons.insert(result.lessonID)
-        return Reward(xp: earned, xpToday: xpOfDay, goalReached: goalReached, streak: streak, streakExtended: extended)
+        let earnedGems = LearnProgress.gems(for: result) + (goalReached ? LearnProgress.gemsGoal : 0)
+        addGems(earnedGems)
+        return Reward(
+            xp: earned, xpToday: xpOfDay, goalReached: goalReached, streak: streak, streakExtended: extended,
+            gems: earnedGems, freezesUsed: used
+        )
     }
 
     // Saved progress from an older version lacks the newer fields; each one falls back on its default.
 
     private enum CodingKeys: String, CodingKey {
         case dailyGoal, totalXP, xpOfDay, xpDay, goalReachedDay, streak, longestStreak, lastLessonDay, completedLessons, recentRuns
+        case gems, freezes, courseXP
     }
 
     init(from decoder: Decoder) throws {
@@ -163,6 +225,9 @@ struct LearnProgress: Codable, Equatable {
         lastLessonDay = value(.lastLessonDay, nil as LearnDay?)
         completedLessons = value(.completedLessons, Set<String>())
         recentRuns = value(.recentRuns, [String]())
+        gems = max(0, value(.gems, 0))
+        freezes = min(LearnProgress.maxFreezes, max(0, value(.freezes, 0)))
+        courseXP = value(.courseXP, [String: Int]())
     }
 }
 
@@ -187,12 +252,37 @@ final class LearnProgressStore: ObservableObject {
 
     /// Counts a finished lesson once; nil if this run was counted before or had no exercise.
     @discardableResult
-    func record(_ result: LessonResult, now: Date, calendar: Calendar) -> LearnProgress.Reward? {
+    func record(_ result: LessonResult, courseID: String? = nil, now: Date, calendar: Calendar) -> LearnProgress.Reward? {
         var updated = progress
-        guard let reward = updated.record(result, now: now, calendar: calendar) else { return nil }
+        guard let reward = updated.record(result, courseID: courseID, now: now, calendar: calendar) else { return nil }
         progress = updated
         save()
         return reward
+    }
+
+    /// Opens a chest once and pays its gems; false if it was open already.
+    @discardableResult
+    func openChest(_ nodeID: String, gems: Int) -> Bool {
+        var updated = progress
+        guard updated.openChest(nodeID, gems: gems) else { return false }
+        progress = updated
+        save()
+        return true
+    }
+
+    func addGems(_ amount: Int) {
+        guard amount > 0 else { return }
+        progress.addGems(amount)
+        save()
+    }
+
+    @discardableResult
+    func buyFreeze() -> Bool {
+        var updated = progress
+        guard updated.buyFreeze() else { return false }
+        progress = updated
+        save()
+        return true
     }
 
     private func save() {
