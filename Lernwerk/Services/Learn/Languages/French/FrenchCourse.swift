@@ -164,7 +164,7 @@ enum FrenchCourse {
     fill: Voilà ___ stylos. = des | un | une ## „Stylos“ ist ein Plural: des stylos.
     fill: La table est ___. = blanche | blanc | blancs ## „Table“ ist weiblich und im Singular: blanche.
     fact: Wie heißt der bestimmte Artikel im Plural? = les | des | la ## „Les“ ist der bestimmte Artikel im Plural, „des“ der unbestimmte.
-    fact: Du sagst „meine Freundin“. Wie heißt das? = mon amie | ma amie | mes amie ## Vor einem Vokal steht „mon“, auch bei einem weiblichen Nomen.
+    fact: Du sagst „meine Freundin“. Wie heißt das? = mon amie | ma amie | mes amis ## Vor einem Vokal steht „mon“, auch bei einem weiblichen Nomen.
 
     section: A1 · Im Alltag
 
@@ -177,7 +177,7 @@ enum FrenchCourse {
     word: parler = sprechen | Verb auf -er: je parle, tu parles, nous parlons, vous parlez, ils parlent
     word: le français = Französisch | m; die Sprache, ohne Artikel nach „parler“
     word: habiter = wohnen | Verb auf -er: j'habite, tu habites, nous habitons
-    word: à = in (bei Städten); nach; zu | à Paris = in Paris
+    word: à = nach; zu; in einer Stadt | à Paris = in Paris (Stadt), à la gare = zum Bahnhof
     word: l'allemand = Deutsch | m; die Sprache
     word: aimer = mögen; lieben | Verb auf -er: j'aime, tu aimes, nous aimons
     word: beaucoup = viel; sehr
@@ -251,7 +251,7 @@ enum FrenchCourse {
     word: le cinéma = das Kino | m
     word: la gare = der Bahnhof | f
     word: le parc = der Park | m
-    word: dans = in | drinnen: dans la ville
+    word: dans = in; drinnen | dans la ville, dans mon sac
     word: chez = bei | auch: zu jemandem nach Hause; chez Paul, chez moi
     word: la poste = die Post | f
     word: la ville = die Stadt | f

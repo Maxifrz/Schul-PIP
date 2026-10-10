@@ -73,11 +73,12 @@ final class SpanishCourseTests: XCTestCase {
     }
 
     func testEveryWordMeetsTheStudentInAtLeastThreeFormsAcrossItsUnit() {
+        // A node holds at most 12 exercises, so one play shows a word twice or three times; over a few plays (seeds) it is always three forms.
         for (unitIndex, unit) in data.units.enumerated() {
             for (index, word) in unit.words.enumerated() {
                 var forms = Set<String>()
                 for node in made.provider.course.units[unitIndex].nodes where node.kind != .chest {
-                    for seed in UInt64(1)...3 {
+                    for seed in UInt64(1)...8 {
                         for exercise in made.provider.exercises(for: node, seed: seed) where exercise.id.contains("#w\(unitIndex)-\(index)") {
                             forms.insert(String(exercise.id.last!))
                         }

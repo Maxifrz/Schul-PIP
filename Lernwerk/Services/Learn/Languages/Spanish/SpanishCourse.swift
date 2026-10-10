@@ -63,7 +63,7 @@ enum SpanishCourse {
     tip: Jedes Nomen ist männlich oder weiblich. Der bestimmte Artikel ist el (männlich) oder la (weiblich), der unbestimmte un oder una: el padre, la madre, un hermano, una hermana. Lerne jedes Nomen immer gleich mit seinem Artikel. Bei Personen endet das Wort oft auf -o (männlich) oder -a (weiblich): el hijo, la hija, el abuelo, la abuela.
     tip: Das Verb tener (haben) ist unregelmäßig: tengo, tienes, tiene, tenemos, tenéis, tienen. Bei yo heißt es tengo; bei tú, él und ellos wird das e im Stamm zu ie; nosotros und vosotros behalten das e. Fragen und Antworten: ¿Tienes hermanos? Sí, tengo un hermano. No, no tengo hermanos.
     tip: Besitz zeigst du mit mi, tu und su. Sie stehen vor dem Nomen und ersetzen den Artikel: mi madre, tu padre, su hijo. Gehören mehrere Dinge oder Personen dazu, steht ein -s: mis padres, tus hermanos, sus hijos. Su heißt „sein“ und „ihr“. Dazu kommt nuestro / nuestra für „unser“: nuestra familia.
-    tip: Das spanische Wort für den Besitzer hängt man nicht mit ’s an. Man sagt la madre de Ana, „die Mutter von Ana“. Los padres heißt „die Eltern“, los hermanos heißt „die Geschwister“ (Brüder und Schwestern zusammen).
+    tip: Einen Besitzer nennst du nicht mit ’s, sondern mit de: la madre de Ana, „die Mutter von Ana“. Los padres heißt „die Eltern“, los hermanos heißt „die Geschwister“ (Brüder und Schwestern zusammen).
     known: un, una, se, llama, Rosa, hermanos
     word: la familia = die Familie | f · Pl. las familias
     word: el padre = der Vater | m · Pl. los padres
@@ -166,7 +166,7 @@ enum SpanishCourse {
     form: la mochila, Plural = las mochilas ## Auf Vokal endet der Plural auf -s.
     form: el lápiz, Plural = los lápices ## Nach z wird im Plural c geschrieben: „lápices“.
     fill: Tengo tres ___. = lápices | lápiz | libro ## Nach einer Zahl ab zwei steht der Plural.
-    fill: Once más ___ son veinte. = nueve | ocho | diez ## Elf plus neun ist zwanzig.
+    fill: Cinco más ___ son diez. = cinco | cuatro | seis ## Fünf plus fünf ist zehn.
     fact: Wie bildest du den Plural von „el color“? = los colores | los colors | los color ## Nomen auf Konsonant bekommen im Plural -es.
 
     section: A1 · Alltag
@@ -202,8 +202,8 @@ enum SpanishCourse {
     form: gustar, a mí + Plural = me gustan ## Mehrere Dinge: „me gustan“.
     form: gustar, a ti + Plural = te gustan ## Mehrere Dinge: „te gustan“.
     form: la manzana, Plural = las manzanas ## Auf Vokal endet der Plural auf -s.
-    fill: Me ___ el café. = gusta | gustan | gusto ## Ein Ding gibt „gusta“.
-    fill: Me gustan ___ manzanas. = las | los | la ## „manzana“ ist weiblich und steht im Plural.
+    fill: Me ___ el queso. = gusta | gustan | gusto ## Ein Ding gibt „gusta“.
+    fill: Me gustan ___ huevos. = los | las | el ## „huevo“ ist männlich und steht im Plural.
     fill: ¿Te ___ los huevos? = gustan | gusta | gustas ## Mehrere Dinge geben „gustan“.
     fact: Wonach richtet sich bei „gustar“ die Verbform? = nach dem, was gefällt | nach der Person, die etwas mag | gar nicht, sie bleibt immer gleich ## Die Äpfel gefallen mir: „gustan“ steht im Plural.
 
@@ -248,7 +248,7 @@ enum SpanishCourse {
     tip: Spanische Verben enden im Infinitiv auf -ar, -er oder -ir: hablar, comer, vivir. Im Präsens nimmst du den Stamm (habl-, com-, viv-) und hängst die Endung an. Verben auf -ar: -o, -as, -a, -amos, -áis, -an. Verben auf -er: -o, -es, -e, -emos, -éis, -en. Verben auf -ir: -o, -es, -e, -imos, -ís, -en.
     tip: Nur nosotros und vosotros unterscheiden sich bei -er und -ir. Alle anderen Endungen sind gleich. Beispiele: hablo, hablas, habla, hablamos, habláis, hablan; como, comes, come, comemos, coméis, comen; vivo, vives, vive, vivimos, vivís, viven.
     tip: Das Pronomen lässt du weg: Hablo español. Yo hablo español betont das Subjekt, etwa „ICH spreche Spanisch“. Sprachen stehen nach hablar ohne Artikel: Hablo español y alemán. Die Frage ¿Hablas inglés? beantwortest du mit Sí, hablo un poco oder No, no hablo inglés.
-    tip: Die Tageszeiten sagst du mit por la mañana (morgens, am Vormittag), por la tarde (nachmittags) und por la noche (abends, nachts): Estudio español por la mañana. In Spanien steht dafür das Wort por.
+    tip: Die Tageszeiten sagst du mit por la mañana (morgens, am Vormittag), por la tarde (nachmittags) und por la noche (abends, nachts): Estudio español por la mañana.
     known: hablo, estudio, trabaja, leo, compro, inglés
     word: hablar = sprechen | Verb auf -ar
     word: estudiar = lernen; studieren | Verb auf -ar
@@ -388,8 +388,8 @@ enum SpanishCourse {
     form: Datum auf Spanisch, 12. Oktober = el doce de octubre ## Zuerst die Zahl, dann „de“ und der Monat.
     form: Datum auf Spanisch, 1. Januar = el uno de enero; el primero de enero ## Für den ersten Tag sagt man „uno“ oder „primero“.
     form: Datum auf Spanisch, 20. Juni = el veinte de junio ## Zuerst die Zahl, dann „de“ und der Monat.
-    fill: Mi cumpleaños es ___ mayo. = en | de | el ## Mit einem Monat allein steht „en“: „en mayo“.
-    fill: Hoy es el cinco ___ mayo. = de | en | del ## Zwischen Tag und Monat steht „de“.
+    fill: Mi cumpleaños es ___ junio. = en | de | el ## Mit einem Monat allein steht „en“: „en mayo“.
+    fill: Hoy es el doce ___ octubre. = de | en | del ## Zwischen Tag und Monat steht „de“.
     fact: Wie schreibt man Wochentage und Monate im Spanischen? = klein: lunes, mayo | groß: Lunes, Mayo ## Im Spanischen sind beide kleingeschrieben, außer am Satzanfang.
     fact: Welche Zahlen benutzt man beim Datum? = Grundzahlen: el cinco de mayo | Ordnungszahlen: el quinto de mayo | Zahlen mit Punkt wie im Deutschen ## Das Datum nennt man mit den Grundzahlen; nur der erste Tag hat auch „primero“.
     """
