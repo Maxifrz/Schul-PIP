@@ -607,10 +607,9 @@ final class FrenchCourseTests: XCTestCase {
     func testTypedFrenchForgivesAccentsAndApostrophesButNotLetters() throws {
         func typed(_ answer: String, unit: Int) throws -> LearnExercise {
             let node = try XCTUnwrap(provider.course.node(withID: String(format: "fr.u%02d.t", unit)))
-            return try XCTUnwrap(
-                (1...80).lazy.flatMap { self.provider.exercises(for: node, seed: UInt64($0)) }
-                    .first { $0.kind == .typeAnswer && $0.mode == .exact && $0.correctAnswers == [answer] }
-            )
+            var pool: [LearnExercise] = []
+            for seed in 1...80 { pool += provider.exercises(for: node, seed: UInt64(seed)) }
+            return try XCTUnwrap(pool.first { $0.kind == .typeAnswer && $0.mode == .exact && $0.correctAnswers == [answer] })
         }
         let etes = try typed("êtes", unit: 1)
         XCTAssertEqual(etes.missedKeys(for: .typed("etes")), [])
@@ -644,7 +643,8 @@ final class FrenchCourseTests: XCTestCase {
         let lesson = try XCTUnwrap(provider.course.node(withID: "fr.u03.l2"))
         XCTAssertEqual(provider.exercises(for: lesson, seed: 5), provider.exercises(for: lesson, seed: 5))
         let practice = try XCTUnwrap(provider.course.node(withID: "fr.u06.p"))
-        let ids = (1...10).flatMap { provider.exercises(for: practice, seed: UInt64($0)).map(\.id) }
+        var ids: [String] = []
+        for seed in 1...10 { ids += provider.exercises(for: practice, seed: UInt64(seed)).map(\.id) }
         XCTAssertTrue(ids.contains { $0.contains("#w5-") || $0.contains("#s5-") })
         XCTAssertTrue(ids.contains { $0.contains("#w0-") || $0.contains("#w1-") || $0.contains("#s0-") || $0.contains("#s1-") || $0.contains("#w2-") || $0.contains("#w3-") || $0.contains("#w4-") })
     }

@@ -106,7 +106,8 @@ final class SpanishCourseTests: XCTestCase {
 
     func testSpeechUsesTheSpanishVoiceOfSpain() {
         let node = made.provider.course.node(withID: "es.u01.p")!
-        let list = (1...4).flatMap { made.provider.exercises(for: node, seed: UInt64($0)) }
+        var list: [LearnExercise] = []
+        for seed in 1...4 { list += made.provider.exercises(for: node, seed: UInt64(seed)) }
         let speech = list.compactMap { exercise -> String? in
             if case let .speech(_, language)? = exercise.media { return language } else { return nil }
         }
@@ -116,12 +117,14 @@ final class SpanishCourseTests: XCTestCase {
 
     func testTypedSpanishIsStrictAboutLettersButForgivesAccentsAndCapitals() throws {
         let node = made.provider.course.node(withID: "es.u02.t")!
-        let typed = (1...40).flatMap { made.provider.exercises(for: node, seed: UInt64($0)) }.filter { $0.kind == .typeAnswer && $0.mode == .exact }
+        var pool: [LearnExercise] = []
+        for seed in 1...40 { pool += made.provider.exercises(for: node, seed: UInt64(seed)) }
+        let typed: [LearnExercise] = pool.filter { $0.kind == .typeAnswer && $0.mode == .exact }
         let brother = try XCTUnwrap(typed.first { $0.correctAnswers == ["el hermano"] })
-        XCTAssertEqual(brother.missedKeys(for: .typed("El Hermano")), [])
-        XCTAssertEqual(brother.missedKeys(for: .typed("el hermana")), [brother.cardKeys[0]])
+        XCTAssertEqual(brother.missedKeys(for: LearnAnswer.typed("El Hermano")), Set<String>())
+        XCTAssertEqual(brother.missedKeys(for: LearnAnswer.typed("el hermana")), Set([brother.cardKeys[0]]))
         let sister = try XCTUnwrap(typed.first { $0.correctAnswers == ["la hermana"] })
-        XCTAssertEqual(sister.missedKeys(for: .typed("la hermano")), [sister.cardKeys[0]])
+        XCTAssertEqual(sister.missedKeys(for: LearnAnswer.typed("la hermano")), Set([sister.cardKeys[0]]))
     }
 
     func testWordBankTilesHaveNoSpanishPunctuationMarks() {
