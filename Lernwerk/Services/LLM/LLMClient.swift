@@ -29,12 +29,14 @@ enum LLMPurpose: Equatable {
     case presentationCritique
     case studyAid
     case mathRecognition
+    /// Wrong answers for the Lernpfad's multiple choice.
+    case distractors
 
     /// Free tiers queue requests; a student waiting in the help panel needs an answer or an error, not silence.
     var timeout: TimeInterval {
         switch self {
         case .tutor: return 75
-        case .flashcard, .slideRewrite: return 90
+        case .flashcard, .slideRewrite, .distractors: return 90
         case .studyPlan, .presentationOutline, .presentation, .presentationCritique: return 600
         case .speakerNotes, .studyAid: return 180
         case .mathRecognition: return 60

@@ -10,6 +10,7 @@ struct TodayView: View {
     let openDocument: (StudyMaterial, Int?) -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var learnProgress: LearnProgressStore
     @Query private var plans: [StudyPlan]
     @Query private var timetable: [TimetableEntry]
     @Query private var exams: [Exam]
@@ -290,10 +291,18 @@ struct TodayView: View {
     // Tiles
 
     private var cardsTile: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("KARTEN")
-                .font(.mono(10.5, .semibold))
-                .tracking(1)
+        let streak = learnProgress.progress.currentStreak(now: Date(), calendar: .current)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("KARTEN")
+                    .font(.mono(10.5, .semibold))
+                    .tracking(1)
+                Spacer(minLength: 8)
+                Text(streak == 1 ? "1 TAG SERIE" : "\(streak) TAGE SERIE")
+                    .font(.mono(10.5, .semibold))
+                    .tracking(1)
+                    .accessibilityLabel("Lernpfad-Serie: \(streak) \(streak == 1 ? "Tag" : "Tage")")
+            }
             Spacer(minLength: 16)
             Text("\(dueCount)")
                 .font(.jersey(150))
