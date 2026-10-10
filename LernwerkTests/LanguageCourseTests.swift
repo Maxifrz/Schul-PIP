@@ -90,16 +90,26 @@ final class LanguageCourseTests: XCTestCase {
         }
     }
 
+    /// What a typed answer misses; a long chain of literals in one expression is too much for the type checker.
+    private func missed(_ exercise: LearnExercise, _ text: String) -> Set<String> {
+        exercise.missedKeys(for: LearnAnswer.typed(text))
+    }
+
     func testTypedAnswersInTheLanguageBeingLearnedAreStrict() throws {
-        let node = provider.course.node(withID: "sample.u02.t")!
-        let exercises = (1...40).flatMap { self.exercises(node, seed: UInt64($0)) }.filter { $0.kind == .typeAnswer && $0.mode == .exact }
-        let word = try XCTUnwrap(exercises.first { $0.correctAnswers == ["el hermano"] })
-        XCTAssertEqual(word.missedKeys(for: .typed("El Hermano")), [])
-        XCTAssertEqual(word.missedKeys(for: .typed("el hermana")), [word.cardKeys[0]], "one letter is another word in Spanish")
-        let sentence = try XCTUnwrap(exercises.first { $0.correctAnswers == ["Me llamo Ana."] || $0.correctAnswers == ["Tengo un hermano."] })
-        XCTAssertEqual(sentence.missedKeys(for: .typed(sentence.correctAnswers[0].lowercased())), [])
-        let words = sentence.correctAnswers[0].split(separator: " ").map(String.init)
-        XCTAssertEqual(sentence.missedKeys(for: .typed(words.reversed().joined(separator: " "))), [sentence.cardKeys[0]], "word order matters")
+        let node = try XCTUnwrap(provider.course.node(withID: "sample.u02.t"))
+        var all: [LearnExercise] = []
+        for seed in 1...40 { all += exercises(node, seed: UInt64(seed)) }
+        let exact: [LearnExercise] = all.filter { $0.kind == .typeAnswer && $0.mode == .exact }
+        let accepted: [[String]] = [["Me llamo Ana."], ["Tengo un hermano."]]
+        let word = try XCTUnwrap(exact.first { $0.correctAnswers == ["el hermano"] })
+        XCTAssertEqual(missed(word, "El Hermano"), Set<String>())
+        XCTAssertEqual(missed(word, "el hermana"), Set([word.cardKeys[0]]), "one letter is another word in Spanish")
+        let sentence = try XCTUnwrap(exact.first { accepted.contains($0.correctAnswers) })
+        let right = sentence.correctAnswers[0]
+        XCTAssertEqual(missed(sentence, right.lowercased()), Set<String>())
+        let words: [String] = right.split(separator: " ").map { String($0) }
+        let reversed = words.reversed().joined(separator: " ")
+        XCTAssertEqual(missed(sentence, reversed), Set([sentence.cardKeys[0]]), "word order matters")
     }
 
     func testListeningAndSpeechOnlyWithAVoice() {
@@ -125,17 +135,17 @@ final class LanguageCourseTests: XCTestCase {
         for seed in UInt64(1)...30 {
             for exercise in exercises(node, seed: seed) where exercise.kind == .typeAnswer && exercise.id.hasSuffix("e") {
                 if exercise.correctAnswers.count > 1 {
-                    XCTAssertEqual(exercise.missedKeys(for: .typed(exercise.correctAnswers[1])), [])
+                    XCTAssertEqual(missed(exercise, exercise.correctAnswers[1]), Set<String>())
                     checked += 1
                 }
             }
         }
         XCTAssertGreaterThan(checked, 0, "adiós has two meanings and appears typed in some checkpoint")
-        let typed = try XCTUnwrap(
-            (1...60).lazy.flatMap { self.exercises(node, seed: UInt64($0)) }.first { $0.kind == .typeAnswer && $0.correctAnswers[0] == "buenos días" }
-        )
-        XCTAssertEqual(typed.missedKeys(for: .typed("buenos dias")), [], "accents are forgiven")
-        XCTAssertEqual(typed.missedKeys(for: .typed("buenas noches")), [typed.cardKeys[0]])
+        var pool: [LearnExercise] = []
+        for seed in 1...60 { pool += exercises(node, seed: UInt64(seed)) }
+        let typed = try XCTUnwrap(pool.first { $0.kind == .typeAnswer && $0.correctAnswers[0] == "buenos días" })
+        XCTAssertEqual(missed(typed, "buenos dias"), Set<String>(), "accents are forgiven")
+        XCTAssertEqual(missed(typed, "buenas noches"), Set([typed.cardKeys[0]]))
     }
 
     func testFormsAreChosenFromTheirOwnVerbAndFillsKeepTheirChoices() {
