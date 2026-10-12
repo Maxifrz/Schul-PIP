@@ -78,6 +78,7 @@ class LearnProgress {
         return if (daysTo(last, today) < 0) last else today
     }
 
+    @JvmName("changeDailyGoal")
     fun setDailyGoal(goal: Int) {
         if (goal !in dailyGoals) return
         dailyGoal = goal
