@@ -1,0 +1,1 @@
+export { mathMiddleProvider } from './course';

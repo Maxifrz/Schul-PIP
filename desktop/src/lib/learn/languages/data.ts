@@ -1,18 +1,14 @@
 // The content of a language or school-subject course as plain values. It is written as text (see dsl.ts) and
 // turned into exercises by the course provider, so a course is data a teacher can read, not code.
 // Port of Lernwerk/Services/Learn/Languages/LanguageData.swift.
-import { compact, normalize } from '../../answerCheck';
+import type { CourseKind } from '../course';
+import { folded } from '../exercise';
+import { ExerciseBuilder } from '../exerciseConstants';
 
-/** The kinds of course (Swift `CourseKind`); the language engine only produces `language` and `school`. */
-export type CourseKind = 'language' | 'school' | 'math' | 'chess' | 'music';
+export type { CourseKind };
+export { folded };
 
-/** The pairs prompt of the exercise builder (Swift `ExerciseBuilder.pairsPrompt`). */
-export const pairsPrompt = 'Finde die Paare';
-
-/** Swift `LearnExercise.folded`: how two texts are compared for equality of content. */
-export function folded(text: string): string {
-  return compact(normalize(text));
-}
+const pairsPrompt = ExerciseBuilder.pairsPrompt;
 
 /** A word or phrase in the language being learned with its meanings in the language the student knows. */
 export interface LanguageWord {
