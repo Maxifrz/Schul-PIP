@@ -8,8 +8,8 @@ import { MathUpperCatalog, MathUpperUnit05, MathUpperUnit07, mathUpperProvider, 
 import * as Kit from './mathUpperKit';
 
 const provider = mathUpperProvider;
-// The Swift kit draws 300 seeds per level; the port uses fewer (shorter runtime), the thresholds scale with it.
-const KIT_SEEDS = 120;
+// Same draws as the Swift kit: 300 seeds per level.
+const KIT_SEEDS = 300;
 
 describe('upper maths basics', () => {
   it('fractions', () => {

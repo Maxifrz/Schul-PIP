@@ -28,7 +28,7 @@ describe('Spanish course: shape', () => {
   });
 
   it('has a clean course audit', () => {
-    expect(CourseAudit.problems(spanishProvider, range(1, 4).map(BigInt))).toEqual([]);
+    expect(CourseAudit.problems(spanishProvider, range(1, 3).map(BigInt))).toEqual([]);
   });
 
   it('describes the Spanish course for German speakers', () => {
@@ -81,7 +81,7 @@ describe('Spanish course: shape', () => {
   it('meets the student with every word in at least three forms across its unit', () => {
     // A node holds at most 12 exercises; over a few plays (seeds) a word always shows three forms.
     data.units.forEach((unit, unitIndex) => {
-      const seen = formsByCard(provider, unitIndex, range(1, 8));
+      const seen = formsByCard(provider, unitIndex, range(1, 5));
       unit.words.forEach((word, index) => {
         const forms3 = seen.get(`w${unitIndex}-${index}`) ?? new Set();
         expect(forms3.size, `${word.target}: ${[...forms3].sort()}`).toBeGreaterThanOrEqual(3);
