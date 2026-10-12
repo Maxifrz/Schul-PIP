@@ -6,7 +6,7 @@ import {
   type Course, type CourseNode, type PathStep, type PathUnit, type Recommendation, prefersDarkText,
 } from '../../lib/learn';
 import { pathShift } from './geometry';
-import { type IconName, LIcon, LIconFilled, courseIconName } from './icons';
+import { type IconName, LIcon, LIconFilled } from './icons';
 import { PipMark } from './PipMark';
 
 /** The course's colour as a CSS variable, with the token for text on it. The only colour outside the tokens. */

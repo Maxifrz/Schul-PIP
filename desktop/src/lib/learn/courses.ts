@@ -1,30 +1,18 @@
 // The courses of the Lernen area: registers every course provider with the catalog. The providers are written by their
-// own modules (languages/, chess/course/, math/middle/, math/upper/, musicCourse/); this file only collects them. A
-// module that does not exist yet is skipped, so the area builds with whatever is there.
+// own modules (languages/, chess/course/, math/middle/, math/upper/, musicCourse/); this file only collects them.
 
 import type { CourseProvider } from './course';
 import { registerProvider, providers } from './catalog';
+import { chessProvider } from './chess/course';
 import { languageProviders } from './languages';
+import { mathMiddleProvider } from './math/middle';
+import { mathUpperProvider } from './math/upper';
+import { musicProvider } from './musicCourse';
 
-/** The course modules that may export providers, each by its index file. */
-const optional = import.meta.glob(
-  ['./chess/course/index.ts', './math/middle/index.ts', './math/upper/index.ts', './musicCourse/index.ts'],
-  { eager: true },
-) as Record<string, Record<string, unknown>>;
-
-function isProvider(value: unknown): value is CourseProvider {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as { course?: unknown; exercises?: unknown };
-  return typeof candidate.exercises === 'function' && typeof candidate.course === 'object' && candidate.course !== null;
-}
-
-/** Every provider that exists, in the order of the picker: languages first, then what the other modules export. */
+/** Every provider, in the order of the picker: languages (Spanisch, Französisch, Latein, Deutsch als Fremdsprache, Deutsch),
+ * maths, chess, music. The picker groups them by kind. */
 export function collectProviders(): CourseProvider[] {
-  const found: CourseProvider[] = [...languageProviders];
-  for (const path of Object.keys(optional).sort()) {
-    for (const value of Object.values(optional[path])) if (isProvider(value)) found.push(value);
-  }
-  return found;
+  return [...languageProviders, mathMiddleProvider, mathUpperProvider, chessProvider, musicProvider];
 }
 
 let registered = false;

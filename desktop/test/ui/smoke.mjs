@@ -91,7 +91,7 @@ const check = (name, condition) => {
   console.log(`${condition ? 'ok  ' : 'FAIL'} ${name}`);
   if (!condition) failures += 1;
 };
-const shot = (name) => page.screenshot({ path: join(out, `${name}.png`) });
+const shot = async (name) => { await page.waitForTimeout(450); await page.screenshot({ path: join(out, `${name}.png`) }); };
 
 await page.goto(origin);
 await page.waitForSelector('.sidebar');
@@ -136,7 +136,7 @@ async function playLesson(maxSteps = 40, options = {}) {
     await page.waitForSelector('.lrn-exercise, .lrn-complete');
     if (await page.locator('.lrn-complete').count()) return true;
     const kind = ((await page.locator('.lrn-exercise .kind').first().textContent()) ?? '').trim();
-    for (const [selector, name] of [['.lrn-board', 'brett'], ['.lrn-piano', 'klaviatur'], ['.lrn-staff', 'noten'], ['.lrn-play', 'toene'], ['.lrn-bank', 'woerter'], ['.lrn-pairs', 'paare'], ['.lrn-type', 'tippen']]) {
+    for (const [selector, name] of [['.lrn-move', 'zug'], ['.lrn-board', 'brett'], ['.lrn-piano', 'klaviatur'], ['.lrn-staff', 'noten'], ['.lrn-play', 'toene'], ['.lrn-bank', 'woerter'], ['.lrn-pairs', 'paare'], ['.lrn-type', 'tippen']]) {
       if (!seenKinds.has(`shot:${name}`) && (await page.locator(selector).count())) {
         seenKinds.add(`shot:${name}`);
         await page.waitForTimeout(300);
@@ -289,6 +289,11 @@ for (const id of await page.locator('.lrn-course').evaluateAll((els) => els.map(
   const wanted = id === 'chess' ? 'Finde den Zug' : id === 'music' ? 'Tippe die Taste' : null;
   let ok = true;
   for (let round = 0; round < (wanted ? 12 : 1); round += 1) {
+    if (await page.locator('.lrn-node.current.chest').count()) {
+      await page.locator('.lrn-node.current').click();
+      await page.waitForSelector('.lrn-node.chest.done');
+      continue;
+    }
     await page.locator('.lrn-node.current').click();
     await page.waitForSelector('.lrn-exercise, .lrn-lesson');
     ok = (await playLesson(40)) && ok;

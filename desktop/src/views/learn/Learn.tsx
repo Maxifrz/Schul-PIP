@@ -12,7 +12,7 @@ import {
 } from '../../store/learn';
 import { Caption, Dialog, useDialogClose } from '../../ui/kit';
 import { LessonPlayer } from './LessonPlayer';
-import { type IconName, LIcon, LIconFilled, courseIconName } from './icons';
+import { LIcon, LIconFilled, courseIconName } from './icons';
 import { timeLeftShort } from './geometry';
 import { AdviceCard, PathView, courseStyle } from './Path';
 import { FreezeRow, QuestsView, SkillsView } from './Panels';
@@ -340,4 +340,3 @@ function Home() {
   );
 }
 
-export type { IconName };
