@@ -147,6 +147,11 @@ struct LearnProgress: Codable, Equatable {
         return true
     }
 
+    /// Marks steps as done without a round of their own: the steps of a unit whose test was passed.
+    mutating func complete(_ nodeIDs: [String]) {
+        completedLessons.formUnion(nodeIDs)
+    }
+
     /// Opens a chest once: false if it was open already.
     mutating func openChest(_ nodeID: String, gems amount: Int) -> Bool {
         guard completedLessons.insert(nodeID).inserted else { return false }
@@ -156,7 +161,9 @@ struct LearnProgress: Codable, Equatable {
 
     /// Counts a finished lesson; nil if this run was counted before or had no exercise to count. `courseID` adds its
     /// XP to the course's own count.
-    mutating func record(_ result: LessonResult, courseID: String? = nil, now: Date, calendar: Calendar) -> Reward? {
+    /// `completes` is false for a round that belongs to no step of the path (a practice round on chosen goals): it
+    /// earns XP and keeps the streak, and marks nothing as done.
+    mutating func record(_ result: LessonResult, courseID: String? = nil, completes: Bool = true, now: Date, calendar: Calendar) -> Reward? {
         guard result.exerciseCount > 0, !recentRuns.contains(result.sessionID) else { return nil }
         recentRuns.append(result.sessionID)
         if recentRuns.count > LearnProgress.rememberedRuns {
@@ -193,7 +200,7 @@ struct LearnProgress: Codable, Equatable {
             extended = true
         }
         longestStreak = max(longestStreak, streak)
-        completedLessons.insert(result.lessonID)
+        if completes { completedLessons.insert(result.lessonID) }
         let earnedGems = LearnProgress.gems(for: result) + (goalReached ? LearnProgress.gemsGoal : 0)
         addGems(earnedGems)
         return Reward(
@@ -252,12 +259,20 @@ final class LearnProgressStore: ObservableObject {
 
     /// Counts a finished lesson once; nil if this run was counted before or had no exercise.
     @discardableResult
-    func record(_ result: LessonResult, courseID: String? = nil, now: Date, calendar: Calendar) -> LearnProgress.Reward? {
+    func record(_ result: LessonResult, courseID: String? = nil, completes: Bool = true, now: Date, calendar: Calendar) -> LearnProgress.Reward? {
         var updated = progress
-        guard let reward = updated.record(result, courseID: courseID, now: now, calendar: calendar) else { return nil }
+        guard let reward = updated.record(result, courseID: courseID, completes: completes, now: now, calendar: calendar) else { return nil }
         progress = updated
         save()
         return reward
+    }
+
+    func complete(_ nodeIDs: [String]) {
+        var updated = progress
+        updated.complete(nodeIDs)
+        guard updated != progress else { return }
+        progress = updated
+        save()
     }
 
     /// Opens a chest once and pays its gems; false if it was open already.

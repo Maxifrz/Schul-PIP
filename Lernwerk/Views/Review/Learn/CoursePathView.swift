@@ -27,6 +27,10 @@ struct CoursePathView<Footer: View>: View {
     let onStep: (PathStep) -> Void
     let onTip: (CourseUnit) -> Void
     let onQuests: () -> Void
+    /// What to do next, if the course tracks skills; nil for a course made of the student's own cards.
+    let advice: Recommendation?
+    let onAdvice: () -> Void
+    let onSkills: () -> Void
     private let footer: Footer
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -38,6 +42,9 @@ struct CoursePathView<Footer: View>: View {
         onStep: @escaping (PathStep) -> Void,
         onTip: @escaping (CourseUnit) -> Void,
         onQuests: @escaping () -> Void,
+        advice: Recommendation? = nil,
+        onAdvice: @escaping () -> Void = {},
+        onSkills: @escaping () -> Void = {},
         @ViewBuilder footer: () -> Footer
     ) {
         self.course = course
@@ -46,6 +53,9 @@ struct CoursePathView<Footer: View>: View {
         self.onStep = onStep
         self.onTip = onTip
         self.onQuests = onQuests
+        self.advice = advice
+        self.onAdvice = onAdvice
+        self.onSkills = onSkills
         self.footer = footer()
     }
 
@@ -56,6 +66,10 @@ struct CoursePathView<Footer: View>: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    if let advice {
+                        AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
+                            .padding(.top, 6)
+                    }
                     tilesRow
                         .padding(.bottom, 6)
                     ForEach(Array(units.enumerated()), id: \.element.id) { unitIndex, unit in

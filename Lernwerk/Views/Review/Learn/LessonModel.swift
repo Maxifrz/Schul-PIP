@@ -8,6 +8,8 @@ struct LessonRewards: Equatable {
     /// Streak freezes that covered skipped days with this lesson.
     var freezesUsed = 0
     var streakExtended = false
+    /// Things worth saying in a sentence: a unit skipped, a test not passed.
+    var notes: [String] = []
 }
 
 /// The lesson on screen: the session plus what the student has picked, put together or typed for the current
@@ -37,11 +39,16 @@ final class LessonModel: ObservableObject {
     @Published private(set) var pickedFront: String?
     @Published private(set) var pickedBack: Int?
     @Published private(set) var lastMiss: PairMiss?
+    /// Why the last wrong answer was wrong, when the course can tell; empty otherwise.
+    @Published private(set) var coachNote = ""
+    /// Asked for a wrong answer; set by whoever opened a lesson of a course.
+    private let coach: ((LearnExercise, LearnAnswer) -> String?)?
     /// Pairs: the cards whose front was paired with a wrong back.
     private var missed: Set<String> = []
     private var reported = false
 
     init(cards: [CardSnapshot], exercises: [LearnExercise], sessionID: String) {
+        coach = nil
         session = LessonSession(
             lessonID: LearnPath.lessonID(for: cards.map(\.key)), cardKeys: cards.map(\.key), exercises: exercises,
             sessionID: sessionID
@@ -49,7 +56,11 @@ final class LessonModel: ObservableObject {
     }
 
     /// A lesson of a course: the exercises come ready, and no cards are graded.
-    init(lessonID: String, exercises: [LearnExercise], sessionID: String) {
+    init(
+        lessonID: String, exercises: [LearnExercise], sessionID: String,
+        coach: ((LearnExercise, LearnAnswer) -> String?)? = nil
+    ) {
+        self.coach = coach
         session = LessonSession(lessonID: lessonID, cardKeys: [], exercises: exercises, sessionID: sessionID)
     }
 
@@ -89,7 +100,18 @@ final class LessonModel: ObservableObject {
         case .wordBank: answer = .words(tiles.filter { exercise.options.indices.contains($0) }.map { exercise.options[$0] })
         case .matchPairs: answer = .pairs(missed: missed)
         }
-        return session.submit(answer)
+        let verdict = session.submit(answer)
+        coachNote = verdict == .wrong ? (coach?(exercise, answer) ?? "") : ""
+        return verdict
+    }
+
+    /// The hints of the current exercise shown so far, and whether another is left.
+    var hintsShown: [String] { session.shownHints }
+    var hasMoreHints: Bool { session.hasMoreHints }
+    var hintTotal: Int { current?.hints.count ?? 0 }
+
+    func showHint() {
+        session.showHint()
     }
 
     func overrule() {
@@ -100,6 +122,7 @@ final class LessonModel: ObservableObject {
         guard verdict != nil else { return }
         session.advance()
         resetDrafts()
+        coachNote = ""
     }
 
     /// The result, handed out once: the first time it is asked for after the lesson finished.

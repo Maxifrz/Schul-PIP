@@ -80,6 +80,12 @@ struct LessonSession {
         current.flatMap { hintsShown[$0.id] } ?? 0
     }
 
+    /// The hints of the current exercise shown so far, in order.
+    var shownHints: [String] {
+        guard let exercise = current else { return [] }
+        return Array(exercise.hints.prefix(hintCount))
+    }
+
     /// Whether the current exercise has a hint left to show.
     var hasMoreHints: Bool {
         guard phase == .answering, let exercise = current else { return false }

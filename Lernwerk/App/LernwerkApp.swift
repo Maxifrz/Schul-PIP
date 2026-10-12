@@ -7,6 +7,7 @@ struct LernwerkApp: App {
     @StateObject private var presentations = PresentationStore()
     @StateObject private var learnProgress = LearnProgressStore()
     @StateObject private var quests = QuestStore()
+    @StateObject private var skills = SkillStore()
 
     init() {
         QuillFont.register()
@@ -19,6 +20,7 @@ struct LernwerkApp: App {
                 .environmentObject(presentations)
                 .environmentObject(learnProgress)
                 .environmentObject(quests)
+                .environmentObject(skills)
         }
         .modelContainer(for: [
             StudyMaterial.self, MaterialFolder.self, StudyPlan.self, PlanTopic.self, ReviewCard.self,

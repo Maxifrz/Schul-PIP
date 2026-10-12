@@ -64,13 +64,16 @@ struct LessonCompleteView: View {
     /// Gems, quests finished and streak freezes used with this lesson.
     @ViewBuilder
     private var extras: some View {
-        if rewards.gems > 0 || !rewards.quests.isEmpty || rewards.freezesUsed > 0 {
+        if rewards.gems > 0 || !rewards.quests.isEmpty || rewards.freezesUsed > 0 || !rewards.notes.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 if rewards.gems > 0 {
                     extraRow(symbol: "diamond.fill", text: "+\(rewards.gems) Gems", color: Quill.link)
                 }
                 ForEach(rewards.quests, id: \.self) { title in
                     extraRow(symbol: "checkmark.seal.fill", text: "Quest geschafft: \(title)", color: Quill.accent)
+                }
+                ForEach(rewards.notes, id: \.self) { note in
+                    extraRow(symbol: "info.circle.fill", text: note, color: Quill.muted)
                 }
                 if rewards.freezesUsed > 0 {
                     extraRow(

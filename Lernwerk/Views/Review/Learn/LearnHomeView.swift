@@ -15,6 +15,7 @@ struct LearnHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var progress: LearnProgressStore
     @EnvironmentObject private var quests: QuestStore
+    @EnvironmentObject private var skills: SkillStore
     @EnvironmentObject private var settings: AppSettings
     @AppStorage("learn.course") private var storedCourse = ""
     @AppStorage("learn.mode") private var storedMode = Mode.path.rawValue
@@ -24,6 +25,9 @@ struct LearnHomeView: View {
     @State private var run: LessonRun?
     @State private var showCourses = false
     @State private var showShop = false
+    @State private var showSkills = false
+    /// Goals the student chose to practise in the skills sheet; the round starts once the sheet is gone.
+    @State private var pendingPractice: [String]?
     @State private var tipUnit: CourseUnit?
     @State private var notice: String?
 
@@ -45,8 +49,8 @@ struct LearnHomeView: View {
     /// A round as it was when the student started it.
     private struct LessonRun: Identifiable {
         enum Content {
-            /// A step of a shipped course: its exercises come ready.
-            case course(lessonID: String, exercises: [LearnExercise])
+            /// A step of a shipped course, or a round on chosen goals: its exercises come ready.
+            case course(lessonID: String, exercises: [LearnExercise], coach: ((LearnExercise, LearnAnswer) -> String?)?)
             /// A lesson of a material: the cards, which of them were due, and what the exercises are made of.
             case cards(cards: [CardSnapshot], dueKeys: Set<String>, deck: [CardSnapshot], distractors: [String: [String]])
         }
@@ -55,6 +59,12 @@ struct LearnHomeView: View {
         let courseID: String
         let kind: NodeKind
         let content: Content
+        /// The step the round belongs to; nil for a round on chosen goals.
+        var node: CourseNode?
+        /// Whether finishing it marks the step as done.
+        var completes = true
+        /// The unit whose test this is, for skipping it.
+        var testOut: CourseUnit?
     }
 
     /// What the cards make: a course for each material with enough of them.
@@ -90,13 +100,21 @@ struct LearnHomeView: View {
         }
         .sheet(isPresented: $showCourses) { picker(library: library, selected: course?.id ?? "") }
         .sheet(item: $tipUnit) { unit in
-            if let course { UnitTipSheet(unit: unit, course: course) }
+            if let course { UnitTipSheet(unit: unit, course: course, onTestOut: testOut(unit, in: course)) }
+        }
+        .sheet(isPresented: $showSkills, onDismiss: { runPending(course: course) }) {
+            if let course, let provider = shippedProvider(course) {
+                SkillsSheet(courseTitle: course.title, rows: skillRows(provider: provider)) { row in
+                    pendingPractice = [row.skill.id]
+                    showSkills = false
+                }
+            }
         }
         .sheet(isPresented: $showShop) {
             ShopSheet(gems: progress.progress.gems, freezes: progress.progress.freezes, onBuyFreeze: { progress.buyFreeze() })
         }
         .alert(
-            "Truhe",
+            "Pip",
             isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } }),
             actions: { Button("Weiter") {} },
             message: { Text(notice ?? "") }
@@ -151,13 +169,18 @@ struct LearnHomeView: View {
             )
         case .path:
             if let course {
+                let units = CoursePath.units(of: course, completed: progress.progress.completedLessons)
+                let suggestion = shippedProvider(course).map { advice(for: $0, units: units) }
                 CoursePathView(
                     course: course,
-                    units: CoursePath.units(of: course, completed: progress.progress.completedLessons),
+                    units: units,
                     tiles: tiles(),
                     onStep: { start($0, in: course, library: library) },
                     onTip: { tipUnit = $0 },
                     onQuests: { storedMode = Mode.quests.rawValue },
+                    advice: suggestion,
+                    onAdvice: { if let suggestion { follow(suggestion, in: course, library: library) } },
+                    onSkills: { showSkills = true },
                     footer: {
                         Button("Anderen Kurs wählen") { showCourses = true }
                             .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
@@ -289,6 +312,95 @@ struct LearnHomeView: View {
         Task { await generator.generate(material: material, cards: cards, context: context, settings: settings) }
     }
 
+    // MARK: Skills
+
+    private func shippedProvider(_ course: Course?) -> (any CourseProvider)? {
+        guard let course, !MaterialCourse.isMaterialCourse(course.id) else { return nil }
+        return CourseCatalog.provider(for: course.id)
+    }
+
+    private func advice(for provider: any CourseProvider, units: [PathUnit]) -> Recommendation {
+        SkillAdvisor.recommend(
+            map: SkillMaps.map(for: provider), records: skills.records, units: units,
+            completed: progress.progress.completedLessons, now: Date(), calendar: .current
+        )
+    }
+
+    private func skillRows(provider: any CourseProvider) -> [SkillRow] {
+        let map = SkillMaps.map(for: provider)
+        let now = Date()
+        let completed = progress.progress.completedLessons
+        let records = skills.records
+        func status(_ skill: Skill) -> SkillStatus {
+            SkillAssessor.status(records[skill.id], skill: skill, completed: completed, now: now, calendar: .current)
+        }
+        return map.skills.map { skill in
+            let state = status(skill)
+            let waiting = skill.prerequisites.compactMap { map.skill($0) }.filter { !status($0).isReached }
+                .map { "\($0.title) (Einheit \($0.unitNumber))" }
+            let reasons: [String]
+            switch state {
+            case .mastered: reasons = []
+            case .due: reasons = ["Die Wiederholung ist fällig, damit du es nicht vergisst."]
+            default: reasons = SkillAssessor.missing(records[skill.id] ?? SkillRecord(), skill: skill)
+            }
+            return SkillRow(skill: skill, status: state, reasons: reasons, waitingFor: waiting)
+        }
+    }
+
+    private func follow(_ advice: Recommendation, in course: Course, library: Library) {
+        switch advice.kind {
+        case .step:
+            if let step = advice.step { start(step, in: course, library: library) }
+        case .review, .practice:
+            startPractice(advice.skillIDs, in: course)
+        case .finished:
+            break
+        }
+    }
+
+    private func runPending(course: Course?) {
+        guard let targets = pendingPractice, let course else { return }
+        pendingPractice = nil
+        startPractice(targets, in: course)
+    }
+
+    /// A round of exercises that fit what the chosen goals still need.
+    private func startPractice(_ targets: [String], in course: Course) {
+        guard run == nil, let provider = shippedProvider(course) else { return }
+        let exercises = SkillPractice.exercises(
+            provider: provider, map: SkillMaps.map(for: provider), targets: targets, records: skills.records,
+            seed: UInt64.random(in: 1...UInt64.max)
+        )
+        guard !exercises.isEmpty else {
+            notice = "Dazu gibt es gerade nichts zu üben."
+            return
+        }
+        run = LessonRun(
+            courseID: course.id, kind: .practice,
+            content: .course(lessonID: "practice." + course.id, exercises: exercises, coach: { provider.feedback(for: $0, answer: $1) }),
+            node: nil, completes: false
+        )
+    }
+
+    /// The test of the first unit, for a student who knows it: nil unless this unit may be skipped.
+    private func testOut(_ unit: CourseUnit, in course: Course) -> (() -> Void)? {
+        guard let provider = shippedProvider(course) else { return nil }
+        let units = CoursePath.units(of: course, completed: progress.progress.completedLessons)
+        guard TestOut.candidate(in: units)?.unit.id == unit.id,
+              let node = unit.nodes.first(where: { $0.kind == .checkpoint }) else { return nil }
+        return {
+            guard run == nil else { return }
+            let exercises = provider.lessonExercises(for: node, seed: UInt64.random(in: 1...UInt64.max))
+            guard !exercises.isEmpty else { return }
+            run = LessonRun(
+                courseID: course.id, kind: .checkpoint,
+                content: .course(lessonID: node.id, exercises: exercises, coach: { provider.feedback(for: $0, answer: $1) }),
+                node: node, completes: false, testOut: unit
+            )
+        }
+    }
+
     // MARK: Rounds
 
     private func start(_ step: PathStep, in course: Course, library: Library) {
@@ -306,13 +418,19 @@ struct LearnHomeView: View {
                 content: .cards(
                     cards: lesson.cards, dueKeys: LearnPath.dueKeys(lesson.cards, at: Date()), deck: library.snapshots,
                     distractors: fetcher.distractors
-                )
+                ),
+                node: node
             )
         } else {
             guard let provider = CourseCatalog.provider(for: course.id) else { return }
-            let exercises = provider.exercises(for: node, seed: UInt64.random(in: 1...UInt64.max))
+            let exercises = provider.lessonExercises(for: node, seed: UInt64.random(in: 1...UInt64.max))
             guard !exercises.isEmpty else { return }
-            run = LessonRun(courseID: course.id, kind: node.kind, content: .course(lessonID: node.id, exercises: exercises))
+            skills.begin(node: node, map: SkillMaps.map(for: provider))
+            run = LessonRun(
+                courseID: course.id, kind: node.kind,
+                content: .course(lessonID: node.id, exercises: exercises, coach: { provider.feedback(for: $0, answer: $1) }),
+                node: node
+            )
         }
     }
 
@@ -327,19 +445,20 @@ struct LearnHomeView: View {
     @ViewBuilder
     private func lessonView(_ lesson: LessonRun) -> some View {
         switch lesson.content {
-        case let .course(lessonID, exercises):
-            LessonView(lessonID: lessonID, exercises: exercises) { finish($0, lesson) }
+        case let .course(lessonID, exercises, coach):
+            LessonView(lessonID: lessonID, exercises: exercises, coach: coach) { finish($0, lesson) }
         case let .cards(cards, dueKeys, deck, distractors):
             LessonView(cards: cards, dueKeys: dueKeys, deck: deck, distractors: distractors) { finish($0, lesson) }
         }
     }
 
-    /// Records the round once (a run the store has seen before counts for nothing), grades the due cards of a material's
-    /// lesson, and tells the quests. What it brought goes to the end screen.
+    /// Records the round once (a run the store has seen before counts for nothing): XP and streak, the evidence for the
+    /// skills, the due cards of a material's lesson, the quests, and, for a unit test, whether the unit is skipped.
+    /// What it brought goes to the end screen.
     private func finish(_ result: LessonResult, _ lesson: LessonRun) -> LessonRewards {
         let now = Date()
         let calendar = Calendar.current
-        guard let reward = progress.record(result, courseID: lesson.courseID, now: now, calendar: calendar) else {
+        guard let reward = progress.record(result, courseID: lesson.courseID, completes: lesson.completes, now: now, calendar: calendar) else {
             return LessonRewards()
         }
         if case let .cards(_, dueKeys, _, _) = lesson.content {
@@ -348,13 +467,26 @@ struct LearnHomeView: View {
                 byKey[key]?.apply(grade, at: now)
             }
         }
+        if let provider = shippedProvider(Self.shipped.first { $0.id == lesson.courseID }) {
+            skills.record(outcomes: result.outcomes, node: lesson.node, map: SkillMaps.map(for: provider), now: now, calendar: calendar)
+        }
+        var notes: [String] = []
+        if let unit = lesson.testOut {
+            if TestOut.passed(result) {
+                progress.complete(TestOut.nodesToComplete(in: unit))
+                notes.append("Einheit übersprungen: \(unit.title). Als Fähigkeit zählt nur, was der Test gezeigt hat.")
+            } else {
+                notes.append("Für das Überspringen brauchst du 85 % richtig, ohne Hilfe. Lern die Einheit jetzt Schritt für Schritt.")
+            }
+        }
         let event = QuestEvent(
             xp: reward.xp, courseID: lesson.courseID, nodeKind: lesson.kind, rightFirstTry: result.rightFirstTry,
             exerciseCount: result.exerciseCount
         )
         let finished = quests.record(event, now: now, calendar: calendar)
         return LessonRewards(
-            gems: reward.gems, quests: finished.map(\.title), freezesUsed: reward.freezesUsed, streakExtended: reward.streakExtended
+            gems: reward.gems, quests: finished.map(\.title), freezesUsed: reward.freezesUsed, streakExtended: reward.streakExtended,
+            notes: notes
         )
     }
 }

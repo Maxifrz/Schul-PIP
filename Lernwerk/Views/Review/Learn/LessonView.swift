@@ -31,9 +31,15 @@ struct LessonView: View {
     }
 
     /// A lesson of a course: its exercises come ready and no card is graded.
-    init(lessonID: String, exercises: [LearnExercise], onFinish: @escaping (LessonResult) -> LessonRewards) {
+    /// `coach` explains a wrong answer when the course can: why a chess move fails, what is off about a typed word.
+    init(
+        lessonID: String,
+        exercises: [LearnExercise],
+        coach: ((LearnExercise, LearnAnswer) -> String?)? = nil,
+        onFinish: @escaping (LessonResult) -> LessonRewards
+    ) {
         self.onFinish = onFinish
-        _model = StateObject(wrappedValue: LessonModel(lessonID: lessonID, exercises: exercises, sessionID: UUID().uuidString))
+        _model = StateObject(wrappedValue: LessonModel(lessonID: lessonID, exercises: exercises, sessionID: UUID().uuidString, coach: coach))
     }
 
     /// With ready-made exercises, for the previews.
@@ -133,6 +139,9 @@ struct LessonView: View {
             }
             ExerciseMediaView(exercise: exercise)
             exerciseView(exercise)
+            if !model.hintsShown.isEmpty {
+                hintCard(model.hintsShown)
+            }
         }
         .frame(maxWidth: 640, alignment: .leading)
         .padding(.horizontal, compact ? 20 : 32)
@@ -195,6 +204,30 @@ struct LessonView: View {
         }
     }
 
+    private func hintCard(_ hints: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(hints.enumerated()), id: \.offset) { _, text in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Quill.warn)
+                        .frame(width: 20)
+                    Text(text)
+                        .font(.work(15.5))
+                        .lineSpacing(3)
+                        .foregroundStyle(Quill.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Quill.line, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Hinweis: " + hints.joined(separator: ". "))
+    }
+
     private func caption(for kind: ExerciseKind) -> String {
         switch kind {
         case .multipleChoice: return "Wähle die richtige Antwort"
@@ -214,6 +247,7 @@ struct LessonView: View {
             LessonFeedbackBar(
                 verdict: verdict,
                 solution: verdict == .wrong ? exercise.solution : nil,
+                note: model.coachNote,
                 explanation: exercise.explanation,
                 comesBack: verdict == .wrong && !model.session.isRetry,
                 canOverrule: verdict == .wrong && exercise.kind == .typeAnswer,
@@ -226,9 +260,16 @@ struct LessonView: View {
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
         } else if exercise.kind != .matchPairs {
-            Button("Prüfen", action: check)
-                .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
-                .disabled(!model.canCheck)
+            HStack(spacing: 12) {
+                if model.hasMoreHints {
+                    Button("Hinweis \(model.hintsShown.count + 1)/\(model.hintTotal)") { model.showHint() }
+                        .buttonStyle(QuillOutlineButtonStyle(height: 52, fontSize: 15, weight: .medium))
+                        .accessibilityHint("Zeigt eine Hilfe. Die Antwort zählt dann weniger für deinen Kompetenzstand.")
+                }
+                Button("Prüfen", action: check)
+                    .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
+                    .disabled(!model.canCheck)
+            }
                 .frame(maxWidth: 640)
                 .padding(.horizontal, compact ? 20 : 32)
                 .padding(.top, 10)
@@ -273,6 +314,8 @@ struct LessonView: View {
 struct LessonFeedbackBar: View {
     let verdict: LearnVerdict
     let solution: String?
+    /// Why this answer was wrong, from the course; empty when it cannot tell.
+    var note = ""
     /// A sentence of why; shown after right and wrong answers alike.
     var explanation = ""
     let comesBack: Bool
@@ -305,6 +348,13 @@ struct LessonFeedbackBar: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
+            }
+            if !note.isEmpty {
+                Text(note)
+                    .font(.work(15, .medium))
+                    .lineSpacing(3)
+                    .foregroundStyle(Quill.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !explanation.isEmpty {
                 Text(explanation)
