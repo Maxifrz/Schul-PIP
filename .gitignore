@@ -7,3 +7,8 @@ build/
 Payload/
 *.ipa
 Support/Info.plist
+scripts/learn-swift/.build/
+scripts/learn-swift/Sources/Lernwerk/*
+!scripts/learn-swift/Sources/Lernwerk/.gitkeep
+scripts/learn-swift/Tests/LernwerkTests/*
+!scripts/learn-swift/Tests/LernwerkTests/.gitkeep

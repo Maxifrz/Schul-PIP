@@ -1,0 +1,8 @@
+// Stands in for Combine on Linux: the stores of the Learn folder are ObservableObjects, the logic does not care.
+#if !canImport(Combine)
+protocol ObservableObject: AnyObject {}
+@propertyWrapper struct Published<Value> {
+    var wrappedValue: Value
+    init(wrappedValue: Value) { self.wrappedValue = wrappedValue }
+}
+#endif
