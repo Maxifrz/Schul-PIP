@@ -19,7 +19,7 @@ const captions: Record<ExerciseKind, string> = {
   pianoKey: 'Tippe die Taste',
 };
 
-function Media({ exercise }: { exercise: LearnExercise }) {
+export function Media({ exercise }: { exercise: LearnExercise }) {
   const media = exercise.media;
   if (!media) return null;
   switch (media.type) {
@@ -203,7 +203,7 @@ function Player() {
   );
 }
 
-function ExerciseArea({ exercise, model, force }: { exercise: LearnExercise; model: LessonModel; force: () => void }) {
+export function ExerciseArea({ exercise, model, force }: { exercise: LearnExercise; model: LessonModel; force: () => void }) {
   const verdict = model.verdict;
   switch (exercise.kind) {
     case 'multipleChoice':

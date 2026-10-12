@@ -62,6 +62,58 @@ await page.getByRole('button', { name: 'Karte speichern', exact: true }).click()
 await page.waitForTimeout(800);
 check('cards are written to disk', existsSync(join(userData, 'data', 'cards.json')) && readFileSync(join(userData, 'data', 'cards.json'), 'utf8').includes('Persistenz?'));
 
+
+// Lernen: the area opens, a round is played to the end, and its state is written to the user data folder
+async function playRound(target) {
+  for (let step = 0; step < 40; step += 1) {
+    await target.waitForSelector('.lrn-exercise, .lrn-complete');
+    if (await target.locator('.lrn-complete').count()) return true;
+    const kind = ((await target.locator('.lrn-exercise .kind').first().textContent()) ?? '').trim();
+    if (kind === 'Finde die Paare') {
+      const fronts = target.locator('.lrn-pairs .col').nth(0).locator('.lrn-tile');
+      const backs = target.locator('.lrn-pairs .col').nth(1).locator('.lrn-tile');
+      for (let f = 0; f < (await fronts.count()); f += 1) {
+        for (let b = 0; b < (await backs.count()); b += 1) {
+          if (await fronts.nth(f).evaluate((e) => e.classList.contains('matched'))) break;
+          if (await backs.nth(b).evaluate((e) => e.classList.contains('matched'))) continue;
+          await fronts.nth(f).click();
+          await backs.nth(b).click();
+        }
+      }
+    } else if (kind === 'Schreib die Antwort') {
+      await target.fill('.lrn-type', 'xyz');
+      await target.keyboard.press('Enter');
+    } else {
+      await target.keyboard.press('1');
+      await target.keyboard.press('Enter');
+    }
+    await target.waitForSelector('.lrn-feedback, .lrn-complete');
+    if (await target.locator('.lrn-complete').count()) return true;
+    await target.keyboard.press('Enter');
+    await target.waitForSelector('.lrn-feedback', { state: 'detached' });
+  }
+  return false;
+}
+await page.click('.nav:has-text("Lernen")');
+await page.waitForSelector('.lrn-empty');
+await page.getByRole('button', { name: 'Kurs wählen', exact: true }).first().click();
+await page.locator('.lrn-course[data-course="es"]').click();
+await page.waitForSelector('.lrn-node.current');
+check('the Lernen area shows the path of a course', (await page.locator('.lrn-node.locked').count()) > 3);
+await page.screenshot({ path: join(out, 'e3-lernen.png') });
+await page.locator('.lrn-node.current').click();
+check('a round can be played in Electron', await playRound(page));
+await page.screenshot({ path: join(out, 'e4-lektion-fertig.png') });
+await page.keyboard.press('Enter');
+await page.waitForSelector('.lrn-node.done');
+await page.waitForTimeout(500);
+const learnFile = (name) => join(userData, 'data', `${name}.json`);
+check('progress, quests, skills and the chosen course are written to disk',
+  ['learn-progress', 'learn-quests', 'learn-skills', 'learn-ui'].every((name) => existsSync(learnFile(name))) &&
+  readFileSync(learnFile('learn-progress'), 'utf8').includes('es.u01.l1') && readFileSync(learnFile('learn-ui'), 'utf8').includes('"es"'));
+check('the flashcard file is untouched by the Lernen area', !readFileSync(join(userData, 'data', 'cards.json'), 'utf8').includes('es.u01'));
+check('Ctrl+4 opens Lernen', await (async () => { await page.click('.nav:has-text("Heute")'); await page.keyboard.press('Control+4'); return (await page.locator('.lrn-home').count()) === 1; })());
+
 // The network call of the main process
 const http = await page.evaluate(async (port) => {
   const reply = await window.api.http({ url: `http://127.0.0.1:${port}/x`, method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
@@ -111,6 +163,9 @@ await second.waitForSelector('.sidebar', { timeout: 20000 });
 await second.click('.nav:has-text("Karten")');
 await second.waitForSelector('text=Persistenz?', { timeout: 5000 }).catch(() => {});
 check('the card is still there after a restart', (await second.locator('text=Persistenz?').count()) > 0);
+await second.click('.nav:has-text("Lernen")');
+await second.waitForSelector('.lrn-node.done', { timeout: 5000 }).catch(() => {});
+check('the lesson, the course and the XP are still there after a restart', (await second.locator('.lrn-node.done').count()) === 1 && (await second.locator('.lrn-stats').innerText()).includes('Spanisch'));
 await again.close();
 
 if (problems.length > 0) {

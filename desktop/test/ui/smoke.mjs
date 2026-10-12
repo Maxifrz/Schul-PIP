@@ -136,6 +136,13 @@ async function playLesson(maxSteps = 40, options = {}) {
     await page.waitForSelector('.lrn-exercise, .lrn-complete');
     if (await page.locator('.lrn-complete').count()) return true;
     const kind = ((await page.locator('.lrn-exercise .kind').first().textContent()) ?? '').trim();
+    for (const [selector, name] of [['.lrn-board', 'brett'], ['.lrn-piano', 'klaviatur'], ['.lrn-staff', 'noten'], ['.lrn-play', 'toene'], ['.lrn-bank', 'woerter'], ['.lrn-pairs', 'paare'], ['.lrn-type', 'tippen']]) {
+      if (!seenKinds.has(`shot:${name}`) && (await page.locator(selector).count())) {
+        seenKinds.add(`shot:${name}`);
+        await page.waitForTimeout(300);
+        await shot(`23-aufgabe-${name}`);
+      }
+    }
     seenKinds.add(kind);
     if (kind === 'Finde die Paare') {
       const fronts = page.locator('.lrn-pairs .col').nth(0).locator('.lrn-tile');
@@ -278,13 +285,23 @@ for (const id of await page.locator('.lrn-course').evaluateAll((els) => els.map(
   if (id === 'es') continue;
   await page.locator(`.lrn-course[data-course="${id}"]`).click();
   await page.waitForSelector('.lrn-path');
-  await page.locator('.lrn-node.current').click();
-  await page.waitForSelector('.lrn-exercise, .lrn-lesson');
-  const ok = await playLesson(40);
+  // Chess and music: go on through the lessons until their special kinds have been played (at most twelve rounds).
+  const wanted = id === 'chess' ? 'Finde den Zug' : id === 'music' ? 'Tippe die Taste' : null;
+  let ok = true;
+  for (let round = 0; round < (wanted ? 12 : 1); round += 1) {
+    await page.locator('.lrn-node.current').click();
+    await page.waitForSelector('.lrn-exercise, .lrn-lesson');
+    ok = (await playLesson(40)) && ok;
+    if (wanted && seenKinds.has(wanted)) {
+      await shot(`22-kurs-${id}-${wanted === 'Finde den Zug' ? 'zug' : 'taste'}`);
+    }
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.lrn-path');
+    if (wanted && seenKinds.has(wanted)) break;
+  }
   check(`course ${id}: a round can be played`, ok);
+  if (wanted) check(`course ${id}: ${wanted} was played`, seenKinds.has(wanted));
   await shot(`22-kurs-${id}`);
-  await page.keyboard.press('Enter');
-  await page.waitForSelector('.lrn-path');
   await page.getByRole('button', { name: /Kurs wechseln/ }).click();
   await page.waitForSelector('.lrn-course');
 }
