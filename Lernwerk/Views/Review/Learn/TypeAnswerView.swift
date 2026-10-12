@@ -5,6 +5,8 @@ import SwiftUI
 struct TypeAnswerView: View {
     @Binding var text: String
     let verdict: LearnVerdict?
+    /// Numbers get the number keyboard; answers in a language being learned are left as typed.
+    var mode: AnswerMode = .text
     let onSubmit: () -> Void
 
     @FocusState private var focused: Bool
@@ -14,7 +16,9 @@ struct TypeAnswerView: View {
             .font(.work(18))
             .multilineTextAlignment(.center)
             .foregroundStyle(Quill.ink)
-            .textInputAutocapitalization(.sentences)
+            .textInputAutocapitalization(mode == .text ? .sentences : .never)
+            .autocorrectionDisabled(mode != .text)
+            .keyboardType(mode == .number ? .numbersAndPunctuation : .default)
             .submitLabel(.done)
             .focused($focused)
             .onSubmit(onSubmit)

@@ -159,6 +159,63 @@ final class LearnProgressTests: XCTestCase {
         XCTAssertEqual(progress.recentRuns.count, LearnProgress.rememberedRuns)
     }
 
+    func testGemsFreezesAndCourseXP() {
+        var progress = LearnProgress()
+        XCTAssertEqual(progress.gems, 0)
+        let perfect = progress.record(result(right: 4, of: 4), courseID: "es", now: date(1, 9), calendar: berlin)
+        // 2 for the lesson, 3 for no mistake, 5 more for reaching the daily goal of 20 XP.
+        XCTAssertEqual(perfect?.gems, 10)
+        XCTAssertEqual(progress.gems, 10)
+        XCTAssertEqual(progress.xp(inCourse: "es"), 70)
+        XCTAssertEqual(progress.xp(inCourse: "fr"), 0)
+        let flawed = progress.record(result(right: 3, retry: 1, of: 4), courseID: "fr", now: date(1, 10), calendar: berlin)
+        XCTAssertEqual(flawed?.gems, 2)
+        XCTAssertEqual(progress.xp(inCourse: "fr"), 55)
+        XCTAssertEqual(progress.totalXP, 125)
+
+        XCTAssertFalse(progress.buyFreeze(), "not enough gems")
+        progress.addGems(100)
+        XCTAssertTrue(progress.buyFreeze())
+        XCTAssertTrue(progress.buyFreeze())
+        XCTAssertFalse(progress.buyFreeze(), "two at most")
+        XCTAssertEqual(progress.freezes, 2)
+        XCTAssertEqual(progress.gems, 12 + 100 - 60)
+
+        // A freeze covers a skipped day: lessons on the 1st and the 3rd keep the streak.
+        let covered = progress.record(result(right: 1, of: 1), now: date(3, 9), calendar: berlin)
+        XCTAssertEqual(covered?.streak, 2)
+        XCTAssertEqual(covered?.freezesUsed, 1)
+        XCTAssertEqual(progress.freezes, 1)
+        // Two skipped days with one freeze left break it.
+        XCTAssertEqual(progress.currentStreak(now: date(6, 9), calendar: berlin), 0)
+        XCTAssertEqual(progress.currentStreak(now: date(5, 9), calendar: berlin), 2, "one skipped day, one freeze")
+        let broken = progress.record(result(right: 1, of: 1), now: date(6, 9), calendar: berlin)
+        XCTAssertEqual(broken?.streak, 1)
+        XCTAssertEqual(broken?.freezesUsed, 0)
+        XCTAssertEqual(progress.freezes, 1, "a freeze that cannot save the streak stays")
+    }
+
+    func testChestsOpenOnce() {
+        var progress = LearnProgress()
+        XCTAssertTrue(progress.openChest("es.u01.k", gems: 15))
+        XCTAssertFalse(progress.openChest("es.u01.k", gems: 15))
+        XCTAssertEqual(progress.gems, 15)
+        XCTAssertTrue(progress.isCompleted("es.u01.k"))
+        progress.addGems(-5)
+        XCTAssertEqual(progress.gems, 15)
+    }
+
+    func testOlderSavesWithoutGemsLoad() throws {
+        let progress = try JSONDecoder().decode(LearnProgress.self, from: Data(#"{"totalXP": 10, "gems": -4, "freezes": 9}"#.utf8))
+        XCTAssertEqual(progress.gems, 0)
+        XCTAssertEqual(progress.freezes, LearnProgress.maxFreezes)
+        XCTAssertTrue(progress.courseXP.isEmpty)
+        var saved = LearnProgress()
+        saved.addGems(7)
+        _ = saved.record(result(right: 1, of: 1), courseID: "chess", now: date(1), calendar: berlin)
+        XCTAssertEqual(try JSONDecoder().decode(LearnProgress.self, from: JSONEncoder().encode(saved)), saved)
+    }
+
     func testARunWithoutExercisesCountsNothing() {
         var progress = LearnProgress()
         XCTAssertNil(progress.record(result(right: 0, of: 0), now: date(9), calendar: berlin))

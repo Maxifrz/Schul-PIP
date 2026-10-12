@@ -1,5 +1,17 @@
 import Foundation
 
+/// What a finished lesson brought besides XP, for the end screen. The one who records the lesson fills it in.
+struct LessonRewards: Equatable {
+    var gems = 0
+    /// The titles of the quests this lesson completed.
+    var quests: [String] = []
+    /// Streak freezes that covered skipped days with this lesson.
+    var freezesUsed = 0
+    var streakExtended = false
+    /// Things worth saying in a sentence: a unit skipped, a test not passed.
+    var notes: [String] = []
+}
+
 /// The lesson on screen: the session plus what the student has picked, put together or typed for the current
 /// exercise. All of it lives in this one object, so turning the device or showing the keyboard keeps every choice.
 final class LessonModel: ObservableObject {
@@ -17,6 +29,9 @@ final class LessonModel: ObservableObject {
     @Published private(set) var session: LessonSession
     @Published var typed = ""
     @Published var choice: String?
+    /// Chess: the square of the piece to move, then the square to move it to.
+    @Published var moveFrom: String?
+    @Published var moveTo: String?
     /// Word bank: positions in the options, in the order tapped.
     @Published var tiles: [Int] = []
     @Published private(set) var matched: Set<String> = []
@@ -24,15 +39,29 @@ final class LessonModel: ObservableObject {
     @Published private(set) var pickedFront: String?
     @Published private(set) var pickedBack: Int?
     @Published private(set) var lastMiss: PairMiss?
+    /// Why the last wrong answer was wrong, when the course can tell; empty otherwise.
+    @Published private(set) var coachNote = ""
+    /// Asked for a wrong answer; set by whoever opened a lesson of a course.
+    private let coach: ((LearnExercise, LearnAnswer) -> String?)?
     /// Pairs: the cards whose front was paired with a wrong back.
     private var missed: Set<String> = []
     private var reported = false
 
     init(cards: [CardSnapshot], exercises: [LearnExercise], sessionID: String) {
+        coach = nil
         session = LessonSession(
             lessonID: LearnPath.lessonID(for: cards.map(\.key)), cardKeys: cards.map(\.key), exercises: exercises,
             sessionID: sessionID
         )
+    }
+
+    /// A lesson of a course: the exercises come ready, and no cards are graded.
+    init(
+        lessonID: String, exercises: [LearnExercise], sessionID: String,
+        coach: ((LearnExercise, LearnAnswer) -> String?)? = nil
+    ) {
+        self.coach = coach
+        session = LessonSession(lessonID: lessonID, cardKeys: [], exercises: exercises, sessionID: sessionID)
     }
 
     convenience init(cards: [CardSnapshot], deck: [CardSnapshot], distractors: [String: [String]], seed: UInt64, sessionID: String) {
@@ -52,7 +81,8 @@ final class LessonModel: ObservableObject {
     var canCheck: Bool {
         guard isAnswering, let exercise = current else { return false }
         switch exercise.kind {
-        case .multipleChoice: return choice != nil
+        case .multipleChoice, .pianoKey: return choice != nil
+        case .chessMove: return moveFrom != nil && moveTo != nil
         case .typeAnswer: return !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .wordBank: return !tiles.isEmpty
         case .matchPairs: return false
@@ -64,12 +94,24 @@ final class LessonModel: ObservableObject {
         guard canCheck, let exercise = current else { return nil }
         let answer: LearnAnswer
         switch exercise.kind {
-        case .multipleChoice: answer = .option(choice ?? "")
+        case .multipleChoice, .pianoKey: answer = .option(choice ?? "")
+        case .chessMove: answer = .move((moveFrom ?? "") + (moveTo ?? ""))
         case .typeAnswer: answer = .typed(typed)
         case .wordBank: answer = .words(tiles.filter { exercise.options.indices.contains($0) }.map { exercise.options[$0] })
         case .matchPairs: answer = .pairs(missed: missed)
         }
-        return session.submit(answer)
+        let verdict = session.submit(answer)
+        coachNote = verdict == .wrong ? (coach?(exercise, answer) ?? "") : ""
+        return verdict
+    }
+
+    /// The hints of the current exercise shown so far, and whether another is left.
+    var hintsShown: [String] { session.shownHints }
+    var hasMoreHints: Bool { session.hasMoreHints }
+    var hintTotal: Int { current?.hints.count ?? 0 }
+
+    func showHint() {
+        session.showHint()
     }
 
     func overrule() {
@@ -80,6 +122,7 @@ final class LessonModel: ObservableObject {
         guard verdict != nil else { return }
         session.advance()
         resetDrafts()
+        coachNote = ""
     }
 
     /// The result, handed out once: the first time it is asked for after the lesson finished.
@@ -87,6 +130,22 @@ final class LessonModel: ObservableObject {
         guard !reported, let result = session.result else { return nil }
         reported = true
         return result
+    }
+
+    // Chess
+
+    /// A tap on a square: the first picks the piece to move (a tap on it again puts it down), the next the square to
+    /// move it to; a third starts over from that square.
+    func tapSquare(_ square: String) {
+        guard isAnswering, current?.kind == .chessMove else { return }
+        if moveFrom == nil || moveTo != nil {
+            moveFrom = square
+            moveTo = nil
+        } else if moveFrom == square {
+            moveFrom = nil
+        } else {
+            moveTo = square
+        }
     }
 
     // Word bank
@@ -140,6 +199,8 @@ final class LessonModel: ObservableObject {
     private func resetDrafts() {
         typed = ""
         choice = nil
+        moveFrom = nil
+        moveTo = nil
         tiles = []
         matched = []
         matchedBacks = []
