@@ -151,7 +151,7 @@ export function startLearn(): Promise<void> {
       (stored, s) => {
         const data = stored as { courseID?: unknown; mode?: unknown };
         const courseID = typeof data.courseID === 'string' && providerForCourse(data.courseID) ? data.courseID : '';
-        const mode = data.mode === 'quests' || data.mode === 'skills' ? data.mode : 'path';
+        const mode: LearnMode = data.mode === 'quests' || data.mode === 'skills' ? data.mode : 'path';
         return { ...s, courseID, mode };
       },
     );

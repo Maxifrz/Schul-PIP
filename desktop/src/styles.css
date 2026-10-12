@@ -211,7 +211,7 @@ img.sketch { max-width: 100%; border-radius: 10px; }
 .lrn-menu button.on { font-weight: 700; background: var(--accent-soft); }
 .lrn-tile-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 28%; background: var(--course, var(--accent)); color: var(--on-course, var(--on-accent)); }
 .lrn-dot { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: var(--warn); }
-.pill { display: inline-flex; align-items: center; }
+.lrn-home .pill { display: inline-flex; align-items: center; }
 
 .lrn-cols { display: grid; grid-template-columns: 17.5rem minmax(0, 35rem); gap: 2rem; justify-content: center; align-items: start; }
 .lrn-aside { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
