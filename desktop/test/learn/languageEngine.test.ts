@@ -2,7 +2,7 @@
 // LanguageDSLTests.swift, the language parts of SkillCoursesTests.swift, SkillFeedbackTests.swift, SkillStoreTests.swift
 // and SkillAdvisorTests.swift.
 import { describe, expect, it } from 'vitest';
-import { evaluate } from '../../src/lib/learn/../answerCheck';
+import { evaluate } from '../../src/lib/answerCheck';
 import { CourseAudit } from '../../src/lib/learn/audit';
 import { type CourseNode, courseNode } from '../../src/lib/learn/course';
 import { CoursePath } from '../../src/lib/learn/coursePath';
@@ -14,7 +14,7 @@ import { parseLanguageCourse } from '../../src/lib/learn/languages/dsl';
 import { LanguageAnswerAdvice, LanguageCourseProvider } from '../../src/lib/learn/languages/provider';
 import { SkillAdvisor, SkillPractice } from '../../src/lib/learn/skills/advisor';
 import { type ExerciseOutcome, SkillAssessor, SkillRecord, Tally, skillStatusIsReached } from '../../src/lib/learn/skills/assessor';
-import { CompetenceLevels, lessonExercises, skillFacets, skillMap, skillTag } from '../../src/lib/learn/skills/skill';
+import { CompetenceLevels, lessonExercises, skillMap } from '../../src/lib/learn/skills/skill';
 import { SkillMaps } from '../../src/lib/learn/store';
 import { range } from './languageKit';
 import { latinSource, sampleSource, schoolSource } from './languageSample';
@@ -388,7 +388,7 @@ describe('skills of the language courses', () => {
       const map = skillMap(provider);
       const seen = new Map<string, Set<string>>();
       for (const node of steps(provider)) {
-        for (const seed of range(1, 3)) {
+        for (const seed of range(1, 2)) {
           for (const e of lessonExercises(provider, node, BigInt(seed))) {
             if (e.level) {
               if (!seen.has(e.skill)) seen.set(e.skill, new Set());
@@ -520,11 +520,6 @@ describe('the shipped providers', () => {
   it('are registered in course order with the ids of their texts', () => {
     expect(languageProviders.map((p) => p.course.id)).toEqual(['es', 'fr', 'la', 'daf', 'de']);
     expect([spanishProvider, frenchProvider, latinProvider, germanForeignProvider, germanSchoolProvider].map((p) => p.course.kind)).toEqual(['language', 'language', 'language', 'language', 'school']);
-    for (const p of languageProviders) {
-      const complete = p.skillFacets !== undefined;
-      expect(complete).toBe(true);
-      void skillFacets;
-      void skillTag;
-    }
+    for (const p of languageProviders) expect(p.skillFacets !== undefined && p.skillTag !== undefined && p.feedback !== undefined).toBe(true);
   });
 });

@@ -95,7 +95,7 @@ const shot = (name) => page.screenshot({ path: join(out, `${name}.png`) });
 
 await page.goto(origin);
 await page.waitForSelector('.sidebar');
-check('shell with six areas', (await page.locator('.nav').count()) === 6);
+check('shell with seven areas', (await page.locator('.nav').count()) === 7);
 await shot('01-heute');
 
 // Heute: the game
@@ -124,6 +124,165 @@ check('right answer says Richtig', (await page.locator('.verdict').innerText()) 
 await shot('03-karten');
 await page.getByRole('button', { name: 'Weiter', exact: true }).click();
 check('cards are done afterwards', (await page.locator('text=Alles wiederholt').count()) === 1);
+
+
+// Lernen: course picker, path, lesson with every kind of exercise that the courses have, rewards, quests, skills
+const seenKinds = new Set();
+/** Answers the open round exercise by exercise (wrong on purpose where it cannot know the answer); returns the kinds seen. */
+async function playLesson(maxSteps = 40, options = {}) {
+  let hinted = false;
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (await page.locator('.lrn-complete').count()) return true;
+    await page.waitForSelector('.lrn-exercise, .lrn-complete');
+    if (await page.locator('.lrn-complete').count()) return true;
+    const kind = (await page.locator('.lrn-exercise .kind').first().innerText()).trim();
+    seenKinds.add(kind);
+    if (kind === 'Finde die Paare') {
+      const fronts = page.locator('.lrn-pairs .col').nth(0).locator('.lrn-tile');
+      const backs = page.locator('.lrn-pairs .col').nth(1).locator('.lrn-tile');
+      for (let f = 0; f < (await fronts.count()); f += 1) {
+        for (let b = 0; b < (await backs.count()); b += 1) {
+          if (await fronts.nth(f).evaluate((e) => e.classList.contains('matched'))) break;
+          if (await backs.nth(b).evaluate((e) => e.classList.contains('matched'))) continue;
+          await fronts.nth(f).click();
+          await backs.nth(b).click();
+        }
+      }
+    } else if (kind === 'Wähle die richtige Antwort') {
+      if (options.hint && !hinted && (await page.locator('.lrn-foot button:has-text("Hinweis")').count())) {
+        await page.locator('.lrn-foot button:has-text("Hinweis")').first().click();
+        hinted = (await page.locator('.lrn-hints').count()) === 1;
+      }
+      await page.keyboard.press('1');
+      await page.keyboard.press('Enter');
+    } else if (kind === 'Bilde die Antwort') {
+      await page.keyboard.press('1');
+      await page.keyboard.press('Enter');
+    } else if (kind === 'Schreib die Antwort') {
+      await page.fill('.lrn-type', 'xyz');
+      await page.keyboard.press('Enter');
+    } else if (kind === 'Finde den Zug') {
+      await page.locator('.lrn-board .sq').nth(0).click();
+      await page.locator('.lrn-board .sq').nth(9).click();
+      await page.keyboard.press('Enter');
+    } else if (kind === 'Tippe die Taste') {
+      await page.locator('.lrn-piano .key.white').nth(2).click();
+      await page.keyboard.press('Enter');
+    }
+    await page.waitForSelector('.lrn-feedback, .lrn-complete');
+    if (await page.locator('.lrn-complete').count()) return true;
+    if (kind === 'Schreib die Antwort' && !seenKinds.has('overruled') && (await page.locator('text=War doch richtig').count())) {
+      await page.locator('text=War doch richtig').click();
+      seenKinds.add('overruled');
+      check('"War doch richtig" turns the verdict', (await page.locator('.lrn-feedback.right').count()) === 1);
+    }
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.lrn-feedback', { state: 'detached' });
+  }
+  return false;
+}
+
+await page.click('.nav:has-text("Lernen")');
+await page.waitForSelector('.lrn-empty');
+check('Lernen asks for a course first', (await page.locator('text=Such dir einen Kurs aus').count()) === 1);
+await shot('12-lernen-leer');
+await page.getByRole('button', { name: 'Kurs wählen', exact: true }).first().click();
+await page.waitForSelector('.lrn-course');
+check('picker lists the languages', (await page.locator('.lrn-course[data-course="es"]').count()) === 1 && (await page.locator('.dialog h3:has-text("Sprachen")').count()) === 1);
+const pickerKinds = await page.locator('.dialog h3.lrn-h3').allInnerTexts();
+console.log('     picker groups:', pickerKinds.join(', '));
+await page.waitForTimeout(500);
+await shot('13-kursauswahl');
+await page.locator('.lrn-course[data-course="es"]').click();
+await page.waitForSelector('.lrn-path .lrn-node.current');
+check('path has exactly one open step and locked ones', (await page.locator('.lrn-node.current').count()) === 1 && (await page.locator('.lrn-node.locked').count()) > 3);
+check('stats bar shows the daily goal at 0', (await page.locator('.lrn-stats').innerText()).includes('0/20'));
+check('recommendation "Als Nächstes"', (await page.locator('.lrn-advice:has-text("Als Nächstes")').count()) === 1);
+await shot('14-lernpfad');
+
+// The unit guide with the test to skip the unit
+await page.locator('.lrn-banner').first().click();
+await page.waitForSelector('.dialog:has-text("Tipps")');
+check('guide offers to skip the first unit', (await page.locator('.dialog button:has-text("Einheit überspringen")').count()) === 1);
+await shot('15-einheit-tipps');
+await page.getByRole('button', { name: 'Verstanden', exact: true }).click();
+await page.waitForTimeout(600);
+
+// A round with hints
+await page.locator('.lrn-node.current').click();
+await page.waitForSelector('.lrn-exercise');
+await shot('16-aufgabe');
+const finished = await playLesson(40, { hint: true });
+check('a lesson can be played to the end', finished);
+await page.waitForSelector('.lrn-complete');
+check('end screen shows XP, accuracy and goal', (await page.locator('.lrn-stat').count()) === 3 && (await page.locator('.lrn-goalcard').count()) === 1);
+await shot('17-lektion-fertig');
+await page.keyboard.press('Enter');
+await page.waitForSelector('.lrn-path');
+check('first lesson is done, the next is open', (await page.locator('.lrn-node.done').count()) === 1 && (await page.locator('.lrn-node.current').count()) === 1);
+check('XP and streak moved', !(await page.locator('.lrn-stats').innerText()).includes('0/20') && (await page.locator('.lrn-stat-btn.warn').count()) === 1);
+console.log('     exercise kinds seen in Spanisch:', [...seenKinds].join(' | '));
+
+// Quests and skills
+await page.getByRole('tab', { name: 'Quests' }).click();
+await page.waitForSelector('.lrn-quest');
+check('three daily quests, the weekly one and the freeze', (await page.locator('.lrn-quest').count()) >= 5);
+await shot('18-quests');
+await page.getByRole('tab', { name: 'Fähigkeiten' }).click();
+await page.waitForSelector('.lrn-skill');
+check('skills are listed by unit with a status', (await page.locator('.lrn-skill').count()) > 3 && (await page.locator('.lrn-status').count()) > 3);
+await shot('19-faehigkeiten');
+if (await page.locator('.lrn-skill button:has-text("Gezielt üben")').count()) {
+  await page.locator('.lrn-skill button:has-text("Gezielt üben")').first().click();
+  await page.waitForSelector('.lrn-exercise');
+  check('a skill can be practised', true);
+  await page.locator('.lrn-close').click();
+  await page.getByRole('button', { name: 'Lektion abbrechen', exact: true }).last().click();
+  await page.waitForSelector('.lrn-home');
+}
+
+// Chest, locked states and the streak freeze: seed the saved state and reload
+await page.evaluate(() => {
+  localStorage.setItem('schulpip.learn-progress', JSON.stringify({ completedLessons: ['es.u01.l1', 'es.u01.l2', 'es.u01.l3', 'es.u01.p', 'es.u01.t'], gems: 40, totalXP: 100 }));
+});
+await page.reload();
+await page.waitForSelector('.sidebar');
+await page.click('.nav:has-text("Lernen")');
+await page.waitForSelector('.lrn-node.chest.current');
+await shot('20-truhe');
+await page.locator('.lrn-node.chest.current').click();
+await page.waitForSelector('.banner:has-text("Gems gefunden")');
+check('chest opens and pays gems', (await page.locator('.lrn-node.chest.done').count()) === 1);
+await page.locator('.lrn-stat-btn.link').click();
+await page.waitForSelector('.dialog:has-text("Streak-Schutz")');
+await page.getByRole('button', { name: /Streak-Schutz kaufen/ }).click();
+check('a streak freeze can be bought with gems', (await page.locator('.dialog:has-text("Du hast 1 von 2")').count()) === 1);
+await shot('21-gems');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(600);
+await page.locator('.lrn-goal button').click();
+await page.getByRole('menuitemradio', { name: '50 XP am Tag' }).click();
+check('daily goal can be changed', (await page.locator('.lrn-stats').innerText()).includes('/50'));
+
+// The other kinds of course, when they are there: one round each, for chess boards, staves, tones and keys
+await page.getByRole('button', { name: /Kurs wechseln/ }).click();
+await page.waitForSelector('.lrn-course');
+for (const id of await page.locator('.lrn-course').evaluateAll((els) => els.map((e) => e.getAttribute('data-course')))) {
+  if (id === 'es') continue;
+  await page.locator(`.lrn-course[data-course="${id}"]`).click();
+  await page.waitForSelector('.lrn-path');
+  await page.locator('.lrn-node.current').click();
+  await page.waitForSelector('.lrn-exercise, .lrn-lesson');
+  const ok = await playLesson(40);
+  check(`course ${id}: a round can be played`, ok);
+  await shot(`22-kurs-${id}`);
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.lrn-path');
+  await page.getByRole('button', { name: /Kurs wechseln/ }).click();
+  await page.waitForSelector('.lrn-course');
+}
+await page.keyboard.press('Escape');
+console.log('     exercise kinds seen overall:', [...seenKinds].join(' | '));
 
 // Bibliothek with a generated PDF
 const pdf = Buffer.from(`%PDF-1.4

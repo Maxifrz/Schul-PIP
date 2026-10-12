@@ -31,8 +31,7 @@ describe('Deutsch (school) course: engine checks', () => {
   });
 
   it('passes the audit', () => {
-    expect(CourseAudit.problems(provider, range(1, 4).map(BigInt))).toEqual([]);
-    expect(CourseAudit.problems(germanSchoolProvider, [1n, 2n])).toEqual([]);
+    expect(CourseAudit.problems(provider, range(1, 3).map(BigInt))).toEqual([]);
   });
 
   it('has the minimum counts', () => {

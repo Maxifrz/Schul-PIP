@@ -547,8 +547,8 @@ describe('SkillStore', () => {
 });
 
 describe('what needs the real courses', () => {
-  it.todo('SkillCoursesTests: sound maps, facets and levels of the shipped courses, mastery within a few days (needs the course ports)');
-  it.todo('SkillFeedbackTests: ChessCoach and LanguageAnswerAdvice (need the chess and language engines)');
-  it.todo('SkillStoreTests: the map of the Spanish course is built once (needs the Spanish course)');
-  it.todo('SkillAdvisorTests: practice rounds on es.u01.vocab (need the Spanish course; covered with a stand-in above)');
+  // The language parts (SkillCoursesTests, SkillFeedbackTests' LanguageAnswerAdvice, SkillStoreTests and
+  // SkillAdvisorTests with the Spanish course) are in languageEngine.test.ts.
+  it.todo('SkillCoursesTests: the chess part (chess course tests)');
+  it.todo('SkillFeedbackTests: ChessCoach (chess tests)');
 });

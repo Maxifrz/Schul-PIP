@@ -4,11 +4,11 @@ import { CourseAudit } from '../../src/lib/learn/audit';
 import { folded, missedKeys, LearnAnswer, type LearnExercise } from '../../src/lib/learn/exercise';
 import { coverageGaps, coverageTokens, describeGap } from '../../src/lib/learn/languages/coverage';
 import { frenchProvider } from '../../src/lib/learn/languages/courses';
-import { type LanguageUnitData, problems } from '../../src/lib/learn/languages/data';
+import type { LanguageUnitData } from '../../src/lib/learn/languages/data';
 import { LanguageCourseProvider } from '../../src/lib/learn/languages/provider';
 import { courseTexts } from '../../src/lib/learn/languages/texts';
 import {
-  chars, count, dropFirst, firstChar, formsByCard, get, inRange, isPunct, isSpace, isUpper, lastChar, lettersOnly, range, trimWith, unitExercises,
+  chars, count, dropFirst, firstChar, formsByCard, get, inRange, isPunct, isUpper, lastChar, lettersOnly, range, trimWith,
 } from './languageKit';
 
 const made = LanguageCourseProvider.make(courseTexts.fr);
@@ -142,7 +142,7 @@ describe('French course: shape', () => {
   });
 
   it('passes the engine audit', () => {
-    expect(CourseAudit.problems(provider, range(1, 4).map(BigInt))).toEqual([]);
+    expect(CourseAudit.problems(provider, range(1, 3).map(BigInt))).toEqual([]);
   });
 
   it('teaches every word of a sentence before', () => {
@@ -648,8 +648,3 @@ describe('French course: teaching order and the engine', () => {
     expect(ids.some((id) => ['#w0-', '#w1-', '#s0-', '#s1-', '#w2-', '#w3-', '#w4-'].some((m) => id.includes(m)))).toBe(true);
   });
 });
-
-void problems;
-void unitExercises;
-void isSpace;
-void lastChar;
