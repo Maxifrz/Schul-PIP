@@ -3,9 +3,9 @@ name: Desktop
 on:
   push:
     branches: ["**"]
-    paths: ["desktop/**", "cas/web/**", "Lernwerk/Resources/Fonts/**", ".github/workflows/desktop.yml"]
+    paths: ["desktop/**", "content/**", "scripts/export-courses.mjs", "scripts/learn-swift/**", "Lernwerk/Services/Learn/**", "Lernwerk/Services/Review/**", "cas/web/**", "Lernwerk/Resources/Fonts/**", ".github/workflows/desktop.yml"]
   pull_request:
-    paths: ["desktop/**", "cas/web/**", "Lernwerk/Resources/Fonts/**", ".github/workflows/desktop.yml"]
+    paths: ["desktop/**", "content/**", "scripts/export-courses.mjs", "scripts/learn-swift/**", "Lernwerk/Services/Learn/**", "Lernwerk/Services/Review/**", "cas/web/**", "Lernwerk/Resources/Fonts/**", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -43,6 +43,19 @@ jobs:
           name: desktop-screenshots
           path: desktop/build-ui/*.png
           if-no-files-found: ignore
+
+  # The fixtures the ports are tested against come from the Swift engines; they must be the ones the engines build now.
+  fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild content/fixtures with Swift and compare
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scripts/learn-swift/export.sh
+          git diff --exit-code --stat content/fixtures
 
   windows:
     needs: test
