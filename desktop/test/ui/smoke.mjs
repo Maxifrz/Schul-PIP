@@ -135,7 +135,7 @@ async function playLesson(maxSteps = 40, options = {}) {
     if (await page.locator('.lrn-complete').count()) return true;
     await page.waitForSelector('.lrn-exercise, .lrn-complete');
     if (await page.locator('.lrn-complete').count()) return true;
-    const kind = (await page.locator('.lrn-exercise .kind').first().innerText()).trim();
+    const kind = ((await page.locator('.lrn-exercise .kind').first().textContent()) ?? '').trim();
     seenKinds.add(kind);
     if (kind === 'Finde die Paare') {
       const fronts = page.locator('.lrn-pairs .col').nth(0).locator('.lrn-tile');
