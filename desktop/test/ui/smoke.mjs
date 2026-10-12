@@ -242,9 +242,15 @@ if (await page.locator('.lrn-skill button:has-text("Gezielt üben")').count()) {
 }
 
 // Chest, locked states and the streak freeze: seed the saved state and reload
-await page.evaluate(() => {
-  localStorage.setItem('schulpip.learn-progress', JSON.stringify({ completedLessons: ['es.u01.l1', 'es.u01.l2', 'es.u01.l3', 'es.u01.p', 'es.u01.t'], gems: 40, totalXP: 100 }));
+await page.getByRole('tab', { name: 'Pfad' }).click();
+await page.waitForSelector('.lrn-node');
+const unitOne = await page.locator('.lrn-node').evaluateAll((els) => {
+  const ids = els.map((e) => e.getAttribute('data-step'));
+  return ids.slice(0, ids.findIndex((id) => id.endsWith('.k')));
 });
+await page.evaluate((done) => {
+  localStorage.setItem('schulpip.learn-progress', JSON.stringify({ completedLessons: done, gems: 40, totalXP: 100 }));
+}, unitOne);
 await page.reload();
 await page.waitForSelector('.sidebar');
 await page.click('.nav:has-text("Lernen")');

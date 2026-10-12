@@ -2,6 +2,7 @@
 // LernwerkTests/MathCourseMiddleTests.swift). The kit re-reads the prompts the student sees and recomputes the answers
 // with Double arithmetic, brute force and by plugging solutions back in.
 import { expect } from 'vitest';
+import { NumberCheck } from '../../src/lib/learn/numberCheck';
 import { catalogUnits } from '../../src/lib/learn/math/middle/catalog';
 import { Gen, type Problem, type Template } from '../../src/lib/learn/math/middle/core';
 import { mathMiddleProvider } from '../../src/lib/learn/math/middle';
@@ -356,4 +357,10 @@ export class Expr {
     }
     return value;
   }
+}
+
+/** A number the answer check accepts, written the way a student might: the value of the typed answer. */
+export function accepts(p: Problem, text: string): boolean {
+  if (!p.typed) return false;
+  return NumberCheck.matches(text, p.typed.answer.fractionText);
 }
