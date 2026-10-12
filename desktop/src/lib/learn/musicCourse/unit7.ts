@@ -2,8 +2,8 @@
 
 import { Exercises } from '../exercises';
 import type { LearnExercise } from '../exercise';
-import { ExerciseMedia } from '../media';
-import { type Pitch, pitchMidi, toneSpec } from '../music';
+import { ExerciseMedia, toneSpec } from '../media';
+import { type Pitch, pitchMidi } from '../music';
 import type { LearnRandom } from '../random';
 import { compareStrings } from '../util';
 import { type MusicTriad, triad as makeTriad, triadName, triadNotes } from './harmony';

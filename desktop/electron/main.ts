@@ -73,9 +73,9 @@ function ensureCalculator(): WebContentsView | null {
       if (/^https:\/\//i.test(url)) void shell.openExternal(url);
       return { action: 'deny' };
     });
-    // Ctrl+1 to Ctrl+6 switch the area even while the calculator has the keyboard.
+    // Ctrl+1 to Ctrl+7 switch the area even while the calculator has the keyboard.
     calculator.webContents.on('before-input-event', (event, input) => {
-      if (input.type === 'keyDown' && input.control && !input.alt && !input.shift && /^[1-6]$/.test(input.key)) {
+      if (input.type === 'keyDown' && input.control && !input.alt && !input.shift && /^[1-7]$/.test(input.key)) {
         event.preventDefault();
         window?.webContents.send('navigate', Number(input.key) - 1);
       }

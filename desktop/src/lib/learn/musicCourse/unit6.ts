@@ -2,8 +2,8 @@
 
 import { Exercises } from '../exercises';
 import type { LearnExercise } from '../exercise';
-import { ExerciseMedia } from '../media';
-import { type Pitch, toneSpec } from '../music';
+import { ExerciseMedia, toneSpec } from '../media';
+import { type Pitch } from '../music';
 import type { LearnRandom } from '../random';
 import { fact as makeFact, type MusicFact, MusicKit, type MusicUnitDef } from './kit';
 import {

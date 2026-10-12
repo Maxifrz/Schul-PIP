@@ -3,7 +3,7 @@ import { Card } from '../lib/review';
 import { blobs, secrets } from '../lib/platform';
 import { createStore, persist } from './createStore';
 
-export type Tab = 'today' | 'library' | 'review' | 'courses' | 'calculator' | 'settings';
+export type Tab = 'today' | 'library' | 'review' | 'learn' | 'courses' | 'calculator' | 'settings';
 
 export const ui = createStore({ tab: 'today' as Tab, message: null as string | null });
 

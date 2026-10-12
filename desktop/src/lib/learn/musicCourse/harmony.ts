@@ -46,7 +46,7 @@ export function scaleAccidentalCount(s: MusicScale): number | null {
   const sharps = alterations.filter((a) => a > 0).length;
   const flats = alterations.filter((a) => a < 0).length;
   if (sharps > 0 && flats > 0) return null;
-  return sharps > 0 ? sharps : -flats;
+  return sharps > 0 ? sharps : 0 - flats;
 }
 
 /** Key signatures: +n is n sharps, -n is n flats. */

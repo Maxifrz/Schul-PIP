@@ -6,15 +6,17 @@ import { Spring, smooth } from './lib/spring';
 import { Banner, Icon } from './ui/kit';
 import { Calculator } from './views/Calculator';
 import { Courses } from './views/Courses';
+import { Learn } from './views/learn/Learn';
 import { Library } from './views/Library';
 import { Review } from './views/Review';
 import { Settings } from './views/Settings';
 import { Today } from './views/Today';
 
-const items: Array<{ id: Tab; label: string; icon: 'today' | 'library' | 'review' | 'courses' | 'calculator' | 'settings' }> = [
+const items: Array<{ id: Tab; label: string; icon: 'today' | 'library' | 'review' | 'learn' | 'courses' | 'calculator' | 'settings' }> = [
   { id: 'today', label: 'Heute', icon: 'today' },
   { id: 'library', label: 'Bibliothek', icon: 'library' },
   { id: 'review', label: 'Karten', icon: 'review' },
+  { id: 'learn', label: 'Lernen', icon: 'learn' },
   { id: 'courses', label: 'Kurse', icon: 'courses' },
   { id: 'calculator', label: 'Rechner', icon: 'calculator' },
   { id: 'settings', label: 'Einstellungen', icon: 'settings' },
@@ -50,10 +52,10 @@ export function App() {
     void startSocial();
   }, []);
 
-  // The main process forwards Ctrl+1 to Ctrl+6 while the calculator has the keyboard.
+  // The main process forwards Ctrl+1 to Ctrl+7 while the calculator has the keyboard.
   useEffect(() => window.api?.onNavigate((index) => ui.set({ tab: items[index]?.id ?? 'today' })), []);
 
-  // Ctrl+1 to Ctrl+6 switch the area.
+  // Ctrl+1 to Ctrl+7 switch the area.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!event.ctrlKey || event.altKey || event.shiftKey) return;
@@ -86,6 +88,7 @@ export function App() {
         {tab === 'today' && <Today />}
         {tab === 'library' && <Library />}
         {tab === 'review' && <Review />}
+        {tab === 'learn' && <Learn />}
         {tab === 'courses' && <Courses />}
         {tab === 'calculator' && <Calculator />}
         {tab === 'settings' && <Settings />}

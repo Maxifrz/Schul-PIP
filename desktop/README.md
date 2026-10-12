@@ -11,11 +11,12 @@ the Tafelbild logic and the Pip game, with the same test cases as the Swift test
 | **Heute** | Date, the cards due, Pip. **Right arrow** starts the dinosaur-style game with Pip (up or space jumps, down ducks, Esc leaves); a click on Pip does the same. |
 | **Bibliothek** | PDFs on this PC: import (several at once), search, rename, delete, read with zoom, the last page is remembered. |
 | **Karten** | Flashcards with a typed answer ("Richtig" / "Falsch", no AI), SM-2 scheduling, optional "repeat when wrong", "War doch richtig". |
+| **Lernen** | The Lernpfad (port of the iOS Lernen tab): courses for languages, school subjects, maths, chess and music as a path of lessons, practice rounds, unit tests and chests; XP, daily goal (20, 50 or 100), streak, gems and streak freezes; daily and weekly quests; the skills page with "Gezielt üben" and "Jetzt wiederholen"; unit guides and skipping a unit by its test. Exercises: choosing, pairing, word tiles, typing, chess moves on a drawn board, piano keys, staves, notes to hear (Web Audio) and words to hear (only where the system has a voice for the language). Enter checks and goes on, the number keys choose. The state is kept in `learn-progress`, `learn-quests`, `learn-skills` in the user data folder. |
 | **Kurse** | Courses and work groups by join code, chat (files by drag and drop), files of a group, members and moderators, and the **Tafelbild**: proposals, accept / edit / reject, corrections, polls, versions, closing; from the closed result a PDF, flashcards, or an AI check. |
 | **Rechner** | The same calculator page as the mobile apps (CAS, graphics, geometry, 3D, tables, statistics, chemistry), shown in its own view. |
 | **Einstellungen** | AI provider and model (with a search over the provider's current model list), own API address, keys sealed with the Windows account. |
 
-Shortcuts: Ctrl+1 to Ctrl+6 switch the area.
+Shortcuts: Ctrl+1 to Ctrl+7 switch the area.
 
 ## What is not in it (yet)
 
