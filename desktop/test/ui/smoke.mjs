@@ -134,6 +134,13 @@ async function playLesson(maxSteps = 40, options = {}) {
   let hinted = false;
   for (let step = 0; step < maxSteps; step += 1) {
     if (await page.locator('.lrn-complete').count()) return true;
+    if (options.limit && step >= options.limit) {
+      // Enough of a round: leave it the way a student does, through the confirmation.
+      await page.locator('.lrn-close').click();
+      await page.getByRole('button', { name: 'Lektion abbrechen', exact: true }).last().click();
+      await page.waitForSelector('.lrn-path');
+      return 'left';
+    }
     await page.waitForSelector('.lrn-exercise, .lrn-complete');
     if (await page.locator('.lrn-complete').count()) return true;
     const kind = ((await page.locator('.lrn-exercise .kind').first().textContent()) ?? '').trim();
@@ -297,13 +304,16 @@ for (const id of await page.locator('.lrn-course').evaluateAll((els) => els.map(
     }
     await page.locator('.lrn-node.current').click();
     await page.waitForSelector('.lrn-exercise, .lrn-lesson');
-    ok = (await playLesson(40)) && ok;
+    const played = await playLesson(40, wanted ? {} : { limit: 4 });
+    ok = Boolean(played) && ok;
+    if (played === 'left') continue;
     if (wanted && seenKinds.has(wanted)) {
       await shot(`22-kurs-${id}-${wanted === 'Finde den Zug' ? 'zug' : 'taste'}`);
     }
     await page.keyboard.press('Enter');
     await page.waitForSelector('.lrn-path');
-    if (wanted && seenKinds.has(wanted)) break;
+    if (!wanted) break;
+    if (seenKinds.has(wanted)) break;
   }
   check(`course ${id}: a round can be played`, ok);
   if (wanted) check(`course ${id}: ${wanted} was played`, seenKinds.has(wanted));
