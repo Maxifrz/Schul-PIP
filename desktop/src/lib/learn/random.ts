@@ -129,7 +129,8 @@ export function randomDouble(rng: RandomNumberGenerator, lower: number, upper: n
   if (!(lower < upper)) throw new RangeError('Range requires lowerBound < upperBound');
   const delta = upper - lower;
   for (;;) {
-    const rand = nextBelow(rng, 1n << 53n);
+    // The stdlib takes the low 53 bits of one word (checked against the Swift fixture), not a bounded draw.
+    const rand = rng.next() & ((1n << 53n) - 1n);
     const unit = Number(rand) * 2 ** -53;
     const x = delta * unit + lower;
     if (x !== upper) return x;

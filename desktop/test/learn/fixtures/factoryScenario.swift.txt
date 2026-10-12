@@ -1,0 +1,45 @@
+import Foundation
+@testable import Lernwerk
+
+struct Rich: CourseProvider {
+    var course: Course {
+        let units = [CourseUnit.standard(courseID: "rich", number: 1, title: "Eins", summary: "s", tip: "t"), CourseUnit.standard(courseID: "rich", number: 2, title: "Zwei", summary: "s", tip: "t")]
+        return Course(id: "rich", title: "Rich", subtitle: "", kind: .language, color: 0, symbol: "x", sections: [CourseSection(id: "rich.a", title: "A", units: units)])
+    }
+    func exercises(for node: CourseNode, seed: UInt64) -> [LearnExercise] {
+        if node.kind == .chest { return [] }
+        var rng = LearnRandom(seed: Exercises.seed(for: node, base: seed))
+        var list: [LearnExercise?] = []
+        for i in 0..<6 { list.append(Exercises.choice(id: "\(node.id)#c\(i)", prompt: "?", correct: "A", wrong: ["B", "C", "D", "E"], using: &rng)) }
+        for i in 0..<3 { list.append(Exercises.bank(id: "\(node.id)#b\(i)", prompt: "?", words: ["Ich", "heiße", "Ana."], extra: ["casa", "perro", "gato"], using: &rng)) }
+        let items = [("a", "uno", "eins"), ("b", "dos", "zwei"), ("c", "tres", "drei"), ("d", "cuatro", "vier")].map { (key: $0.0, front: $0.1, back: $0.2) }
+        list.append(Exercises.pairs(id: "\(node.id)#p", items: items, using: &rng))
+        for i in 0..<4 { list.append(Exercises.typed(id: "\(node.id)#t\(i)", prompt: "?", answer: "A")) }
+        return Exercises.arrange(list)
+    }
+}
+
+func ex(_ e: LearnExercise) -> [String: Any] {
+    ["id": e.id, "kind": e.kind.rawValue, "options": e.options, "pairs": e.pairs.map { [$0.key, $0.front, $0.back] }, "skill": e.skill, "level": e.level?.rawValue ?? NSNull(), "correct": e.correctAnswers]
+}
+
+let provider = Rich()
+let map = provider.skillMap()
+var out: [String: Any] = [:]
+out["exercises"] = (1...4).map { seed in
+    provider.course.nodes.filter { $0.kind != .chest }.prefix(4).map { provider.exercises(for: $0, seed: UInt64(seed)).map(ex) }
+}
+var weak = SkillRecord()
+weak.tallies["recall"] = SkillRecord.Tally(attempts: 8, right: 1, helped: 0, points: 2, recent: [false, false, false, true, false, false, false, false])
+weak.tallies["recognise"] = SkillRecord.Tally(attempts: 8, right: 8, helped: 0, points: 8, recent: Array(repeating: true, count: 8))
+weak.tallies["apply"] = SkillRecord.Tally(attempts: 3, right: 2, helped: 0, points: 4, recent: [true, false, true])
+let target = map.skills[0].id
+var rounds: [[String: Any]] = []
+for seed in UInt64(1)...12 {
+    let a = SkillPractice.exercises(provider: provider, map: map, targets: [target], records: [:], seed: seed)
+    let b = SkillPractice.exercises(provider: provider, map: map, targets: [target, map.skills[1].id], records: [target: weak], seed: seed &* 0x9E37_79B9_7F4A_7C15)
+    rounds.append(["plain": a.map(ex), "weak": b.map(ex)])
+}
+out["rounds"] = rounds
+try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]).write(to: URL(fileURLWithPath: "/tmp/lp-swift/factory.json"))
+print("ok")

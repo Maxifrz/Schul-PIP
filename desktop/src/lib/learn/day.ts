@@ -177,8 +177,13 @@ export function startOfDayMs(day: LearnDay, calendar: LearnCalendar): number {
   return localToMs(calendar, day.year, day.month, day.day, 0, 0, 0);
 }
 
-/** Seconds until the next local midnight, for the timer on the quest tile. */
+/** Seconds until the next local midnight, for the timer on the quest tile. Like Foundation, the next day is the start
+ * of this day plus one calendar day at the same wall-clock time (which is 01:00 on a day whose midnight is skipped). */
 export function secondsUntilNextDay(nowMs: number, calendar: LearnCalendar): number {
-  const next = startOfDayMs(adding(dayOf(nowMs, calendar), 1), calendar);
+  const today = dayOf(nowMs, calendar);
+  const start = startOfDayMs(today, calendar);
+  const wall = fieldsAt(start, calendar.timeZone);
+  const tomorrow = adding(today, 1);
+  const next = localToMs(calendar, tomorrow.year, tomorrow.month, tomorrow.day, wall.hour, wall.minute, wall.second);
   return Math.max(0, (next - nowMs) / 1000);
 }

@@ -1,0 +1,99 @@
+import Foundation
+@testable import Lernwerk
+
+struct SampleCourse: CourseProvider {
+    var course: Course {
+        let units = (1...3).map {
+            CourseUnit.standard(courseID: "sample", number: $0, title: "Einheit \($0)", summary: "s", tip: "Tipp")
+        }
+        return Course(
+            id: "sample", title: "Beispiel", subtitle: "Test", kind: .language, color: 0x336699, symbol: "globe",
+            sections: [CourseSection(id: "sample.a", title: "A", units: Array(units.prefix(2))), CourseSection(id: "sample.b", title: "B", units: [units[2]])]
+        )
+    }
+    func exercises(for node: CourseNode, seed: UInt64) -> [LearnExercise] { [] }
+}
+
+func cal(_ zone: String, _ first: Int) -> Calendar {
+    var c = Calendar(identifier: .gregorian)
+    c.timeZone = TimeZone(identifier: zone)!
+    c.firstWeekday = first
+    return c
+}
+
+let zones = ["Europe/Berlin", "Pacific/Auckland", "America/New_York", "UTC", "Asia/Kolkata"]
+var rng = SplitMix(seed: 20260312)
+func pick(_ n: Int) -> Int { Int(rng.next() % UInt64(n)) }
+
+let provider = SampleCourse()
+let map = provider.skillMap()
+let levels: [CompetenceLevel] = [.recognise, .recall, .apply]
+let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
+func jsonObject<T: Encodable>(_ v: T) -> Any { try! JSONSerialization.jsonObject(with: enc.encode(v)) }
+
+var out: [String: Any] = [:]
+
+// Skill scenario
+var records: [String: SkillRecord] = [:]
+var skillLog: [[String: Any]] = []
+let base = 1_770_000_000.0
+for day in 0..<40 {
+    let c = cal(zones[pick(zones.count)], 2)
+    let rounds = pick(3)
+    for r in 0..<rounds {
+        let now = Date(timeIntervalSince1970: base + Double(day) * 86400 + Double(pick(80000)))
+        var list: [ExerciseOutcome] = []
+        let count = pick(16)
+        let skill = map.skills[pick(map.skills.count)]
+        let accuracy = 40 + pick(61)
+        for i in 0..<count {
+            list.append(ExerciseOutcome(exerciseID: "d\(day)r\(r)e\(pick(count + 2))", skill: skill.id, level: levels[pick(3)], right: pick(100) < accuracy, helped: pick(8) == 0))
+            _ = i
+        }
+        let nodes = provider.course.nodes
+        let node: CourseNode? = pick(4) == 0 ? nil : nodes[pick(nodes.count)]
+        SkillAssessor.record(outcomes: list, node: node, map: map, into: &records, now: now, calendar: c)
+        if pick(5) == 0, let n = node { SkillAssessor.begin(node: n, map: map, into: &records) }
+    }
+    let now = Date(timeIntervalSince1970: base + Double(day) * 86400 + 43200)
+    let cb = cal("Europe/Berlin", 2)
+    var statuses: [String: String] = [:]
+    for s in map.skills { statuses[s.id] = SkillAssessor.status(records[s.id], skill: s, completed: [], now: now, calendar: cb).rawValue }
+    var entry: [String: Any] = ["day": day, "statuses": statuses]
+    if day % 8 == 7 { entry["records"] = jsonObject(SkillProgress(records: records)) }
+    skillLog.append(entry)
+}
+out["skills"] = skillLog
+
+// Progress + quests scenario
+var progress = LearnProgress()
+var board = QuestBoard()
+var plog: [[String: Any]] = []
+var t = base
+for i in 0..<80 {
+    t += Double(pick(200_000)) - 20_000
+    let c = cal(zones[pick(zones.count)], [1, 2][pick(2)])
+    let total = pick(14)
+    let right = total == 0 ? 0 : pick(total + 1)
+    let result = LessonResult(lessonID: "L\(pick(6))", sessionID: "s\(i)", exerciseCount: total, rightFirstTry: right, rightOnRetry: pick(total - right + 1), cardKeys: [], cardsRightFirstTry: [])
+    if pick(9) == 0 { _ = progress.buyFreeze(); progress.addGems(pick(40)) }
+    let now = Date(timeIntervalSince1970: t)
+    let reward = progress.record(result, courseID: pick(3) == 0 ? nil : "c\(pick(3))", completes: pick(4) != 0, now: now, calendar: c)
+    let kinds: [NodeKind?] = [.lesson, .practice, .checkpoint, nil]
+    let event = QuestEvent(xp: reward?.xp ?? 0, courseID: pick(4) == 0 ? nil : "c\(pick(3))", nodeKind: kinds[pick(4)], rightFirstTry: right, exerciseCount: total)
+    let finished = board.apply(event, now: now, calendar: c)
+    var claimed = 0
+    for q in board.daily where q.isDone && pick(2) == 0 { claimed += board.claim(q.id) }
+    if pick(3) == 0 { claimed += board.claimBonus() }
+    plog.append([
+        "reward": reward.map { ["xp": $0.xp, "xpToday": $0.xpToday, "goal": $0.goalReached, "streak": $0.streak, "ext": $0.streakExtended, "gems": $0.gems, "used": $0.freezesUsed] as [String: Any] } ?? NSNull(),
+        "finished": finished.map { $0.id }, "claimed": claimed,
+        "streakNow": progress.currentStreak(now: now, calendar: c), "xpToday": progress.xpToday(now: now, calendar: c),
+        "seconds": QuestBoard.secondsUntilNextDay(now: now, calendar: c),
+    ].merging(i % 4 == 3 ? ["progress": jsonObject(progress), "board": jsonObject(board)] : [:]) { a, _ in a })
+}
+out["progress"] = plog
+try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]).write(to: URL(fileURLWithPath: "/tmp/lp-swift/diff.json"))
+print("ok")
+
+extension SkillProgress { init(records: [String: SkillRecord]) { self.init(); self.records = records } }
