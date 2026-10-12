@@ -113,6 +113,13 @@ protocol CourseProvider {
     /// The exercises of a lesson, practice or checkpoint node, 8 to 12 (a checkpoint up to 15), easy to hard. The same
     /// seed gives the same exercises; another seed shuffles the same material differently. A chest has none.
     func exercises(for node: CourseNode, seed: UInt64) -> [LearnExercise]
+
+    /// The goals a unit teaches (see Skills/Skill.swift); the default is one per unit.
+    func skillFacets(of unit: CourseUnit) -> [SkillFacet]
+    /// Which goal an exercise of a step shows evidence of, and at which level.
+    func skillTag(for exercise: LearnExercise, node: CourseNode) -> SkillTag
+    /// Why a wrong answer is wrong, when the course can tell from the exercise and the answer; nil for none.
+    func feedback(for exercise: LearnExercise, answer: LearnAnswer) -> String?
 }
 
 extension CourseProvider {

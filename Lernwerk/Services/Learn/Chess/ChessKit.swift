@@ -212,10 +212,13 @@ enum ChessKit {
     ) -> LearnExercise? {
         let moves = ChessGoals.accepted(goal, in: position)
         guard !moves.isEmpty, let answers = ChessGoals.answers(for: moves) else { return nil }
-        return Exercises.move(
+        var exercise = Exercises.move(
             id: id, prompt: prompt, board: boardSpec(position, marked: marked), accepted: answers,
             solution: solution(moves, in: position, withSquares: withSquares), explanation: explanation
         )
+        exercise?.hints = ChessCoach.hints(goal: goal, accepted: moves, in: position)
+        exercise?.coach = ChessCoach.prefix + goal.coachCode
+        return exercise
     }
 
     static func choice(

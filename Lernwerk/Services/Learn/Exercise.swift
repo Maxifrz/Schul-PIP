@@ -59,6 +59,15 @@ struct LearnExercise: Identifiable, Equatable {
     var mode: AnswerMode = .text
     /// A sentence of why, shown with the verdict ("Nach „weil“ steht das Verb am Ende."). Empty for none.
     var explanation: String = ""
+    /// The skill this exercise shows evidence of, like "es.u03.vocab"; empty for exercises of cards. Set by
+    /// `CourseProvider.lessonExercises`, never by the engines.
+    var skill: String = ""
+    /// What kind of knowing it asks for: seeing the answer, producing it, or using it.
+    var level: CompetenceLevel? = nil
+    /// Help in steps, from a nudge to nearly the answer; asking for one means the answer no longer shows the skill alone.
+    var hints: [String] = []
+    /// A tag the course reads to explain a wrong answer (`CourseProvider.feedback`); empty for none.
+    var coach: String = ""
 
     /// The cards answered wrong, empty when the answer is right. An exercise without cards (a course's) stands for
     /// itself, so a wrong answer is never an empty set.

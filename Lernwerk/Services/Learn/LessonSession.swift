@@ -12,6 +12,8 @@ struct LessonResult: Equatable {
     let cardKeys: [String]
     /// The cards answered right on the first try in every exercise they were part of.
     let cardsRightFirstTry: Set<String>
+    /// The first attempt of every exercise that shows evidence of a skill (see `LearnExercise.skill`).
+    var outcomes: [ExerciseOutcome] = []
 
     var accuracy: Double {
         exerciseCount == 0 ? 0 : Double(rightFirstTry) / Double(exerciseCount)
@@ -42,6 +44,10 @@ struct LessonSession {
     /// Whether the second attempt was right, by exercise id.
     private var retryRight: [String: Bool] = [:]
     private var requeued = Set<String>()
+    /// Whether a hint was shown before the first attempt, by exercise id.
+    private var firstHelped: [String: Bool] = [:]
+    /// How many hints were shown for each exercise, by exercise id.
+    private var hintsShown: [String: Int] = [:]
 
     init(lessonID: String, cardKeys: [String], exercises: [LearnExercise], sessionID: String) {
         self.lessonID = lessonID
@@ -69,6 +75,27 @@ struct LessonSession {
         return min(1, Double(settled) / Double(exerciseCount))
     }
 
+    /// Hints shown so far for the current exercise.
+    var hintCount: Int {
+        current.flatMap { hintsShown[$0.id] } ?? 0
+    }
+
+    /// Whether the current exercise has a hint left to show.
+    var hasMoreHints: Bool {
+        guard phase == .answering, let exercise = current else { return false }
+        return hintCount < exercise.hints.count
+    }
+
+    /// Shows the next hint of the current exercise and returns all that are shown, in order. A hint on a retry shows
+    /// the same hints again and changes nothing about the first attempt.
+    @discardableResult
+    mutating func showHint() -> [String] {
+        guard phase == .answering, let exercise = current else { return [] }
+        let count = min(exercise.hints.count, hintCount + 1)
+        hintsShown[exercise.id] = count
+        return Array(exercise.hints.prefix(count))
+    }
+
     /// Checks the answer and shows the verdict; nil when no exercise waits for an answer (a second tap on "Prüfen").
     @discardableResult
     mutating func submit(_ answer: LearnAnswer) -> LearnVerdict? {
@@ -77,6 +104,7 @@ struct LessonSession {
         let verdict: LearnVerdict = missed.isEmpty ? .right : .wrong
         if attempted.insert(exercise.id).inserted {
             firstMissed[exercise.id] = missed
+            firstHelped[exercise.id] = hintCount > 0
         } else {
             retryRight[exercise.id] = verdict == .right
         }
@@ -117,8 +145,25 @@ struct LessonSession {
             rightFirstTry: firstMissed.values.filter(\.isEmpty).count,
             rightOnRetry: retryRight.values.filter { $0 }.count,
             cardKeys: cardKeys,
-            cardsRightFirstTry: Set(cardKeys).intersection(exercised).subtracting(wrongCards)
+            cardsRightFirstTry: Set(cardKeys).intersection(exercised).subtracting(wrongCards),
+            outcomes: outcomes()
         )
+    }
+}
+
+extension LessonSession {
+    /// What the first attempts showed, in the order of the exercises, for the exercises that belong to a skill.
+    func outcomes() -> [ExerciseOutcome] {
+        var seen = Set<String>()
+        var list: [ExerciseOutcome] = []
+        for exercise in queue where seen.insert(exercise.id).inserted {
+            guard !exercise.skill.isEmpty, let level = exercise.level, let missed = firstMissed[exercise.id] else { continue }
+            list.append(ExerciseOutcome(
+                exerciseID: exercise.id, skill: exercise.skill, level: level, right: missed.isEmpty,
+                helped: firstHelped[exercise.id] ?? false
+            ))
+        }
+        return list
     }
 }
 
