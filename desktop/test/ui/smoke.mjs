@@ -220,7 +220,7 @@ await shot('17-lektion-fertig');
 await page.keyboard.press('Enter');
 await page.waitForSelector('.lrn-path');
 check('first lesson is done, the next is open', (await page.locator('.lrn-node.done').count()) === 1 && (await page.locator('.lrn-node.current').count()) === 1);
-check('XP and streak moved', !(await page.locator('.lrn-stats').innerText()).includes('0/20') && (await page.locator('.lrn-stat-btn.warn').count()) === 1);
+check('XP and streak moved', (await page.locator('.lrn-goal button').innerText()).trim() !== '0/20' && (await page.locator('.lrn-stat-btn.warn').count()) === 1);
 console.log('     exercise kinds seen in Spanisch:', [...seenKinds].join(' | '));
 
 // Quests and skills
@@ -248,6 +248,7 @@ await page.evaluate(() => {
 await page.reload();
 await page.waitForSelector('.sidebar');
 await page.click('.nav:has-text("Lernen")');
+await page.getByRole('tab', { name: 'Pfad' }).click();
 await page.waitForSelector('.lrn-node.chest.current');
 await shot('20-truhe');
 await page.locator('.lrn-node.chest.current').click();
