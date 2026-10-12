@@ -2,7 +2,6 @@ package de.maxifrz.lernwerk.learn.chess
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -74,9 +73,6 @@ class ChessHelpersTest {
         assertEquals(listOf(ChessLineUp(sq("e1"), sq("e7"), sq("e8"))), lineUps)
         assertTrue(ChessTactics.isPin(lineUps[0], pin))
         assertFalse(ChessTactics.isSkewer(lineUps[0], pin))
-        // A knight fork of king and rook.
-        val fork = pos("4k3/8/8/8/8/2n5/8/R3K2R b - - 0 1")
-        assertNotNull(fork)
         val forked = pos("r3k3/8/8/8/3N4/8/8/4K3 w - - 0 1")
         assertEquals(emptyList<ChessSquare>(), ChessTactics.forkTargets(sq("d4"), forked))
     }

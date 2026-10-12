@@ -87,8 +87,9 @@ process.on('uncaughtException', async (error) => {
   console.log(problems.join('\n'));
   process.exit(1);
 });
+const t0 = Date.now();
 const check = (name, condition) => {
-  console.log(`${condition ? 'ok  ' : 'FAIL'} ${name}`);
+  console.log(`${condition ? "ok  " : "FAIL"} ${name} [${Math.round((Date.now() - t0) / 1000)}s]`);
   if (!condition) failures += 1;
 };
 const shot = async (name) => { await page.waitForTimeout(450); await page.screenshot({ path: join(out, `${name}.png`) }); };
