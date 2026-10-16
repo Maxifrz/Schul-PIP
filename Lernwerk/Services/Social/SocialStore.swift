@@ -217,15 +217,19 @@ final class SocialStore: ObservableObject {
     // MARK: Chat
 
     /// Fetches what is new in a group's chat; the first call loads the latest messages.
-    func refreshMessages(_ group: SocialGroup) async {
-        guard let api else { return }
+    /// True when new messages came in.
+    @discardableResult
+    func refreshMessages(_ group: SocialGroup) async -> Bool {
+        guard let api else { return false }
         let known = messages[group.id] ?? []
         do {
             let fresh = try await api.messages(in: group.id, after: known.last?.createdAt)
-            guard !fresh.isEmpty else { return }
+            guard !fresh.isEmpty else { return false }
             messages[group.id] = Social.merge(known, fresh)
+            return true
         } catch {
             handle(error, quiet: true)
+            return false
         }
     }
 

@@ -510,9 +510,10 @@ private struct ChatPane: View {
         }
         .task(id: group.id) {
             // The chat refreshes every few seconds while it is open; there are no push messages.
+            var pacing = PollPacing()
             while !Task.isCancelled {
-                await store.refreshMessages(group)
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                let changed = await store.refreshMessages(group)
+                try? await Task.sleep(nanoseconds: UInt64(pacing.next(changed: changed) * 1_000_000_000))
             }
         }
         .fileSources(file: $pickingFile, material: $pickingMaterial) { url in

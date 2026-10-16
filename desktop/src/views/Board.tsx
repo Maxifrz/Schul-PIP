@@ -6,6 +6,7 @@ import {
 import type { BlockKind, Template } from '../lib/social/board';
 import { htmlToPdf, pickFiles, saveFile } from '../lib/platform';
 import { timeLabel } from '../lib/social/format';
+import { PollPacing } from '../lib/social/pacing';
 import type { Group } from '../lib/social/models';
 import { addCards, fail, importMaterial, say } from '../store/app';
 import { newCard } from '../lib/review';
@@ -108,10 +109,11 @@ function BoardScreen({ boardId, group, onClose }: { boardId: string; group: Grou
   useEffect(() => {
     let stopped = false;
     void (async () => {
+      const pacing = new PollPacing();
       while (!stopped) {
         const current = boards.get().boards[group.id]?.find((b) => b.id === boardId);
-        if (current) await refreshBoard(current);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const changed = current ? await refreshBoard(current) : false;
+        await new Promise((resolve) => setTimeout(resolve, pacing.next(changed)));
       }
     })();
     return () => {

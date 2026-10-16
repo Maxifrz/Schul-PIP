@@ -209,9 +209,11 @@ struct BoardScreen: View {
         .overlay(alignment: .top) { ErrorBanner() }
         .task(id: boardID) {
             await store.refreshMembers(group)
+            var pacing = PollPacing()
             while !Task.isCancelled {
-                if let board { await boards.refresh(board) }
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                var changed = false
+                if let board { changed = await boards.refresh(board) }
+                try? await Task.sleep(nanoseconds: UInt64(pacing.next(changed: changed) * 1_000_000_000))
             }
         }
         .task(id: tab) {

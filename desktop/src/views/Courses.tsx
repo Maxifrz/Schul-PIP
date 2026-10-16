@@ -1,6 +1,7 @@
 import { DragEvent, useEffect, useRef, useState } from 'react';
 import { pickFiles, saveFile } from '../lib/platform';
 import { maxFileBytes, timeLabel } from '../lib/social/format';
+import { PollPacing } from '../lib/social/pacing';
 import type { Group, Message } from '../lib/social/models';
 import { fail, importMaterial, say } from '../store/app';
 import {
@@ -178,9 +179,10 @@ function ChatPane({ group }: { group: Group }) {
   useEffect(() => {
     let stopped = false;
     void (async () => {
+      const pacing = new PollPacing();
       while (!stopped) {
-        await refreshMessages(group);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const changed = await refreshMessages(group);
+        await new Promise((resolve) => setTimeout(resolve, pacing.next(changed)));
       }
     })();
     return () => {
