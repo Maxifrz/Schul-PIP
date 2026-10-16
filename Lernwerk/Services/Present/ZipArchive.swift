@@ -6,7 +6,7 @@ import Compression
 /// Reads the files of a ZIP archive (stored or deflated entries), enough for Office files. Pure Swift, so it
 /// behaves the same on every platform and needs no system library.
 enum ZipArchive {
-    enum ZipError: Error {
+    enum ZipError: Error, Equatable {
         case notAZip
         case unsupportedMethod(Int)
         case corrupt

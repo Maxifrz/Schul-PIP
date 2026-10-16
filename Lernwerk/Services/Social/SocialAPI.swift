@@ -78,19 +78,38 @@ actor SocialAPI {
         return result
     }
 
+    /// The renewal that is running, so requests that arrive meanwhile wait for it instead of spending the same
+    /// single-use refresh token a second time (an actor lets other calls in while it waits for the network).
+    private var renewal: Task<Void, Error>?
+
     private func refreshIfNeeded() async throws {
         guard let session = current else { throw SocialError.signedOut }
         guard session.expiresAt - Date().timeIntervalSince1970 < 60 else { return }
+        if let renewal { return try await renewal.value }
+        let task = Task { try await self.renew(session) }
+        renewal = task
+        defer { renewal = nil }
+        try await task.value
+    }
+
+    /// Only a server that refuses the token ends the session. No network or a server error leaves the student signed
+    /// in, and the request fails with the usual message instead.
+    private func renew(_ session: SocialSession) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["refresh_token": session.refreshToken])
-        do {
-            let (data, _) = try await send("POST", "/auth/v1/token", query: [("grant_type", "refresh_token")], body: body, authorized: false)
-            let response = try Self.decoder.decode(AuthResponse.self, from: data)
+        let (data, http) = try await perform("POST", "/auth/v1/token", query: [("grant_type", "refresh_token")], body: body, authorized: false)
+        switch http.statusCode {
+        case 200..<300:
+            guard let response = try? Self.decoder.decode(AuthResponse.self, from: data) else {
+                throw SocialError.server("Die Antwort des Servers ist unerwartet.")
+            }
             let renewed = adopt(response, fallbackName: session.name, fallbackEmail: session.email)
             onRefresh?(renewed)
-        } catch {
+        case 400..<500:
             current = nil
             onRefresh?(nil)
             throw SocialError.signedOut
+        default:
+            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
         }
     }
 
@@ -231,6 +250,19 @@ actor SocialAPI {
         _ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil,
         headers: [String: String] = [:], authorized: Bool
     ) async throws -> (Data, HTTPURLResponse) {
+        let (data, http) = try await perform(method, path, query: query, body: body, headers: headers, authorized: authorized)
+        guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 401, authorized { throw SocialError.signedOut }
+            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
+        }
+        return (data, http)
+    }
+
+    /// Sends the request and returns whatever the server answered, whatever the status.
+    private func perform(
+        _ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil,
+        headers: [String: String] = [:], authorized: Bool
+    ) async throws -> (Data, HTTPURLResponse) {
         var text = server.url.absoluteString + path
         if !query.isEmpty { text += "?" + Social.queryString(query) }
         guard let url = URL(string: text) else { throw SocialError.notConfigured }
@@ -252,10 +284,6 @@ actor SocialAPI {
             throw SocialError.offline
         }
         guard let http = response as? HTTPURLResponse else { throw SocialError.offline }
-        guard (200..<300).contains(http.statusCode) else {
-            if http.statusCode == 401, authorized { throw SocialError.signedOut }
-            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
-        }
         return (data, http)
     }
 
