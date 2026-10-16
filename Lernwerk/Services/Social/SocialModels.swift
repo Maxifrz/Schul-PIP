@@ -148,7 +148,8 @@ enum Social {
         let stem: String = base.applyingTransform(.stripDiacritics, reverse: false) ?? base
         var safe = ""
         for character in stem.prefix(40) {
-            safe.append(character.isLetter || character.isNumber ? character : "-")
+            // Storage keys must be plain ASCII; other letters (Cyrillic, Chinese, ß) become dashes.
+            safe.append(character.isASCII && (character.isLetter || character.isNumber) ? character : "-")
         }
         let name = safe.isEmpty ? "datei" : safe
         let suffix = ext.isEmpty ? "" : "." + String(ext.prefix(8))

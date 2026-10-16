@@ -1,11 +1,12 @@
 import { DragEvent, useEffect, useRef, useState } from 'react';
 import { pickFiles, saveFile } from '../lib/platform';
 import { maxFileBytes, timeLabel } from '../lib/social/format';
+import { PollPacing } from '../lib/social/pacing';
 import type { Group, Message } from '../lib/social/models';
 import { fail, importMaterial, say } from '../store/app';
 import {
-  addResult, createGroup, deleteMessage, deleteResult, download, forgetServer, joinSubgroup, joinWithCode, leaveGroup,
-  refreshGroups, refreshMembers, refreshMessages, refreshResults, reportMessage, saveServer, sendFile, sendMessage, setRole, signIn, signOut,
+  addResult, createGroup, deleteMessage, deleteResult, download, forgetServer, isModerator, joinSubgroup, joinWithCode, leaveGroup,
+  refreshGroups, refreshMembers, refreshMessages, refreshResults, removeMember, reportMessage, saveServer, sendFile, sendMessage, setRole, signIn, signOut,
   signUp, social,
 } from '../store/social';
 import { Caption, ConfirmDialog, PageHeader, Pills, PromptDialog } from '../ui/kit';
@@ -178,9 +179,10 @@ function ChatPane({ group }: { group: Group }) {
   useEffect(() => {
     let stopped = false;
     void (async () => {
+      const pacing = new PollPacing();
       while (!stopped) {
-        await refreshMessages(group);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const changed = await refreshMessages(group);
+        await new Promise((resolve) => setTimeout(resolve, pacing.next(changed)));
       }
     })();
     return () => {
@@ -250,6 +252,7 @@ async function keepAttachment(path: string, name: string, toLibrary: boolean): P
 }
 
 function Bubble({ group, message, mine }: { group: Group; message: Message; mine: boolean }) {
+  const moderator = isModerator(social.use(), group.id);
   return (
     <div className={`msg ${mine ? 'mine' : ''}`}>
       <span className="mono faint" style={{ fontSize: 10.5 }}>{mine ? timeLabel(message.createdAt) : `${message.profiles?.displayName ?? 'Unbekannt'} · ${timeLabel(message.createdAt)}`}</span>
@@ -266,7 +269,8 @@ function Bubble({ group, message, mine }: { group: Group; message: Message; mine
         )}
       </div>
       <span className="small faint">
-        {mine ? <button className="link muted" onClick={() => void deleteMessage(group, message)}>Löschen</button> : <button className="link muted" onClick={() => void reportMessage(message)}>Melden</button>}
+        {(mine || moderator) && <button className="link muted" onClick={() => void deleteMessage(group, message)}>Löschen</button>}
+        {!mine && <button className="link muted" onClick={() => void reportMessage(message)}>Melden</button>}
       </span>
     </div>
   );
@@ -297,7 +301,7 @@ function FilesPane({ group }: { group: Group }) {
             </div>
             <button className="btn outline small" onClick={() => void keepAttachment(r.path, r.fileName, false)}>Speichern</button>
             {saveLabel(r.fileName) && <button className="btn outline small" onClick={() => void keepAttachment(r.path, r.fileName, true)}>In Bibliothek</button>}
-            {r.userId === state.me?.userId && <button className="link muted" onClick={() => void deleteResult(group, r)}>Löschen</button>}
+            {(r.userId === state.me?.userId || isModerator(state, group.id)) && <button className="link muted" onClick={() => void deleteResult(group, r)}>Löschen</button>}
           </div>
         ))}
       </div>
@@ -344,6 +348,9 @@ function MembersPane({ group }: { group: Group }) {
             {m.role === 'mod' && <span className="caption" style={{ color: 'var(--link)' }}>Moderator</span>}
             {owner && m.role !== 'owner' && (
               <button className="link muted" onClick={() => void setRole(group, m.userId, m.role === 'mod' ? 'member' : 'mod')}>{m.role === 'mod' ? 'Moderation entziehen' : 'Zum Moderator machen'}</button>
+            )}
+            {m.role !== 'owner' && (owner || (isModerator(state, group.id) && m.role === 'member')) && (
+              <button className="link muted" onClick={() => void removeMember(group, m.userId)}>Entfernen</button>
             )}
           </div>
           <hr className="line" />

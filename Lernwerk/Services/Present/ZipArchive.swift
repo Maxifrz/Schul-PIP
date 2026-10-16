@@ -6,11 +6,18 @@ import Compression
 /// Reads the files of a ZIP archive (stored or deflated entries), enough for Office files. Pure Swift, so it
 /// behaves the same on every platform and needs no system library.
 enum ZipArchive {
-    enum ZipError: Error {
+    enum ZipError: Error, Equatable {
         case notAZip
         case unsupportedMethod(Int)
         case corrupt
+        /// An entry, or all entries together, would not fit in memory.
+        case tooLarge
     }
+
+    /// What one entry and a whole archive may unpack to. The sizes in a ZIP are the file's own claims, so they are
+    /// checked before any memory is reserved.
+    static let maxEntryBytes = 200_000_000
+    static let maxTotalBytes = 600_000_000
 
     /// Every file in the archive by its path; folders are left out.
     static func files(_ data: Data) throws -> [String: Data] {
@@ -19,6 +26,7 @@ enum ZipArchive {
         let count = Int(u16(bytes, end + 10))
         var offset = Int(u32(bytes, end + 16))
         var result: [String: Data] = [:]
+        var total = 0
         for _ in 0..<count {
             guard offset + 46 <= bytes.count, u32(bytes, offset) == 0x0201_4B50 else { throw ZipError.corrupt }
             let method = Int(u16(bytes, offset + 10))
@@ -36,6 +44,9 @@ enum ZipArchive {
             guard localOffset + 30 <= bytes.count, u32(bytes, localOffset) == 0x0403_4B50 else { throw ZipError.corrupt }
             let start = localOffset + 30 + Int(u16(bytes, localOffset + 26)) + Int(u16(bytes, localOffset + 28))
             guard start + compressedSize <= bytes.count else { throw ZipError.corrupt }
+            guard size <= maxEntryBytes, compressedSize <= maxEntryBytes else { throw ZipError.tooLarge }
+            total += max(size, compressedSize)
+            guard total <= maxTotalBytes else { throw ZipError.tooLarge }
             let body = Array(bytes[start..<(start + compressedSize)])
             let path = name.hasPrefix("/") ? String(name.drop { $0 == "/" }) : name
             switch method {
@@ -60,7 +71,8 @@ enum ZipArchive {
             if written == size { return Data(output) }
         }
         #endif
-        return Data(try Inflate.inflate(body, expectedSize: size))
+        // The output may not outgrow what the archive declared, or a small stream could fill the memory.
+        return Data(try Inflate.inflate(body, expectedSize: size, limit: size > 0 ? size : ZipArchive.maxEntryBytes))
     }
 
     private static func endOfCentralDirectory(_ bytes: [UInt8]) -> Int? {
@@ -108,6 +120,8 @@ enum Inflate {
 
     private struct Reader {
         let input: [UInt8]
+        /// The most bytes the output may reach.
+        var limit = Int.max
         var position = 0
         var buffer = 0
         var count = 0
@@ -163,8 +177,9 @@ enum Inflate {
         return (Huffman(lengths: lengths[0..<288]), Huffman(lengths: lengths[288..<318]))
     }()
 
-    static func inflate(_ input: [UInt8], expectedSize: Int = 0) throws -> [UInt8] {
+    static func inflate(_ input: [UInt8], expectedSize: Int = 0, limit: Int = Int.max) throws -> [UInt8] {
         var reader = Reader(input)
+        reader.limit = limit
         reader.output.reserveCapacity(expectedSize)
         var last = 0
         repeat {
@@ -190,6 +205,7 @@ enum Inflate {
         guard length == (~complement & 0xFFFF) else { throw InflateError.corrupt }
         reader.position += 4
         guard reader.position + length <= reader.input.count else { throw InflateError.corrupt }
+        guard reader.output.count + length <= reader.limit else { throw InflateError.corrupt }
         reader.output.append(contentsOf: reader.input[reader.position..<(reader.position + length)])
         reader.position += length
     }
@@ -198,6 +214,7 @@ enum Inflate {
         while true {
             let symbol = try reader.decode(lengths)
             if symbol < 256 {
+                guard reader.output.count < reader.limit else { throw InflateError.corrupt }
                 reader.output.append(UInt8(symbol))
             } else if symbol == 256 {
                 return
@@ -209,6 +226,7 @@ enum Inflate {
                 guard distanceSymbol < 30 else { throw InflateError.corrupt }
                 let distance = distanceBase[distanceSymbol] + (try reader.bits(distanceExtra[distanceSymbol]))
                 guard distance <= reader.output.count else { throw InflateError.corrupt }
+                guard reader.output.count + length <= reader.limit else { throw InflateError.corrupt }
                 let start = reader.output.count - distance
                 for offset in 0..<length { reader.output.append(reader.output[start + offset]) }
             }

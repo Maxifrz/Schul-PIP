@@ -16,7 +16,7 @@ enum MaterialStore {
         directory.appendingPathComponent(fileName)
     }
 
-    private static func drawingsURL(for fileName: String) -> URL {
+    static func drawingsURL(for fileName: String) -> URL {
         directory.appendingPathComponent(fileName + ".drawings")
     }
 
@@ -200,20 +200,33 @@ enum MaterialStore {
 
     // Notes besides ink: typed text, pictures, stickers, bookmarks
 
-    private static func notesURL(for fileName: String) -> URL {
+    static func notesURL(for fileName: String) -> URL {
         directory.appendingPathComponent(fileName + ".notes.json")
     }
 
     static func loadNotes(for fileName: String) -> DocumentNotes {
-        guard let data = try? Data(contentsOf: notesURL(for: fileName)),
-              let notes = try? JSONDecoder().decode(DocumentNotes.self, from: data)
-        else { return DocumentNotes() }
+        let url = notesURL(for: fileName)
+        guard let data = try? Data(contentsOf: url) else { return DocumentNotes() }
+        guard let notes = try? JSONDecoder().decode(DocumentNotes.self, from: data) else {
+            // A file that exists but cannot be read is not "no notes": keep it, or the next save would replace it.
+            setAside(url)
+            return DocumentNotes()
+        }
         return notes
     }
 
-    static func saveNotes(_ notes: DocumentNotes, for fileName: String) {
-        guard let data = try? JSONEncoder().encode(notes) else { return }
-        try? data.write(to: notesURL(for: fileName), options: .atomic)
+    /// False when the notes could not be written, so the editor can say so instead of losing them silently.
+    @discardableResult
+    static func saveNotes(_ notes: DocumentNotes, for fileName: String) -> Bool {
+        guard let data = try? JSONEncoder().encode(notes) else { return false }
+        return (try? data.write(to: notesURL(for: fileName), options: .atomic)) != nil
+    }
+
+    /// Renames an unreadable file to "<name>.unreadable-<time>", so it stays on the device for a repair.
+    static func setAside(_ url: URL) {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let target = url.deletingLastPathComponent().appendingPathComponent(url.lastPathComponent + ".unreadable-\(stamp)")
+        try? FileManager.default.moveItem(at: url, to: target)
     }
 
     private static var noteImagesDirectory: URL {
@@ -258,11 +271,9 @@ enum MaterialStore {
         guard let page = PaperRenderer.page(paper, size: size) else { return false }
         let position = min(index + 1, document.pageCount)
         document.insert(page, at: position)
-        guard document.write(to: material.fileURL) else { return false }
-        saveDrawings(PageShift.inserting(loadDrawings(for: material.fileName), at: position), for: material.fileName)
         var notes = loadNotes(for: material.fileName)
         notes.insertPage(at: position)
-        saveNotes(notes, for: material.fileName)
+        guard commit(document, to: material, drawings: PageShift.inserting(loadDrawings(for: material.fileName), at: position), notes: notes) else { return false }
         MaterialTextIndex.remove(fileName: material.fileName)
         return true
     }
@@ -275,12 +286,11 @@ enum MaterialStore {
             guard let page = document.page(at: offset)?.copy() as? PDFPage else { return false }
             target.insert(page, at: position + offset)
         }
-        guard target.write(to: material.fileURL) else { return false }
         let count = document.pageCount
-        saveDrawings(PageShift.inserting(loadDrawings(for: material.fileName), at: position, count: count), for: material.fileName)
         var notes = loadNotes(for: material.fileName)
         notes.insertPage(at: position, count: count)
-        saveNotes(notes, for: material.fileName)
+        let shifted = PageShift.inserting(loadDrawings(for: material.fileName), at: position, count: count)
+        guard commit(target, to: material, drawings: shifted, notes: notes) else { return false }
         MaterialTextIndex.remove(fileName: material.fileName)
         return true
     }
@@ -334,13 +344,10 @@ enum MaterialStore {
             guard let page = incoming.page(at: offset)?.copy() as? PDFPage else { return false }
             combined.insert(page, at: position + offset)
         }
-        guard combined.write(to: target.fileURL) else { return false }
-
         var drawings = PageShift.inserting(loadDrawings(for: target.fileName), at: position, count: count)
         for (page, drawing) in loadDrawings(for: source.fileName) where page < count {
             drawings[position + page] = drawing
         }
-        saveDrawings(drawings, for: target.fileName)
 
         var notes = loadNotes(for: target.fileName)
         notes.insertPage(at: position, count: count)
@@ -356,7 +363,7 @@ enum MaterialStore {
         for bookmark in carried.bookmarks where bookmark < count {
             notes.bookmarks.insert(position + bookmark)
         }
-        saveNotes(notes, for: target.fileName)
+        guard commit(combined, to: target, drawings: drawings, notes: notes) else { return false }
         MaterialTextIndex.remove(fileName: target.fileName)
         return true
     }
@@ -365,12 +372,10 @@ enum MaterialStore {
     static func deletePage(in material: StudyMaterial, at index: Int) -> Bool {
         guard let document = PDFDocument(url: material.fileURL), document.pageCount > 1, index < document.pageCount else { return false }
         document.removePage(at: index)
-        guard document.write(to: material.fileURL) else { return false }
-        saveDrawings(PageShift.deleting(loadDrawings(for: material.fileName), at: index), for: material.fileName)
         var notes = loadNotes(for: material.fileName)
         let before = Set(notes.annotations.compactMap(\.image))
         notes.deletePage(at: index)
-        saveNotes(notes, for: material.fileName)
+        guard commit(document, to: material, drawings: PageShift.deleting(loadDrawings(for: material.fileName), at: index), notes: notes) else { return false }
         // Pictures only the deleted page showed; a duplicate elsewhere keeps its file.
         for image in before.subtracting(notes.annotations.compactMap(\.image)) {
             try? FileManager.default.removeItem(at: noteImageURL(image))
@@ -379,27 +384,110 @@ enum MaterialStore {
         return true
     }
 
+    /// Pages whose ink could not be read (made by a newer version, say): kept as raw data and written back with
+    /// the others, so a save does not delete them.
+    private static var unreadableInk: [String: [String: Data]] = [:]
+    /// The data of each page as it was last written or read, so a save encodes only the pages that changed.
+    private static var encodedInk: [String: [Int: Data]] = [:]
+    private static let unreadableLock = NSLock()
+
     static func loadDrawings(for fileName: String) -> [Int: PKDrawing] {
-        guard let data = try? Data(contentsOf: drawingsURL(for: fileName)),
-              let raw = try? PropertyListDecoder().decode([String: Data].self, from: data)
-        else {
+        let url = drawingsURL(for: fileName)
+        guard let data = try? Data(contentsOf: url) else { return [:] }
+        guard let raw = try? PropertyListDecoder().decode([String: Data].self, from: data) else {
+            setAside(url)
             return [:]
         }
         var drawings: [Int: PKDrawing] = [:]
+        var unreadable: [String: Data] = [:]
         for (key, value) in raw {
             if let index = Int(key), let drawing = try? PKDrawing(data: value) {
                 drawings[index] = drawing
+            } else {
+                unreadable[key] = value
             }
         }
+        unreadableLock.lock()
+        unreadableInk[fileName] = unreadable
+        encodedInk[fileName] = Dictionary(uniqueKeysWithValues: raw.compactMap { key, value in
+            Int(key).flatMap { drawings[$0] != nil ? ($0, value) : nil }
+        })
+        unreadableLock.unlock()
         return drawings
     }
 
-    static func saveDrawings(_ drawings: [Int: PKDrawing], for fileName: String) {
+    /// False when the ink could not be written, so the editor can say so instead of losing it silently.
+    /// The ink file's data for `drawings`, and what each page encoded to. `changed` names the pages whose ink is
+    /// different from the last save; the others are taken from what was encoded before. Without it every page is
+    /// encoded again (after pages were inserted, say).
+    private static func encodeInk(_ drawings: [Int: PKDrawing], for fileName: String, changed: Set<Int>?) -> (file: Data, pages: [Int: Data])? {
         var raw: [String: Data] = [:]
+        unreadableLock.lock()
+        let carried = unreadableInk[fileName] ?? [:]
+        let known = changed == nil ? [:] : (encodedInk[fileName] ?? [:])
+        unreadableLock.unlock()
+        for (key, value) in carried where Int(key).map({ drawings[$0] == nil }) ?? true { raw[key] = value }
+        var encoded: [Int: Data] = [:]
         for (index, drawing) in drawings where !drawing.strokes.isEmpty {
-            raw[String(index)] = drawing.dataRepresentation()
+            let data: Data
+            if let cached = known[index], changed?.contains(index) == false {
+                data = cached
+            } else {
+                data = drawing.dataRepresentation()
+            }
+            encoded[index] = data
+            raw[String(index)] = data
         }
-        guard let data = try? PropertyListEncoder().encode(raw) else { return }
-        try? data.write(to: drawingsURL(for: fileName), options: .atomic)
+        guard let file = try? PropertyListEncoder().encode(raw) else { return nil }
+        return (file, encoded)
+    }
+
+    private static func remember(_ pages: [Int: Data], for fileName: String) {
+        unreadableLock.lock()
+        encodedInk[fileName] = pages
+        unreadableLock.unlock()
+    }
+
+    /// False when the ink could not be written, so the editor can say so instead of losing it silently.
+    @discardableResult
+    static func saveDrawings(_ drawings: [Int: PKDrawing], for fileName: String, changed: Set<Int>? = nil) -> Bool {
+        guard let ink = encodeInk(drawings, for: fileName, changed: changed),
+              (try? ink.file.write(to: drawingsURL(for: fileName), options: .atomic)) != nil
+        else { return false }
+        remember(ink.pages, for: fileName)
+        return true
+    }
+
+    /// Replaces the PDF, the ink file and the notes file of a document together. Each is written under a temporary
+    /// name first, so a failure or a crash while writing leaves the old, matching set in place; only the three quick
+    /// renames come at the end.
+    private static func commit(_ document: PDFDocument, to material: StudyMaterial, drawings: [Int: PKDrawing], notes: DocumentNotes) -> Bool {
+        let manager = FileManager.default
+        let targets = [material.fileURL, drawingsURL(for: material.fileName), notesURL(for: material.fileName)]
+        let temporaries = targets.map { $0.appendingPathExtension("new") }
+        func discard() { for file in temporaries { try? manager.removeItem(at: file) } }
+        guard let ink = encodeInk(drawings, for: material.fileName, changed: nil),
+              let notesData = try? JSONEncoder().encode(notes),
+              document.write(to: temporaries[0]),
+              (try? ink.file.write(to: temporaries[1], options: .atomic)) != nil,
+              (try? notesData.write(to: temporaries[2], options: .atomic)) != nil
+        else {
+            discard()
+            return false
+        }
+        for (target, temporary) in zip(targets, temporaries) {
+            do {
+                if manager.fileExists(atPath: target.path) {
+                    _ = try manager.replaceItemAt(target, withItemAt: temporary)
+                } else {
+                    try manager.moveItem(at: temporary, to: target)
+                }
+            } catch {
+                discard()
+                return false
+            }
+        }
+        remember(ink.pages, for: material.fileName)
+        return true
     }
 }

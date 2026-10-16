@@ -178,13 +178,20 @@ export async function setRole(group: Group, user: string, role: 'mod' | 'member'
   await refreshMembers(group);
 }
 
+export async function removeMember(group: Group, user: string): Promise<void> {
+  await run((a) => a.call('remove_member', { p_group: group.id, p_user: user }), { busy: false });
+  await refreshMembers(group);
+}
+
 // Chat
 
-export async function refreshMessages(group: Group): Promise<void> {
+/** True when new messages came in. */
+export async function refreshMessages(group: Group): Promise<boolean> {
   const known = social.get().messages[group.id] ?? [];
   const fresh = await run((a) => a.messages(group.id, known.length > 0 ? known[known.length - 1].createdAt : null), { busy: false, quiet: true });
-  if (!fresh || fresh.length === 0) return;
+  if (!fresh || fresh.length === 0) return false;
   social.set((s) => ({ ...s, messages: { ...s.messages, [group.id]: merge(s.messages[group.id] ?? [], fresh) } }));
+  return true;
 }
 
 export async function sendMessage(group: Group, text: string): Promise<void> {
@@ -205,7 +212,7 @@ export async function sendFile(group: Group, name: string, data: Uint8Array): Pr
 }
 
 export async function deleteMessage(group: Group, message: Message): Promise<void> {
-  await run((a) => a.deleteMessage(message.id), { busy: false });
+  await run((a) => a.deleteMessage(message.id, message.attachmentPath), { busy: false });
   social.set((s) => ({ ...s, messages: { ...s.messages, [group.id]: (s.messages[group.id] ?? []).filter((m) => m.id !== message.id) } }));
 }
 
@@ -235,7 +242,7 @@ export async function addResult(group: Group, title: string, name: string, data:
 }
 
 export async function deleteResult(group: Group, result: Result): Promise<void> {
-  await run((a) => a.deleteResult(result.id), { busy: false });
+  await run((a) => a.deleteResult(result.id, result.path), { busy: false });
   social.set((s) => ({ ...s, results: { ...s.results, [group.id]: (s.results[group.id] ?? []).filter((r) => r.id !== result.id) } }));
 }
 
@@ -261,14 +268,16 @@ export async function refreshBoards(group: Group): Promise<void> {
 }
 
 /** The board's contributions, polls and votes, and the group's board list, so a lock or a closing shows up too. */
-export async function refreshBoard(board: Board): Promise<void> {
+export async function refreshBoard(board: Board): Promise<boolean> {
   const data = await run(async (a) => {
-    const [blocks, polls, counts, votes, list] = await Promise.all([a.boardBlocks(board.id), a.polls(board.id), a.pollCounts(board.id), a.myVotes(board.id), a.boards(board.groupId)]);
+    const [blocks, polls, list] = await Promise.all([a.boardBlocks(board.id), a.polls(board.id), a.boards(board.groupId)]);
+    // The counts and the student's votes are only asked for once there is a poll.
+    const [counts, votes] = polls.length > 0 ? await Promise.all([a.pollCounts(board.id), a.myVotes(board.id)]) : [[], []];
     return { blocks, polls, counts, votes, list };
   }, { busy: false, quiet: true });
-  if (!data) return;
+  if (!data) return false;
   const current = boards.get();
-  if (same(current.blocks[board.id], data.blocks) && same(current.polls[board.id], data.polls) && same(current.counts[board.id], data.counts) && same(current.myVotes[board.id], data.votes) && same(current.boards[board.groupId], data.list)) return;
+  if (same(current.blocks[board.id], data.blocks) && same(current.polls[board.id], data.polls) && same(current.counts[board.id], data.counts) && same(current.myVotes[board.id], data.votes) && same(current.boards[board.groupId], data.list)) return false;
   boards.set((s) => ({
     ...s,
     blocks: { ...s.blocks, [board.id]: data.blocks },
@@ -277,6 +286,7 @@ export async function refreshBoard(board: Board): Promise<void> {
     myVotes: { ...s.myVotes, [board.id]: data.votes },
     boards: { ...s.boards, [board.groupId]: data.list },
   }));
+  return true;
 }
 
 export async function refreshVersions(board: Board): Promise<void> {

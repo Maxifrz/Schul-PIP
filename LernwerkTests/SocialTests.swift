@@ -83,13 +83,13 @@ final class SocialTests: XCTestCase {
 
     // MARK: Requests
 
-    private func api(_ replies: [(Int, String)], session: SocialSession? = nil) -> SocialAPI {
+    private func api(_ replies: [(Int, String)], session: SocialSession? = nil, onRefresh: (@Sendable (SocialSession?) -> Void)? = nil) -> SocialAPI {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SocialProtocol.self]
         SocialProtocol.reset(replies: replies)
         return SocialAPI(
             server: SocialServer(url: URL(string: "https://abc.supabase.co")!, anonKey: "anon-key"),
-            current: session, session: URLSession(configuration: configuration)
+            current: session, session: URLSession(configuration: configuration), onRefresh: onRefresh
         )
     }
 
@@ -144,13 +144,23 @@ final class SocialTests: XCTestCase {
     }
 
     func testJoiningCallsTheFunctionWithTheCodeAndDecodesTheGroup() async throws {
-        let client = api([(200, #"{"id":"55555555-5555-5555-5555-555555555555","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"2026-10-06T12:00:00+00:00"}"#)], session: valid)
+        let client = api([(200, #"[{"id":"55555555-5555-5555-5555-555555555555","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"2026-10-06T12:00:00+00:00"}]"#)], session: valid)
         let group = try await client.joinGroup(code: "K7M2QX")
         XCTAssertEqual(group.name, "Mathe LK")
         XCTAssertTrue(group.isCourse)
         XCTAssertNil(group.parentId)
         XCTAssertEqual(SocialProtocol.requests.first?.url, "https://abc.supabase.co/rest/v1/rpc/join_group")
         XCTAssertTrue(SocialProtocol.requests.first?.body.contains("K7M2QX") == true)
+    }
+
+    func testAWrongJoinCodeComesBackAsNoRowAndReadsAsAnError() async {
+        let client = api([(200, "[]")], session: valid)
+        do {
+            _ = try await client.joinGroup(code: "NOPE")
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SocialError, .server("Diesen Code gibt es nicht."))
+        }
     }
 
     func testServerRefusalCarriesItsOwnMessage() async {
@@ -175,6 +185,73 @@ final class SocialTests: XCTestCase {
         XCTAssertEqual(SocialProtocol.requests.last?.authorization, "Bearer fresh")
     }
 
+    private var expired: SocialSession {
+        var old = valid
+        old.expiresAt = Date().timeIntervalSince1970 - 10
+        return old
+    }
+
+    /// Collects what `onRefresh` was called with; -1 in the replies script means "no network".
+    private final class Renewals: @unchecked Sendable {
+        private let lock = NSLock()
+        private var list: [SocialSession?] = []
+        func add(_ session: SocialSession?) { lock.lock(); list.append(session); lock.unlock() }
+        var all: [SocialSession?] { lock.lock(); defer { lock.unlock() }; return list }
+    }
+
+    func testNoNetworkWhileRenewingKeepsTheStudentSignedIn() async {
+        let renewals = Renewals()
+        let client = api([(-1, "")], session: expired, onRefresh: renewals.add)
+        do {
+            _ = try await client.groups()
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SocialError, .offline)
+        }
+        XCTAssertTrue(renewals.all.isEmpty, "the saved session stays")
+        let stillThere = await client.current
+        XCTAssertNotNil(stillThere)
+    }
+
+    func testAServerErrorWhileRenewingKeepsTheSession() async {
+        let renewals = Renewals()
+        let client = api([(503, #"{"message":"unavailable"}"#)], session: expired, onRefresh: renewals.add)
+        _ = try? await client.groups()
+        XCTAssertTrue(renewals.all.isEmpty)
+    }
+
+    func testARefusedRefreshTokenSignsOut() async {
+        let renewals = Renewals()
+        let client = api([(400, #"{"error":"invalid_grant"}"#)], session: expired, onRefresh: renewals.add)
+        do {
+            _ = try await client.groups()
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SocialError, .signedOut)
+        }
+        XCTAssertEqual(renewals.all.count, 1)
+        XCTAssertNil(renewals.all.first ?? nil)
+    }
+
+    func testRequestsThatArriveTogetherRenewTheTokenOnce() async throws {
+        let client = api([
+            (200, #"{"access_token":"fresh","refresh_token":"ref2","expires_in":3600,"user":{"id":"11111111-1111-1111-1111-111111111111","email":"a@b.de"}}"#),
+            (200, "[]"), (200, "[]"),
+        ], session: expired)
+        async let first: [SocialGroup] = client.groups()
+        async let second: [SocialGroup] = client.groups()
+        _ = try await (first, second)
+        let refreshes = SocialProtocol.requests.filter { $0.url.contains("/auth/v1/token") }
+        XCTAssertEqual(refreshes.count, 1)
+    }
+
+    func testStoragePathKeepsOnlyAsciiLettersInTheName() {
+        let group = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let path = Social.storagePath(group: group, fileName: "Übung Straße 日本.pdf")
+        XCTAssertTrue(path.hasSuffix("-Ubung-Stra-e---.pdf"), path)
+        XCTAssertTrue(path.allSatisfy { $0.isASCII })
+    }
+
     func testOversizedFilesNeverLeaveTheDevice() async {
         let client = api([], session: valid)
         do {
@@ -196,6 +273,7 @@ private final class SocialProtocol: URLProtocol {
         let body: String
     }
 
+    private static let lock = NSLock()
     private static var replies: [(Int, String)] = []
     private(set) static var requests: [Seen] = []
 
@@ -221,6 +299,8 @@ private final class SocialProtocol: URLProtocol {
             }
             stream.close()
         }
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
         Self.requests.append(Seen(
             url: request.url?.absoluteString ?? "",
             apikey: request.value(forHTTPHeaderField: "apikey"),
@@ -228,6 +308,10 @@ private final class SocialProtocol: URLProtocol {
             body: String(data: body, encoding: .utf8) ?? ""
         ))
         let (status, text) = Self.replies.isEmpty ? (500, "{}") : Self.replies.removeFirst()
+        if status < 0 {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(text.utf8))

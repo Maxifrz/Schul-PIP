@@ -23,6 +23,20 @@ final class LearnProgressSkillsTests: XCTestCase {
         XCTAssertEqual(progress.currentStreak(now: now, calendar: calendar), 1)
     }
 
+    func testPracticeRoundsPayGemsOnlyUpToADailyBudget() {
+        var progress = LearnProgress()
+        var total = 0
+        for round in 0..<8 {
+            let reward = progress.record(result("practice.es", session: "round\(round)"), courseID: "es", completes: false, now: now, calendar: calendar)
+            total += reward?.gems ?? 0
+        }
+        // The first round also reaches the daily goal, which has its own five gems.
+        XCTAssertEqual(total, LearnProgress.practiceGemsPerDay + LearnProgress.gemsGoal)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let next = progress.record(result("practice.es", session: "next"), courseID: "es", completes: false, now: tomorrow, calendar: calendar)
+        XCTAssertGreaterThan(next?.gems ?? 0, 0, "a new day has a new budget")
+    }
+
     func testAStepStillCompletesByDefaultAndTheSameRunCountsOnce() {
         var progress = LearnProgress()
         XCTAssertNotNil(progress.record(result("es.u01.l1"), courseID: "es", now: now, calendar: calendar))

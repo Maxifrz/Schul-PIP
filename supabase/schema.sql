@@ -80,6 +80,14 @@ create table if not exists public.reports (
     created_at timestamptz not null default now()
 );
 
+-- Wrong join codes, counted per student, so a code cannot be found by trying them all.
+create table if not exists public.join_attempts (
+    user_id uuid not null references public.profiles (id) on delete cascade,
+    at timestamptz not null default now()
+);
+create index if not exists join_attempts_idx on public.join_attempts (user_id, at);
+alter table public.join_attempts enable row level security;
+
 -- Helpers -------------------------------------------------------------------------------------------------------
 
 create or replace function public.is_member(g uuid) returns boolean
@@ -106,7 +114,9 @@ begin
     loop
         code := '';
         for i in 1..6 loop
-            code := code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+            -- gen_random_uuid() is random from a secure source and needs no extension; its first byte is fully random, and
+            -- 256 is a multiple of 32, so every letter is equally likely.
+            code := code || substr(alphabet, 1 + (get_byte(uuid_send(gen_random_uuid()), 0) % length(alphabet)), 1);
         end loop;
         exit when not exists (select 1 from public.groups where join_code = code);
     end loop;
@@ -133,20 +143,29 @@ begin
 end;
 $$;
 
-create or replace function public.join_group(p_code text)
-returns public.groups language plpgsql security definer set search_path = public as $$
+-- Returns no row for a wrong code instead of raising: an error would undo the insert that counts the attempt.
+drop function if exists public.join_group(text);
+create function public.join_group(p_code text)
+returns setof public.groups language plpgsql security definer set search_path = public as $$
 declare
     target public.groups;
 begin
     if auth.uid() is null then raise exception 'Nicht angemeldet.'; end if;
+    delete from public.join_attempts where at < now() - interval '1 hour';
+    if (select count(*) from public.join_attempts where user_id = auth.uid() and at > now() - interval '10 minutes') >= 10 then
+        raise exception 'Zu viele falsche Codes. Warte ein paar Minuten und versuch es noch einmal.';
+    end if;
     select * into target from public.groups where join_code = upper(regexp_replace(p_code, '[^A-Za-z0-9]', '', 'g'));
-    if not found then raise exception 'Diesen Code gibt es nicht.'; end if;
+    if not found then
+        insert into public.join_attempts (user_id) values (auth.uid());
+        return;
+    end if;
     -- A work group can only be joined by members of its course.
     if target.parent_id is not null and not public.is_member(target.parent_id) then
         raise exception 'Tritt zuerst dem Kurs bei.';
     end if;
     insert into public.members (group_id, user_id) values (target.id, auth.uid()) on conflict do nothing;
-    return target;
+    return next target;
 end;
 $$;
 

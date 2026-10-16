@@ -78,19 +78,38 @@ actor SocialAPI {
         return result
     }
 
+    /// The renewal that is running, so requests that arrive meanwhile wait for it instead of spending the same
+    /// single-use refresh token a second time (an actor lets other calls in while it waits for the network).
+    private var renewal: Task<Void, Error>?
+
     private func refreshIfNeeded() async throws {
         guard let session = current else { throw SocialError.signedOut }
         guard session.expiresAt - Date().timeIntervalSince1970 < 60 else { return }
+        if let renewal { return try await renewal.value }
+        let task = Task { try await self.renew(session) }
+        renewal = task
+        defer { renewal = nil }
+        try await task.value
+    }
+
+    /// Only a server that refuses the token ends the session. No network or a server error leaves the student signed
+    /// in, and the request fails with the usual message instead.
+    private func renew(_ session: SocialSession) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["refresh_token": session.refreshToken])
-        do {
-            let (data, _) = try await send("POST", "/auth/v1/token", query: [("grant_type", "refresh_token")], body: body, authorized: false)
-            let response = try Self.decoder.decode(AuthResponse.self, from: data)
+        let (data, http) = try await perform("POST", "/auth/v1/token", query: [("grant_type", "refresh_token")], body: body, authorized: false)
+        switch http.statusCode {
+        case 200..<300:
+            guard let response = try? Self.decoder.decode(AuthResponse.self, from: data) else {
+                throw SocialError.server("Die Antwort des Servers ist unerwartet.")
+            }
             let renewed = adopt(response, fallbackName: session.name, fallbackEmail: session.email)
             onRefresh?(renewed)
-        } catch {
+        case 400..<500:
             current = nil
             onRefresh?(nil)
             throw SocialError.signedOut
+        default:
+            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
         }
     }
 
@@ -141,8 +160,11 @@ actor SocialAPI {
         return try await rpc("create_group", params)
     }
 
+    /// The server answers a wrong code with no row (so that it can count the attempt), not with an error.
     func joinGroup(code: String) async throws -> SocialGroup {
-        try await rpc("join_group", ["p_code": code])
+        let rows: [SocialGroup] = try await rpc("join_group", ["p_code": code])
+        guard let group = rows.first else { throw SocialError.server("Diesen Code gibt es nicht.") }
+        return group
     }
 
     func joinSubgroup(_ group: UUID) async throws -> SocialGroup {
@@ -162,7 +184,9 @@ actor SocialAPI {
         _ = try await authorized("POST", "/rest/v1/messages", body: JSONSerialization.data(withJSONObject: row))
     }
 
-    func deleteMessage(_ id: UUID) async throws {
+    /// The file goes first, while the row that names it still lets the author (or a moderator) remove it.
+    func deleteMessage(_ id: UUID, attachmentPath: String? = nil) async throws {
+        if let attachmentPath { await removeFile(attachmentPath) }
         _ = try await authorized("DELETE", "/rest/v1/messages", query: [("id", "eq.\(id.uuidString.lowercased())")])
     }
 
@@ -175,7 +199,8 @@ actor SocialAPI {
         _ = try await authorized("POST", "/rest/v1/results", body: JSONSerialization.data(withJSONObject: row))
     }
 
-    func deleteResult(_ id: UUID) async throws {
+    func deleteResult(_ id: UUID, path: String? = nil) async throws {
+        if let path { await removeFile(path) }
         _ = try await authorized("DELETE", "/rest/v1/results", query: [("id", "eq.\(id.uuidString.lowercased())")])
     }
 
@@ -190,6 +215,11 @@ actor SocialAPI {
     func upload(_ data: Data, to path: String, contentType: String) async throws {
         guard data.count <= Social.maxFileBytes else { throw SocialError.tooLarge }
         _ = try await authorized("POST", "/storage/v1/object/files/\(path)", body: data, headers: ["Content-Type": contentType])
+    }
+
+    /// Best effort: a file that is already gone, or one the student may not remove, must not block deleting the row.
+    func removeFile(_ path: String) async {
+        _ = try? await authorized("DELETE", "/storage/v1/object/files/\(path)")
     }
 
     func download(_ path: String) async throws -> Data {
@@ -231,6 +261,19 @@ actor SocialAPI {
         _ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil,
         headers: [String: String] = [:], authorized: Bool
     ) async throws -> (Data, HTTPURLResponse) {
+        let (data, http) = try await perform(method, path, query: query, body: body, headers: headers, authorized: authorized)
+        guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 401, authorized { throw SocialError.signedOut }
+            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
+        }
+        return (data, http)
+    }
+
+    /// Sends the request and returns whatever the server answered, whatever the status.
+    private func perform(
+        _ method: String, _ path: String, query: [(String, String)] = [], body: Data? = nil,
+        headers: [String: String] = [:], authorized: Bool
+    ) async throws -> (Data, HTTPURLResponse) {
         var text = server.url.absoluteString + path
         if !query.isEmpty { text += "?" + Social.queryString(query) }
         guard let url = URL(string: text) else { throw SocialError.notConfigured }
@@ -252,10 +295,6 @@ actor SocialAPI {
             throw SocialError.offline
         }
         guard let http = response as? HTTPURLResponse else { throw SocialError.offline }
-        guard (200..<300).contains(http.statusCode) else {
-            if http.statusCode == 401, authorized { throw SocialError.signedOut }
-            throw SocialError.server(Social.german(Self.message(in: data, status: http.statusCode)))
-        }
         return (data, http)
     }
 

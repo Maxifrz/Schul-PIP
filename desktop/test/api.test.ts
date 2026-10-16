@@ -56,10 +56,15 @@ describe('Supabase client', () => {
   });
 
   it('joins with a code and reads the group', async () => {
-    const { seen, doFetch } = scripted([[200, '{"id":"5","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"x"}']]);
+    const { seen, doFetch } = scripted([[200, '[{"id":"5","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"x"}]']]);
     const group = await new SocialApi(server, valid, doFetch).joinGroup('K7M2QX');
     expect(group).toMatchObject({ name: 'Mathe LK', joinCode: 'K7M2QX', parentId: null });
     expect(seen[0].url).toBe('https://abc.supabase.co/rest/v1/rpc/join_group');
+  });
+
+  it('reads a wrong code (no row) as an error', async () => {
+    const { doFetch } = scripted([[200, '[]']]);
+    await expect(new SocialApi(server, valid, doFetch).joinGroup('NOPE')).rejects.toMatchObject({ message: 'Diesen Code gibt es nicht.' });
   });
 
   it('passes on the server refusal as it is', async () => {
@@ -75,6 +80,42 @@ describe('Supabase client', () => {
     expect(seen[0].url).toBe('https://abc.supabase.co/auth/v1/token?grant_type=refresh_token');
     expect(seen[1].headers.Authorization).toBe('Bearer fresh');
     expect(stored).not.toBeNull();
+  });
+
+  const expired = { ...valid, expiresAt: Date.now() / 1000 - 10 };
+
+  it('stays signed in when the network is down while renewing', async () => {
+    let stored: Session | null | undefined;
+    const api = new SocialApi(server, expired, async () => {
+      throw new Error('network');
+    }, (s) => (stored = s));
+    await expect(api.groups()).rejects.toMatchObject({ kind: 'offline' });
+    expect(stored).toBeUndefined();
+  });
+
+  it('stays signed in when the server fails while renewing', async () => {
+    const { doFetch } = scripted([[503, '{"message":"unavailable"}']]);
+    let stored: Session | null | undefined;
+    await expect(new SocialApi(server, expired, doFetch, (s) => (stored = s)).groups()).rejects.toMatchObject({ kind: 'server' });
+    expect(stored).toBeUndefined();
+  });
+
+  it('signs out when the refresh token is refused', async () => {
+    const { doFetch } = scripted([[400, '{"error":"invalid_grant"}']]);
+    let stored: Session | null | undefined;
+    await expect(new SocialApi(server, expired, doFetch, (s) => (stored = s)).groups()).rejects.toMatchObject({ kind: 'signedOut' });
+    expect(stored).toBeNull();
+  });
+
+  it('renews the token once for requests that arrive together', async () => {
+    const { seen, doFetch } = scripted([
+      [200, '{"access_token":"fresh","refresh_token":"ref2","expires_in":3600,"user":{"id":"11111111-1111-1111-1111-111111111111","email":"a@b.de"}}'],
+      [200, '[]'],
+      [200, '[]'],
+    ]);
+    const api = new SocialApi(server, expired, doFetch);
+    await Promise.all([api.groups(), api.groups()]);
+    expect(seen.filter((request) => request.url.includes('/auth/v1/token'))).toHaveLength(1);
   });
 
   it('never uploads a file over 20 MB', async () => {

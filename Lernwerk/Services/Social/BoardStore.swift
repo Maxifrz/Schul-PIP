@@ -32,22 +32,32 @@ final class BoardStore: ObservableObject {
 
     /// The board's contributions, polls and votes; the board row itself comes with the group's list, so a lock or a
     /// closing by the moderator shows up here too.
-    func refresh(_ board: Board) async {
-        guard let api else { return }
+    /// True when anything changed. The counts and the student's votes are only asked for once there is a poll.
+    @discardableResult
+    func refresh(_ board: Board) async -> Bool {
+        guard let api else { return false }
         do {
             async let rows = api.boardBlocks(in: board.id)
             async let polls = api.polls(in: board.id)
-            async let counts = api.pollCounts(in: board.id)
-            async let votes = api.myVotes(in: board.id)
             async let list = api.boards(in: board.groupId)
-            let (newBlocks, newPolls, newCounts, newVotes, newBoards) = try await (rows, polls, counts, votes, list)
-            if blocks[board.id] != newBlocks { blocks[board.id] = newBlocks }
-            if self.polls[board.id] != newPolls { self.polls[board.id] = newPolls }
-            if self.counts[board.id] != newCounts { self.counts[board.id] = newCounts }
-            if myVotes[board.id] != newVotes { myVotes[board.id] = newVotes }
-            if boards[board.groupId] != newBoards { boards[board.groupId] = newBoards }
+            let (newBlocks, newPolls, newBoards) = try await (rows, polls, list)
+            var newCounts: [PollCount] = []
+            var newVotes: [PollVote] = []
+            if !newPolls.isEmpty {
+                async let counts = api.pollCounts(in: board.id)
+                async let votes = api.myVotes(in: board.id)
+                (newCounts, newVotes) = try await (counts, votes)
+            }
+            var changed = false
+            if blocks[board.id] != newBlocks { blocks[board.id] = newBlocks; changed = true }
+            if self.polls[board.id] != newPolls { self.polls[board.id] = newPolls; changed = true }
+            if self.counts[board.id] != newCounts { self.counts[board.id] = newCounts; changed = true }
+            if myVotes[board.id] != newVotes { myVotes[board.id] = newVotes; changed = true }
+            if boards[board.groupId] != newBoards { boards[board.groupId] = newBoards; changed = true }
+            return changed
         } catch {
             SocialStore.shared.present(error, quiet: true)
+            return false
         }
     }
 

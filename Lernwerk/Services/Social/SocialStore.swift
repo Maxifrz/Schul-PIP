@@ -56,6 +56,14 @@ final class SocialStore: ObservableObject {
         await refreshMembers(group)
     }
 
+    /// The founder removes anyone but a founder, a moderator plain members; the server checks it again.
+    func removeMember(_ user: UUID, from group: SocialGroup) async {
+        await run(showBusy: false) { api in
+            try await api.call("remove_member", ["p_group": group.id.uuidString.lowercased(), "p_user": user.uuidString.lowercased()])
+        }
+        await refreshMembers(group)
+    }
+
     var serverText: String { UserDefaults.standard.string(forKey: Self.urlKey) ?? "" }
 
     // MARK: Server and account
@@ -209,15 +217,19 @@ final class SocialStore: ObservableObject {
     // MARK: Chat
 
     /// Fetches what is new in a group's chat; the first call loads the latest messages.
-    func refreshMessages(_ group: SocialGroup) async {
-        guard let api else { return }
+    /// True when new messages came in.
+    @discardableResult
+    func refreshMessages(_ group: SocialGroup) async -> Bool {
+        guard let api else { return false }
         let known = messages[group.id] ?? []
         do {
             let fresh = try await api.messages(in: group.id, after: known.last?.createdAt)
-            guard !fresh.isEmpty else { return }
+            guard !fresh.isEmpty else { return false }
             messages[group.id] = Social.merge(known, fresh)
+            return true
         } catch {
             handle(error, quiet: true)
+            return false
         }
     }
 
@@ -241,7 +253,7 @@ final class SocialStore: ObservableObject {
     }
 
     func delete(_ message: SocialMessage) async {
-        await run(showBusy: false) { api in try await api.deleteMessage(message.id) }
+        await run(showBusy: false) { api in try await api.deleteMessage(message.id, attachmentPath: message.attachmentPath) }
         messages[message.groupId]?.removeAll { $0.id == message.id }
     }
 
@@ -272,7 +284,7 @@ final class SocialStore: ObservableObject {
     }
 
     func delete(_ result: SocialResult) async {
-        await run(showBusy: false) { api in try await api.deleteResult(result.id) }
+        await run(showBusy: false) { api in try await api.deleteResult(result.id, path: result.path) }
         results[result.groupId]?.removeAll { $0.id == result.id }
     }
 
