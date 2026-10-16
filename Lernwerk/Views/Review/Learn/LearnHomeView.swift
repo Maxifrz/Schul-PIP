@@ -133,8 +133,11 @@ struct LearnHomeView: View {
             onGoal: { progress.setDailyGoal($0) },
             haptics: $haptics
         )
+        // On a wide screen the numbers stay together above the rail instead of drifting apart.
+        .frame(maxWidth: compact ? .infinity : 600)
         .padding(.horizontal, compact ? 16 : 28)
         .padding(.top, compact ? 6 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Pfad, Fähigkeiten, Quests and Wiederholen at the bottom, where the thumb is.
@@ -148,6 +151,8 @@ struct LearnHomeView: View {
         .padding(.top, 8)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
+        // The path scrolls beneath the bar; an opaque ground keeps its nodes from showing through.
+        .background(Quill.bg)
     }
 
     @ViewBuilder

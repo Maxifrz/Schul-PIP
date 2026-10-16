@@ -56,15 +56,34 @@ struct CoursePathView<Footer: View>: View {
     private var compact: Bool { sizeClass == .compact }
     private var current: PathStep? { CoursePath.current(in: units) }
 
+    /// Wide windows (an iPad, not a Split View sliver) put the advice beside the path instead of above it.
+    private var railMinimumWidth: CGFloat { 760 }
+    private var railWidth: CGFloat { 340 }
+
     var body: some View {
-        VStack(spacing: 0) {
-            pinnedHeader
-            pathScroll
+        GeometryReader { geometry in
+            if sizeClass == .regular, geometry.size.width >= railMinimumWidth {
+                HStack(alignment: .top, spacing: 12) {
+                    headerContent
+                        .frame(width: railWidth)
+                        .padding(.leading, 28)
+                        .padding(.top, 6)
+                    pathScroll
+                }
+            } else {
+                VStack(spacing: 0) {
+                    headerContent
+                        .frame(maxWidth: 560)
+                        .padding(.horizontal, compact ? 16 : 28)
+                        .frame(maxWidth: .infinity)
+                    pathScroll
+                }
+            }
         }
     }
 
-    /// The advice and the quests line stay in view while the path scrolls beneath them.
-    private var pinnedHeader: some View {
+    /// The advice and the quests line stay in view while the path scrolls: above it, or in the rail beside it.
+    private var headerContent: some View {
         VStack(spacing: 0) {
             if let advice {
                 AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
@@ -72,9 +91,6 @@ struct CoursePathView<Footer: View>: View {
             }
             questsLine
         }
-        .frame(maxWidth: 560)
-        .padding(.horizontal, compact ? 16 : 28)
-        .frame(maxWidth: .infinity)
     }
 
     private var pathScroll: some View {
