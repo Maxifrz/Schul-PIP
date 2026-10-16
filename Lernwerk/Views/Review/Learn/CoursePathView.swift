@@ -57,14 +57,30 @@ struct CoursePathView<Footer: View>: View {
     private var current: PathStep? { CoursePath.current(in: units) }
 
     var body: some View {
+        VStack(spacing: 0) {
+            pinnedHeader
+            pathScroll
+        }
+    }
+
+    /// The advice and the quests line stay in view while the path scrolls beneath them.
+    private var pinnedHeader: some View {
+        VStack(spacing: 0) {
+            if let advice {
+                AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
+                    .padding(.top, 6)
+            }
+            questsLine
+        }
+        .frame(maxWidth: 560)
+        .padding(.horizontal, compact ? 16 : 28)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var pathScroll: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    if let advice {
-                        AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
-                            .padding(.top, 6)
-                    }
-                    questsLine
                     ForEach(Array(units.enumerated()), id: \.element.id) { unitIndex, unit in
                         Section {
                             steps(of: unit, before: units.prefix(unitIndex).reduce(0) { $0 + $1.steps.count })
@@ -86,7 +102,7 @@ struct CoursePathView<Footer: View>: View {
             .scrollIndicators(.hidden)
             .onAppear {
                 guard let current else { return }
-                DispatchQueue.main.async { proxy.scrollTo(current.id, anchor: .center) }
+                DispatchQueue.main.async { proxy.scrollTo(current.id, anchor: UnitPoint(x: 0.5, y: 0.6)) }
             }
         }
     }
