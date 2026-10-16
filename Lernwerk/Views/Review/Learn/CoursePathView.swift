@@ -26,6 +26,7 @@ struct CoursePathView<Footer: View>: View {
     private let footer: Footer
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         course: Course,
@@ -68,15 +69,18 @@ struct CoursePathView<Footer: View>: View {
                         .frame(width: railWidth)
                         .padding(.leading, 28)
                         .padding(.top, 6)
-                    pathScroll
+                    pathScroll(withHeader: false)
                 }
             } else {
                 VStack(spacing: 0) {
-                    headerContent
-                        .frame(maxWidth: 560)
-                        .padding(.horizontal, compact ? 16 : 28)
-                        .frame(maxWidth: .infinity)
-                    pathScroll
+                    // At the largest text sizes the advice would fill the screen, so it scrolls with the path.
+                    if !typeSize.isAccessibilitySize {
+                        headerContent
+                            .frame(maxWidth: 560)
+                            .padding(.horizontal, compact ? 16 : 28)
+                            .frame(maxWidth: .infinity)
+                    }
+                    pathScroll(withHeader: typeSize.isAccessibilitySize)
                 }
             }
         }
@@ -93,10 +97,11 @@ struct CoursePathView<Footer: View>: View {
         }
     }
 
-    private var pathScroll: some View {
+    private func pathScroll(withHeader: Bool) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    if withHeader { headerContent }
                     ForEach(Array(units.enumerated()), id: \.element.id) { unitIndex, unit in
                         Section {
                             steps(of: unit, before: units.prefix(unitIndex).reduce(0) { $0 + $1.steps.count })
@@ -135,6 +140,7 @@ struct CoursePathView<Footer: View>: View {
                             .font(.mono(11, .semibold))
                             .tracking(1)
                             .opacity(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(unit.unit.title)
                             .font(.work(21, .bold))
                             .tracking(-0.4)
@@ -187,7 +193,7 @@ struct CoursePathView<Footer: View>: View {
         .background(course.tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Quill.paperInk.opacity(0.28))
+                .fill(Quill.scrim)
                 .offset(y: 4)
         )
         .padding(.top, 14)
@@ -248,23 +254,13 @@ struct CoursePathView<Footer: View>: View {
     /// Quests and the week in one quiet line; the page behind it has the rest.
     private var questsLine: some View {
         Button(action: onQuests) {
-            HStack(spacing: 8) {
-                Text("Quests \(tiles.questsDone)/\(tiles.questsTotal)")
-                    .font(.work(14, .medium))
-                    .foregroundStyle(Quill.ink2)
-                if tiles.hasUnclaimed {
-                    StatusDot(color: Quill.warn, size: 8)
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 2) { questsLineParts }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    questsLineRow
                 }
-                if !tiles.weekText.isEmpty {
-                    Text("·").foregroundStyle(Quill.faint)
-                    Text("Woche \(tiles.weekText)")
-                        .font(.work(14))
-                        .foregroundStyle(Quill.muted)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Quill.faint)
             }
             .padding(.horizontal, 4)
             .frame(minHeight: 44)
@@ -274,6 +270,33 @@ struct CoursePathView<Footer: View>: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Quests heute: \(tiles.questsDone) von \(tiles.questsTotal)" + (tiles.weekText.isEmpty ? "" : ", Woche: \(tiles.weekText)"))
         .accessibilityHint("Öffnet die Quests")
+    }
+
+    private var questsLineRow: some View {
+        HStack(spacing: 8) {
+            questsLineParts
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Quill.faint)
+        }
+    }
+
+    @ViewBuilder
+    private var questsLineParts: some View {
+        HStack(spacing: 6) {
+            Text("Quests \(tiles.questsDone)/\(tiles.questsTotal)")
+                .font(.work(14, .medium))
+                .foregroundStyle(Quill.ink2)
+            if tiles.hasUnclaimed {
+                StatusDot(color: Quill.warn, size: 8)
+            }
+        }
+        if !tiles.weekText.isEmpty {
+            Text("Woche \(tiles.weekText)")
+                .font(.work(14))
+                .foregroundStyle(Quill.muted)
+        }
     }
 
     private var finished: some View {

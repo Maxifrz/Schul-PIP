@@ -197,7 +197,7 @@ struct FreezeRow: View {
                         .font(.work(14, .bold))
                     HStack(spacing: 3) {
                         Image(systemName: "diamond.fill")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                         Text("\(LearnProgress.freezePrice)")
                             .font(.work(12, .semibold))
                     }

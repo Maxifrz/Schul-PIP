@@ -41,6 +41,7 @@ struct AdviceCard: View {
     let advice: Recommendation
     let onGo: () -> Void
     let onSkills: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var caption: String {
         switch advice.kind {
@@ -59,6 +60,16 @@ struct AdviceCard: View {
         }
     }
 
+    @ViewBuilder
+    private var adviceButtons: some View {
+        if advice.kind != .finished {
+            Button(advice.kind == .step ? "Starten" : "Los geht’s", action: onGo)
+                .buttonStyle(QuillPrimaryButtonStyle(height: 44, fontSize: 15))
+        }
+        Button("Fähigkeiten", action: onSkills)
+            .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PixelCaption(text: caption, color: tone)
@@ -71,13 +82,12 @@ struct AdviceCard: View {
                 .lineSpacing(3)
                 .foregroundStyle(Quill.muted)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
-                if advice.kind != .finished {
-                    Button(advice.kind == .step ? "Starten" : "Los geht’s", action: onGo)
-                        .buttonStyle(QuillPrimaryButtonStyle(height: 44, fontSize: 15))
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 10) { adviceButtons }
+                } else {
+                    HStack(spacing: 12) { adviceButtons }
                 }
-                Button("Fähigkeiten", action: onSkills)
-                    .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
             }
             .padding(.top, 2)
         }

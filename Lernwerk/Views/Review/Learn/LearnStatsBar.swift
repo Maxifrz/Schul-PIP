@@ -11,9 +11,14 @@ struct LearnStatsBar: View {
     let onStreak: () -> Void
     let onGoal: (Int) -> Void
     @Binding var haptics: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// At the largest text sizes the three chips go under each other instead of being cut off.
+    private var stacked: Bool { typeSize.isAccessibilitySize }
 
     var body: some View {
-        HStack(spacing: 8) {
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 8))
+        layout {
             Button(action: onCourse) {
                 HStack(spacing: 8) {
                     Image(systemName: course?.symbol ?? "square.grid.2x2.fill")
@@ -24,16 +29,18 @@ struct LearnStatsBar: View {
                     Text("\(courseXP) XP")
                         .font(.work(16, .bold))
                         .foregroundStyle(Quill.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(course.map { "Kurs \($0.title), \(courseXP) XP. Kurs wechseln" } ?? "Kurs wählen")
-            Spacer(minLength: 0)
+            if !stacked { Spacer(minLength: 0) }
             item(
                 symbol: "flame.fill", color: streak > 0 ? Quill.accent : Quill.hint, word: "Serie", text: "\(streak)",
                 label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage"). Öffnet die Serie", action: onStreak
             )
-            Spacer(minLength: 0)
+            if !stacked { Spacer(minLength: 0) }
             goalMenu
         }
         .padding(.horizontal, 4)
@@ -48,9 +55,13 @@ struct LearnStatsBar: View {
                 Text(word)
                     .font(.work(14))
                     .foregroundStyle(Quill.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(text)
                     .font(.work(16, .bold))
                     .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(minHeight: 44)
         }
@@ -77,9 +88,13 @@ struct LearnStatsBar: View {
                 Text("Heute")
                     .font(.work(14))
                     .foregroundStyle(Quill.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text("\(min(xpToday, 999))/\(goal)")
                     .font(.work(14, .bold))
                     .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(minHeight: 44)
         }
