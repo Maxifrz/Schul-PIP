@@ -44,6 +44,8 @@ struct LearnProgress: Codable, Equatable {
     /// More for a lesson in which every exercise was right on the first try.
     static let gemsPerfect = 3
     static let gemsGoal = 5
+    /// Practice rounds on chosen goals can be repeated at will, so they pay out gems only up to this much a day.
+    static let practiceGemsPerDay = 6
     static let freezePrice = 30
     static let maxFreezes = 2
 
@@ -80,6 +82,9 @@ struct LearnProgress: Codable, Equatable {
     private(set) var freezes = 0
     /// XP per course id, for the number next to the course's icon.
     private(set) var courseXP: [String: Int] = [:]
+    /// The gems practice rounds paid out on `practiceGemsDay`.
+    private(set) var practiceGemsDay: LearnDay?
+    private(set) var practiceGemsToday = 0
 
     init() {}
 
@@ -201,7 +206,16 @@ struct LearnProgress: Codable, Equatable {
         }
         longestStreak = max(longestStreak, streak)
         if completes { completedLessons.insert(result.lessonID) }
-        let earnedGems = LearnProgress.gems(for: result) + (goalReached ? LearnProgress.gemsGoal : 0)
+        var roundGems = LearnProgress.gems(for: result)
+        if !completes {
+            if practiceGemsDay != today {
+                practiceGemsDay = today
+                practiceGemsToday = 0
+            }
+            roundGems = min(roundGems, max(0, LearnProgress.practiceGemsPerDay - practiceGemsToday))
+            practiceGemsToday += roundGems
+        }
+        let earnedGems = roundGems + (goalReached ? LearnProgress.gemsGoal : 0)
         addGems(earnedGems)
         return Reward(
             xp: earned, xpToday: xpOfDay, goalReached: goalReached, streak: streak, streakExtended: extended,
@@ -213,7 +227,7 @@ struct LearnProgress: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case dailyGoal, totalXP, xpOfDay, xpDay, goalReachedDay, streak, longestStreak, lastLessonDay, completedLessons, recentRuns
-        case gems, freezes, courseXP
+        case gems, freezes, courseXP, practiceGemsDay, practiceGemsToday
     }
 
     init(from decoder: Decoder) throws {
@@ -235,6 +249,8 @@ struct LearnProgress: Codable, Equatable {
         gems = max(0, value(.gems, 0))
         freezes = min(LearnProgress.maxFreezes, max(0, value(.freezes, 0)))
         courseXP = value(.courseXP, [String: Int]())
+        practiceGemsDay = value(.practiceGemsDay, nil as LearnDay?)
+        practiceGemsToday = max(0, value(.practiceGemsToday, 0))
     }
 }
 
