@@ -100,13 +100,13 @@ final class LessonModelTests: XCTestCase {
 
     func testAWrongTypedAnswerCanBeFixedWithoutSeeingTheSolution() {
         let model = LessonModel(cards: [card("a", "Berlin")], exercises: [typing("a", "Berlin")], sessionID: "retry")
-        model.typed = "Berln"
+        model.typed = "Paris"
         XCTAssertEqual(model.check(), .wrong)
         XCTAssertFalse(model.solutionShown)
         XCTAssertEqual(model.retryNote, "Schau noch einmal hin.")
         model.tryAgain()
         XCTAssertTrue(model.isAnswering)
-        XCTAssertEqual(model.typed, "Berln", "the text stays to be corrected")
+        XCTAssertEqual(model.typed, "Paris", "the text stays to be corrected")
         model.typed = "Berlin"
         XCTAssertEqual(model.check(), .right)
         model.advance()
