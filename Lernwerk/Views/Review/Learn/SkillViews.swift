@@ -41,6 +41,7 @@ struct AdviceCard: View {
     let advice: Recommendation
     let onGo: () -> Void
     let onSkills: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var caption: String {
         switch advice.kind {
@@ -59,6 +60,16 @@ struct AdviceCard: View {
         }
     }
 
+    @ViewBuilder
+    private var adviceButtons: some View {
+        if advice.kind != .finished {
+            Button(advice.kind == .step ? "Starten" : "Los geht’s", action: onGo)
+                .buttonStyle(QuillPrimaryButtonStyle(height: 44, fontSize: 15))
+        }
+        Button("Fähigkeiten", action: onSkills)
+            .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             PixelCaption(text: caption, color: tone)
@@ -71,13 +82,12 @@ struct AdviceCard: View {
                 .lineSpacing(3)
                 .foregroundStyle(Quill.muted)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
-                if advice.kind != .finished {
-                    Button(advice.kind == .step ? "Starten" : "Los geht’s", action: onGo)
-                        .buttonStyle(QuillPrimaryButtonStyle(height: 44, fontSize: 15))
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 10) { adviceButtons }
+                } else {
+                    HStack(spacing: 12) { adviceButtons }
                 }
-                Button("Fähigkeiten", action: onSkills)
-                    .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
             }
             .padding(.top, 2)
         }
@@ -89,12 +99,13 @@ struct AdviceCard: View {
     }
 }
 
-/// The goals of the course by unit: where each stands, what is missing, and a button to practise it.
-struct SkillsSheet: View {
+/// The goals of the course by unit: where each stands, what is missing, and a button to practise it. A page of the
+/// Lernen tab; `rows` is empty for a course that tracks no goals (the student's own cards).
+struct SkillsView: View {
     let courseTitle: String
     let rows: [SkillRow]
     let onPractice: (SkillRow) -> Void
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var units: [(title: String, number: Int, rows: [SkillRow])] {
         var order: [String] = []
@@ -111,32 +122,31 @@ struct SkillsSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    PixelCaption(text: "Fähigkeiten", color: Quill.accent)
-                    Text(courseTitle)
-                        .font(.work(28, .heavy))
-                        .tracking(-0.8)
-                        .foregroundStyle(Quill.ink)
-                    Text(counts)
-                        .font(.work(14))
-                        .foregroundStyle(Quill.muted)
-                }
-                Spacer()
-                Button("Fertig") { dismiss() }
-                    .buttonStyle(QuillOutlineButtonStyle(height: 38, fontSize: 14, weight: .medium))
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
-            .padding(.bottom, 12)
-            ScrollView {
+        ScrollView {
+            if rows.isEmpty {
+                Text("Zu „\(courseTitle)“ gibt es keine Fähigkeiten, nur Karten. Wähle einen Kurs, um zu sehen, was schon sitzt.")
+                    .font(.work(15))
+                    .lineSpacing(4)
+                    .foregroundStyle(Quill.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 440)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 60)
+                    .frame(maxWidth: .infinity)
+            } else {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text("Eine Lektion zu bearbeiten reicht nicht: Ein Ziel gilt erst als erreicht, wenn du es ohne Hilfe richtig gemacht hast, auf jeder Stufe, die es verlangt. Beherrscht ist es nach einer guten Runde an einem anderen Tag.")
-                        .font(.work(13.5))
-                        .lineSpacing(3)
-                        .foregroundStyle(Quill.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(counts)
+                            .font(.work(24, .heavy))
+                            .tracking(-0.6)
+                            .foregroundStyle(Quill.ink)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Eine Lektion zu bearbeiten reicht nicht: Ein Ziel gilt erst als erreicht, wenn du es ohne Hilfe richtig gemacht hast, auf jeder Stufe, die es verlangt. Beherrscht ist es nach einer guten Runde an einem anderen Tag.")
+                            .font(.work(13.5))
+                            .lineSpacing(3)
+                            .foregroundStyle(Quill.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     ForEach(units, id: \.number) { unit in
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Einheit \(unit.number) · \(unit.title)")
@@ -148,14 +158,13 @@ struct SkillsSheet: View {
                     }
                 }
                 .frame(maxWidth: 560)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, sizeClass == .compact ? 16 : 28)
+                .padding(.top, 12)
                 .padding(.bottom, 40)
                 .frame(maxWidth: .infinity)
             }
-            .scrollIndicators(.hidden)
         }
-        .background(Quill.bg.ignoresSafeArea())
-        .presentationDetents([.large])
+        .scrollIndicators(.hidden)
     }
 
     private func card(_ row: SkillRow) -> some View {
@@ -181,7 +190,7 @@ struct SkillsSheet: View {
             if !row.waitingFor.isEmpty {
                 Text("Baut auf: " + row.waitingFor.joined(separator: ", "))
                     .font(.work(13))
-                    .foregroundStyle(Quill.warn)
+                    .foregroundStyle(Quill.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if row.status != .mastered, row.status != .notStarted {

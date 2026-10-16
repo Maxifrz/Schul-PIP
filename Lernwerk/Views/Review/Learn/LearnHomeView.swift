@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// The Lernen tab: the numbers on top (course, streak, gems, daily goal), then the path of the chosen course, the
-/// quests, or the review by typing as before. A course is one of the shipped ones or the lessons of a material of the
+/// The Lernen tab: the numbers on top (course, streak, daily goal), then the path of the chosen course, the goals, the
+/// quests or the review by typing as before, with the choice between them at the bottom. A course is one of the shipped ones or the lessons of a material of the
 /// student; every finished round records XP, streak, gems and quests, and a round of a material grades the cards that
 /// were due.
 struct LearnHomeView: View {
@@ -24,10 +24,7 @@ struct LearnHomeView: View {
     @StateObject private var fetcher = DistractorFetcher()
     @State private var run: LessonRun?
     @State private var showCourses = false
-    @State private var showShop = false
-    @State private var showSkills = false
-    /// Goals the student chose to practise in the skills sheet; the round starts once the sheet is gone.
-    @State private var pendingPractice: [String]?
+    @State private var showStreak = false
     @State private var tipUnit: CourseUnit?
     @State private var notice: String?
 
@@ -35,11 +32,12 @@ struct LearnHomeView: View {
     private static let shipped = CourseCatalog.courses
 
     enum Mode: String, CaseIterable {
-        case path, quests, practice
+        case path, skills, quests, practice
 
         var title: String {
             switch self {
             case .path: return "Pfad"
+            case .skills: return "Fähigkeiten"
             case .quests: return "Quests"
             case .practice: return "Wiederholen"
             }
@@ -84,34 +82,23 @@ struct LearnHomeView: View {
         let course = activeCourse(in: library)
         return VStack(spacing: 0) {
             statsBar(course: course)
-            Picker("Ansicht", selection: Binding(get: { mode }, set: { storedMode = $0.rawValue })) {
-                ForEach(Mode.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 420)
-            .padding(.horizontal, compact ? 16 : 28)
-            .padding(.bottom, 8)
             content(course: course, library: library)
+            modePicker
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .fullScreenCover(item: $run) { lesson in
             lessonView(lesson)
                 .environmentObject(progress)
         }
+        .sheet(isPresented: $showStreak) {
+            StreakSheet(
+                days: progress.progress.currentStreak(now: Date(), calendar: .current), longest: progress.progress.longestStreak,
+                gems: progress.progress.gems, freezes: progress.progress.freezes, onBuyFreeze: { progress.buyFreeze() }
+            )
+        }
         .sheet(isPresented: $showCourses) { picker(library: library, selected: course?.id ?? "") }
         .sheet(item: $tipUnit) { unit in
             if let course { UnitTipSheet(unit: unit, course: course, onTestOut: testOut(unit, in: course)) }
-        }
-        .sheet(isPresented: $showSkills, onDismiss: { runPending(course: course) }) {
-            if let course, let provider = shippedProvider(course) {
-                SkillsSheet(courseTitle: course.title, rows: skillRows(provider: provider)) { row in
-                    pendingPractice = [row.skill.id]
-                    showSkills = false
-                }
-            }
-        }
-        .sheet(isPresented: $showShop) {
-            ShopSheet(gems: progress.progress.gems, freezes: progress.progress.freezes, onBuyFreeze: { progress.buyFreeze() })
         }
         .alert(
             "Pip",
@@ -139,17 +126,33 @@ struct LearnHomeView: View {
             course: course,
             courseXP: course.map { state.xp(inCourse: $0.id) } ?? 0,
             streak: state.currentStreak(now: now, calendar: .current),
-            gems: state.gems,
             xpToday: state.xpToday(now: now, calendar: .current),
             goal: state.dailyGoal,
             onCourse: { showCourses = true },
-            onStreak: { storedMode = Mode.quests.rawValue },
-            onGems: { showShop = true },
+            onStreak: { showStreak = true },
             onGoal: { progress.setDailyGoal($0) },
             haptics: $haptics
         )
+        // On a wide screen the numbers stay together above the rail instead of drifting apart.
+        .frame(maxWidth: compact ? .infinity : 600)
         .padding(.horizontal, compact ? 16 : 28)
         .padding(.top, compact ? 6 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Pfad, Fähigkeiten, Quests and Wiederholen at the bottom, where the thumb is.
+    private var modePicker: some View {
+        Picker("Ansicht", selection: Binding(get: { mode }, set: { storedMode = $0.rawValue })) {
+            ForEach(Mode.allCases, id: \.self) { Text($0.title).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 420)
+        .padding(.horizontal, compact ? 16 : 28)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity)
+        // The path scrolls beneath the bar; an opaque ground keeps its nodes from showing through.
+        .background(Quill.bg)
     }
 
     @ViewBuilder
@@ -157,6 +160,14 @@ struct LearnHomeView: View {
         switch mode {
         case .practice:
             ReviewTypingView()
+        case .skills:
+            if let course {
+                SkillsView(courseTitle: course.title, rows: shippedProvider(course).map { skillRows(provider: $0) } ?? []) { row in
+                    startPractice([row.skill.id], in: course)
+                }
+            } else {
+                noCourse
+            }
         case .quests:
             let now = Date()
             QuestsView(
@@ -180,7 +191,8 @@ struct LearnHomeView: View {
                     onQuests: { storedMode = Mode.quests.rawValue },
                     advice: suggestion,
                     onAdvice: { if let suggestion { follow(suggestion, in: course, library: library) } },
-                    onSkills: { showSkills = true },
+                    onSkills: { storedMode = Mode.skills.rawValue },
+                    mastery: shippedProvider(course).map { pathMastery(for: $0) },
                     footer: {
                         Button("Anderen Kurs wählen") { showCourses = true }
                             .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
@@ -222,9 +234,7 @@ struct LearnHomeView: View {
         return PathTiles(
             questsDone: board.daily.filter(\.isDone).count,
             questsTotal: board.daily.count,
-            secondsLeft: QuestBoard.secondsUntilNextDay(now: Date(), calendar: .current),
             weekText: weekly.map { "\(min($0.progress, $0.target)) von \($0.target)" } ?? "",
-            weekFraction: weekly?.fraction ?? 0,
             hasUnclaimed: board.hasUnclaimed
         )
     }
@@ -326,6 +336,13 @@ struct LearnHomeView: View {
         )
     }
 
+    private func pathMastery(for provider: any CourseProvider) -> PathMastery {
+        PathMastery(
+            map: SkillMaps.map(for: provider), records: skills.records, completed: progress.progress.completedLessons,
+            now: Date(), calendar: .current
+        )
+    }
+
     private func skillRows(provider: any CourseProvider) -> [SkillRow] {
         let map = SkillMaps.map(for: provider)
         let now = Date()
@@ -357,12 +374,6 @@ struct LearnHomeView: View {
         case .finished:
             break
         }
-    }
-
-    private func runPending(course: Course?) {
-        guard let targets = pendingPractice, let course else { return }
-        pendingPractice = nil
-        startPractice(targets, in: course)
     }
 
     /// A round of exercises that fit what the chosen goals still need.

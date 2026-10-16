@@ -1,21 +1,24 @@
 import SwiftUI
 
-/// The numbers at the top of the Lernen tab: the course with its XP, the streak, the gems and the day's goal.
+/// The numbers at the top of the Lernen tab: the course with its XP, the streak and the day's goal.
 struct LearnStatsBar: View {
     let course: Course?
     let courseXP: Int
     let streak: Int
-    let gems: Int
     let xpToday: Int
     let goal: Int
     let onCourse: () -> Void
     let onStreak: () -> Void
-    let onGems: () -> Void
     let onGoal: (Int) -> Void
     @Binding var haptics: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// At the largest text sizes the three chips go under each other instead of being cut off.
+    private var stacked: Bool { typeSize.isAccessibilitySize }
 
     var body: some View {
-        HStack(spacing: 8) {
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 8))
+        layout {
             Button(action: onCourse) {
                 HStack(spacing: 8) {
                     Image(systemName: course?.symbol ?? "square.grid.2x2.fill")
@@ -23,32 +26,42 @@ struct LearnStatsBar: View {
                         .foregroundStyle(course?.onTint ?? Quill.onAccent)
                         .frame(width: 30, height: 30)
                         .background(course?.tint ?? Quill.accent, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                    Text("\(courseXP)")
+                    Text("\(courseXP) XP")
                         .font(.work(16, .bold))
                         .foregroundStyle(Quill.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(course.map { "Kurs \($0.title), \(courseXP) XP. Kurs wechseln" } ?? "Kurs wählen")
-            Spacer(minLength: 0)
-            item(symbol: "flame.fill", color: streak > 0 ? Quill.warn : Quill.hint, text: "\(streak)", label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage")", action: onStreak)
-            Spacer(minLength: 0)
-            item(symbol: "diamond.fill", color: Quill.link, text: "\(gems)", label: "\(gems) Gems. Zum Streak-Schutz", action: onGems)
-            Spacer(minLength: 0)
+            if !stacked { Spacer(minLength: 0) }
+            item(
+                symbol: "flame.fill", color: streak > 0 ? Quill.accent : Quill.hint, word: "Serie", text: "\(streak)",
+                label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage"). Öffnet die Serie", action: onStreak
+            )
+            if !stacked { Spacer(minLength: 0) }
             goalMenu
         }
         .padding(.horizontal, 4)
     }
 
-    private func item(symbol: String, color: Color, text: String, label: String, action: @escaping () -> Void) -> some View {
+    private func item(symbol: String, color: Color, word: String, text: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: symbol)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(color)
+                Text(word)
+                    .font(.work(14))
+                    .foregroundStyle(Quill.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(text)
                     .font(.work(16, .bold))
-                    .foregroundStyle(color)
+                    .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(minHeight: 44)
         }
@@ -72,9 +85,16 @@ struct LearnStatsBar: View {
                         .rotationEffect(.degrees(-90))
                 }
                 .frame(width: 22, height: 22)
+                Text("Heute")
+                    .font(.work(14))
+                    .foregroundStyle(Quill.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text("\(min(xpToday, 999))/\(goal)")
                     .font(.work(14, .bold))
                     .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(minHeight: 44)
         }

@@ -97,4 +97,56 @@ final class LessonModelTests: XCTestCase {
         model.addTile(1)
         XCTAssertEqual(model.tiles, [2, 3, 0], "tiles are locked while the verdict shows")
     }
+
+    func testAWrongTypedAnswerCanBeFixedWithoutSeeingTheSolution() {
+        let model = LessonModel(cards: [card("a", "Berlin")], exercises: [typing("a", "Berlin")], sessionID: "retry")
+        model.typed = "Paris"
+        XCTAssertEqual(model.check(), .wrong)
+        XCTAssertFalse(model.solutionShown)
+        XCTAssertEqual(model.retryNote, "Schau noch einmal hin.")
+        model.tryAgain()
+        XCTAssertTrue(model.isAnswering)
+        XCTAssertEqual(model.typed, "Paris", "the text stays to be corrected")
+        model.typed = "Berlin"
+        XCTAssertEqual(model.check(), .right)
+        model.advance()
+        XCTAssertEqual(model.takeResult()?.rightOnRetry, 1)
+    }
+
+    func testTheSolutionIsOnlyShownOnRequestAndThenTheRetryIsGone() {
+        let model = LessonModel(cards: [card("a", "Berlin")], exercises: [typing("a", "Berlin")], sessionID: "reveal")
+        model.showSolution()
+        XCTAssertFalse(model.solutionShown, "nothing to reveal before a wrong answer")
+        model.typed = "Paris"
+        model.check()
+        model.showSolution()
+        XCTAssertTrue(model.solutionShown)
+        model.tryAgain()
+        XCTAssertEqual(model.verdict, .wrong, "after the solution only Weiter is left")
+        model.advance()
+        XCTAssertFalse(model.solutionShown)
+    }
+
+    func testPairsTryAgainTakesApartOnlyTheWrongOnes() {
+        let keys = ["a", "b"]
+        let pairs = keys.map { LearnExercise.Pair(key: $0, front: "Frage \($0)", back: "Antwort \($0)") }
+        let exercise = LearnExercise(
+            id: "matchPairs:a+b", kind: .matchPairs, cardKeys: keys, prompt: "Finde die Paare",
+            correctAnswers: pairs.map(\.back), options: pairs.map(\.back), pairs: pairs, solution: ""
+        )
+        let model = LessonModel(cards: keys.map { card($0, "Antwort \($0)") }, exercises: [exercise], sessionID: "pairs-retry")
+        // options: a, b. Pair a with b first (a miss), then everything right.
+        _ = model.pickFront("a")
+        XCTAssertEqual(model.pickBack(1), .miss)
+        _ = model.pickFront("a")
+        XCTAssertEqual(model.pickBack(0), .match)
+        _ = model.pickFront("b")
+        XCTAssertEqual(model.pickBack(1), .finished(.wrong))
+        model.tryAgain()
+        XCTAssertTrue(model.isAnswering)
+        XCTAssertEqual(model.matched, ["b"])
+        XCTAssertEqual(model.matchedBacks, [1])
+        _ = model.pickFront("a")
+        XCTAssertEqual(model.pickBack(0), .finished(.right))
+    }
 }

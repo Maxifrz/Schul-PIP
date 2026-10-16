@@ -44,6 +44,8 @@ struct LessonSession {
     /// Whether the second attempt was right, by exercise id.
     private var retryRight: [String: Bool] = [:]
     private var requeued = Set<String>()
+    /// How many times each exercise was checked, tries on the spot included.
+    private var attempts: [String: Int] = [:]
     /// Whether a hint was shown before the first attempt, by exercise id.
     private var firstHelped: [String: Bool] = [:]
     /// How many hints were shown for each exercise, by exercise id.
@@ -108,20 +110,30 @@ struct LessonSession {
         guard phase == .answering, let exercise = current else { return nil }
         let missed = exercise.missedKeys(for: answer)
         let verdict: LearnVerdict = missed.isEmpty ? .right : .wrong
+        attempts[exercise.id, default: 0] += 1
         if attempted.insert(exercise.id).inserted {
             firstMissed[exercise.id] = missed
             firstHelped[exercise.id] = hintCount > 0
-        } else {
+        } else if verdict == .right || isRetry {
+            // A wrong try on the spot in the first round settles nothing: the exercise still comes back at the end.
             retryRight[exercise.id] = verdict == .right
         }
         phase = .feedback(verdict)
         return verdict
     }
 
+    /// "Nochmal versuchen": the same exercise again right after a wrong answer, as often as the student likes. Only the
+    /// first attempt counts for the skills; a right try here counts as a right retry and spares the exercise its
+    /// second round at the end.
+    mutating func tryAgain() {
+        guard phase == .feedback(.wrong), current != nil else { return }
+        phase = .answering
+    }
+
     /// "War doch richtig": a typed answer the check did not accept counts as right.
     mutating func overrule() {
         guard phase == .feedback(.wrong), let exercise = current, exercise.kind == .typeAnswer else { return }
-        if retryRight[exercise.id] != nil {
+        if attempts[exercise.id, default: 0] > 1 {
             retryRight[exercise.id] = true
         } else {
             firstMissed[exercise.id] = []
@@ -129,7 +141,7 @@ struct LessonSession {
         phase = .feedback(.right)
     }
 
-    /// "Weiter": a first wrong answer puts the exercise at the end of the queue, once.
+    /// "Weiter": an exercise not yet answered right again goes to the end of the queue, once.
     mutating func advance() {
         guard case let .feedback(verdict) = phase, let exercise = current else { return }
         if verdict == .wrong, retryRight[exercise.id] == nil, requeued.insert(exercise.id).inserted {

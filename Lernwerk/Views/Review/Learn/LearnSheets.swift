@@ -64,36 +64,48 @@ struct UnitTipSheet: View {
     }
 }
 
-/// Gems and what they buy.
-struct ShopSheet: View {
+/// The streak: how many days in a row, the longest run, and the freezes that save it when a day is missed.
+struct StreakSheet: View {
+    let days: Int
+    let longest: Int
     let gems: Int
     let freezes: Int
     let onBuyFreeze: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    private func daysText(_ count: Int) -> String { "\(count) \(count == 1 ? "Tag" : "Tage")" }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    PixelCaption(text: "Gems", color: Quill.accent)
-                    HStack(spacing: 8) {
-                        Image(systemName: "diamond.fill")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Quill.link)
-                        Text("\(gems)")
-                            .font(.work(34, .heavy))
-                            .foregroundStyle(Quill.ink)
-                    }
+                    PixelCaption(text: "Serie", color: Quill.accent)
+                    Text(daysText(days))
+                        .font(.work(34, .heavy))
+                        .tracking(-0.8)
+                        .foregroundStyle(Quill.ink)
                 }
                 Spacer()
                 Button("Fertig") { dismiss() }
                     .buttonStyle(QuillOutlineButtonStyle(height: 38, fontSize: 14, weight: .medium))
             }
-            Text("Gems bekommst du für Lektionen, Quests, Truhen und dein Tagesziel.")
+            Text(days == 0
+                ? "Eine Lektion pro Tag startet deine Serie."
+                : "Eine Lektion pro Tag hält deine Serie am Laufen. Dein längster Lauf: \(daysText(max(longest, days))).")
                 .font(.work(14.5))
+                .lineSpacing(3)
                 .foregroundStyle(Quill.muted)
                 .fixedSize(horizontal: false, vertical: true)
             FreezeRow(gems: gems, freezes: freezes, onBuy: onBuyFreeze)
+            HStack(spacing: 6) {
+                Image(systemName: "diamond.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Quill.accent)
+                Text("\(gems) Gems")
+                    .font(.work(13.5))
+                    .foregroundStyle(Quill.muted)
+            }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
         }
         .padding(24)

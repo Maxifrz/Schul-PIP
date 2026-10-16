@@ -125,7 +125,7 @@ struct LessonView: View {
             HStack(spacing: 10) {
                 PixelCaption(text: caption(for: exercise.kind), color: Quill.accent)
                 if model.session.isRetry {
-                    PixelCaption(text: "Nochmal", color: Quill.warn)
+                    PixelCaption(text: "Nochmal", color: Quill.muted)
                 }
             }
             if exercise.kind != .matchPairs {
@@ -139,6 +139,9 @@ struct LessonView: View {
             }
             ExerciseMediaView(exercise: exercise)
             exerciseView(exercise)
+            if model.isAnswering, !model.coachNote.isEmpty {
+                noteCard(model.coachNote)
+            }
             if !model.hintsShown.isEmpty {
                 hintCard(model.hintsShown)
             }
@@ -150,13 +153,16 @@ struct LessonView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// A wrong answer keeps the right one hidden until the student asks for it.
+    private var revealsSolution: Bool { model.verdict != .wrong || model.solutionShown }
+
     @ViewBuilder
     private func exerciseView(_ exercise: LearnExercise) -> some View {
         switch exercise.kind {
         case .multipleChoice:
             MultipleChoiceView(
                 options: exercise.options,
-                correct: exercise.correctAnswers.first ?? "",
+                correct: revealsSolution ? exercise.correctAnswers.first ?? "" : "",
                 choice: $model.choice,
                 verdict: model.verdict,
                 onPick: { LearnHaptics.selection(haptics) }
@@ -192,7 +198,7 @@ struct LessonView: View {
         case .chessMove:
             if case let .board(spec)? = exercise.media {
                 ChessMoveView(
-                    spec: spec, from: model.moveFrom, to: model.moveTo, correctMoves: exercise.correctAnswers,
+                    spec: spec, from: model.moveFrom, to: model.moveTo, correctMoves: revealsSolution ? exercise.correctAnswers : [],
                     verdict: model.verdict, onTap: { square in
                         LearnHaptics.selection(haptics)
                         model.tapSquare(square)
@@ -200,8 +206,33 @@ struct LessonView: View {
                 )
             }
         case .pianoKey:
-            PianoKeyView(correct: exercise.correctAnswers.compactMap { Int($0) }, choice: $model.choice, verdict: model.verdict)
+            PianoKeyView(
+                correct: exercise.correctAnswers.compactMap { Int($0) }, choice: $model.choice, verdict: model.verdict,
+                showsSolution: revealsSolution
+            )
         }
+    }
+
+    /// Why the last try was wrong, kept in view while the student tries again.
+    private func noteCard(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(LearnTone.wrong)
+                .frame(width: 20)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.work(15.5, .medium))
+                .lineSpacing(3)
+                .foregroundStyle(Quill.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Quill.line, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Letzter Versuch falsch: " + text)
     }
 
     private func hintCard(_ hints: [String]) -> some View {
@@ -210,7 +241,7 @@ struct LessonView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "lightbulb.fill")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Quill.warn)
+                        .foregroundStyle(Quill.accent)
                         .frame(width: 20)
                     Text(text)
                         .font(.work(15.5))
@@ -246,16 +277,19 @@ struct LessonView: View {
         if let verdict = model.verdict {
             LessonFeedbackBar(
                 verdict: verdict,
-                solution: verdict == .wrong ? exercise.solution : nil,
-                note: model.coachNote,
-                explanation: exercise.explanation,
-                comesBack: verdict == .wrong && !model.session.isRetry,
+                solution: verdict == .wrong && model.solutionShown ? exercise.solution : nil,
+                note: verdict == .wrong ? model.retryNote : "",
+                explanation: verdict == .wrong && !model.solutionShown ? "" : exercise.explanation,
+                comesBack: verdict == .wrong && model.solutionShown && !model.session.isRetry,
                 canOverrule: verdict == .wrong && exercise.kind == .typeAnswer,
+                canRetry: verdict == .wrong && !model.solutionShown,
                 compact: compact,
                 onOverrule: {
                     model.overrule()
                     LearnHaptics.verdict(.right, haptics)
                 },
+                onRetry: { model.tryAgain() },
+                onShowSolution: { model.showSolution() },
                 onNext: next
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -320,8 +354,12 @@ struct LessonFeedbackBar: View {
     var explanation = ""
     let comesBack: Bool
     let canOverrule: Bool
+    /// After a wrong answer the choice is another try or the solution; "Weiter" comes once the solution is shown.
+    var canRetry = false
     let compact: Bool
     let onOverrule: () -> Void
+    var onRetry: () -> Void = {}
+    var onShowSolution: () -> Void = {}
     let onNext: () -> Void
 
     private var tone: Color { LearnTone.color(verdict) }
@@ -377,9 +415,17 @@ struct LessonFeedbackBar: View {
                         .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
-                Button("Weiter", action: onNext)
-                    .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
-                    .keyboardShortcut(.defaultAction)
+                if canRetry {
+                    Button("Lösung zeigen", action: onShowSolution)
+                        .buttonStyle(QuillOutlineButtonStyle(height: 52, fontSize: 15, weight: .medium))
+                    Button("Nochmal versuchen", action: onRetry)
+                        .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Weiter", action: onNext)
+                        .buttonStyle(QuillPrimaryButtonStyle(height: 52, fontSize: 16))
+                        .keyboardShortcut(.defaultAction)
+                }
             }
         }
         .frame(maxWidth: 640, alignment: .leading)

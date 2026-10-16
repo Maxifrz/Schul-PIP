@@ -1,21 +1,11 @@
 import SwiftUI
 
-/// The two small tiles above the path: today's quests and the week's challenge.
+/// What the one line above the path says: today's quests and the week's challenge.
 struct PathTiles: Equatable {
     var questsDone = 0
     var questsTotal = 0
-    /// Until midnight.
-    var secondsLeft: TimeInterval = 0
     var weekText = ""
-    var weekFraction = 0.0
     var hasUnclaimed = false
-
-    /// "noch 15 Std" or "noch 42 Min".
-    var timeLeftText: String {
-        let minutes = Int(secondsLeft / 60)
-        if minutes >= 60 { return "noch \(minutes / 60) Std" }
-        return "noch \(max(1, minutes)) Min"
-    }
 }
 
 /// The path of a course: a banner per unit that stays at the top while its steps scroll by, and below it the steps in
@@ -31,9 +21,12 @@ struct CoursePathView<Footer: View>: View {
     let advice: Recommendation?
     let onAdvice: () -> Void
     let onSkills: () -> Void
+    /// Where the course's goals stand; nil for a course made of the student's own cards.
+    let mastery: PathMastery?
     private let footer: Footer
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
         course: Course,
@@ -45,6 +38,7 @@ struct CoursePathView<Footer: View>: View {
         advice: Recommendation? = nil,
         onAdvice: @escaping () -> Void = {},
         onSkills: @escaping () -> Void = {},
+        mastery: PathMastery? = nil,
         @ViewBuilder footer: () -> Footer
     ) {
         self.course = course
@@ -56,22 +50,58 @@ struct CoursePathView<Footer: View>: View {
         self.advice = advice
         self.onAdvice = onAdvice
         self.onSkills = onSkills
+        self.mastery = mastery
         self.footer = footer()
     }
 
     private var compact: Bool { sizeClass == .compact }
     private var current: PathStep? { CoursePath.current(in: units) }
 
+    /// Wide windows (an iPad, not a Split View sliver) put the advice beside the path instead of above it.
+    private var railMinimumWidth: CGFloat { 760 }
+    private var railWidth: CGFloat { 340 }
+
     var body: some View {
+        GeometryReader { geometry in
+            if sizeClass == .regular, geometry.size.width >= railMinimumWidth {
+                HStack(alignment: .top, spacing: 12) {
+                    headerContent
+                        .frame(width: railWidth)
+                        .padding(.leading, 28)
+                        .padding(.top, 6)
+                    pathScroll(withHeader: false)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    // At the largest text sizes the advice would fill the screen, so it scrolls with the path.
+                    if !typeSize.isAccessibilitySize {
+                        headerContent
+                            .frame(maxWidth: 560)
+                            .padding(.horizontal, compact ? 16 : 28)
+                            .frame(maxWidth: .infinity)
+                    }
+                    pathScroll(withHeader: typeSize.isAccessibilitySize)
+                }
+            }
+        }
+    }
+
+    /// The advice and the quests line stay in view while the path scrolls: above it, or in the rail beside it.
+    private var headerContent: some View {
+        VStack(spacing: 0) {
+            if let advice {
+                AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
+                    .padding(.top, 6)
+            }
+            questsLine
+        }
+    }
+
+    private func pathScroll(withHeader: Bool) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    if let advice {
-                        AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
-                            .padding(.top, 6)
-                    }
-                    tilesRow
-                        .padding(.bottom, 6)
+                    if withHeader { headerContent }
                     ForEach(Array(units.enumerated()), id: \.element.id) { unitIndex, unit in
                         Section {
                             steps(of: unit, before: units.prefix(unitIndex).reduce(0) { $0 + $1.steps.count })
@@ -93,7 +123,7 @@ struct CoursePathView<Footer: View>: View {
             .scrollIndicators(.hidden)
             .onAppear {
                 guard let current else { return }
-                DispatchQueue.main.async { proxy.scrollTo(current.id, anchor: .center) }
+                DispatchQueue.main.async { proxy.scrollTo(current.id, anchor: UnitPoint(x: 0.5, y: 0.6)) }
             }
         }
     }
@@ -101,41 +131,75 @@ struct CoursePathView<Footer: View>: View {
     // MARK: Banner
 
     private func banner(_ unit: PathUnit) -> some View {
-        Button { onTip(unit.unit) } label: {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ABSCHNITT \(unit.sectionNumber), EINHEIT \(unit.unit.number)")
-                        .font(.mono(11, .semibold))
-                        .tracking(1)
-                        .opacity(0.8)
-                    Text(unit.unit.title)
-                        .font(.work(21, .bold))
-                        .tracking(-0.4)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
+        let standing = mastery.map { $0.unit(unit.unit) }.flatMap { $0.isEmpty ? nil : $0 }
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { onTip(unit.unit) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ABSCHNITT \(unit.sectionNumber), EINHEIT \(unit.unit.number)")
+                            .font(.mono(11, .semibold))
+                            .tracking(1)
+                            .opacity(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(unit.unit.title)
+                            .font(.work(21, .bold))
+                            .tracking(-0.4)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                Spacer(minLength: 8)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Abschnitt \(unit.sectionNumber), Einheit \(unit.unit.number): \(unit.unit.title). Tipps lesen")
+                if let standing {
+                    Button(action: onSkills) {
+                        HStack(spacing: 8) {
+                            HStack(spacing: 4) {
+                                ForEach(0..<standing.total, id: \.self) { index in
+                                    Circle()
+                                        .fill(index < standing.reached ? course.onTint : Color.clear)
+                                        .overlay(Circle().stroke(course.onTint.opacity(0.7), lineWidth: 1.5))
+                                        .frame(width: 9, height: 9)
+                                }
+                            }
+                            Text(standing.text)
+                                .font(.work(13.5, .semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .opacity(0.8)
+                        }
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fähigkeiten: \(standing.text). Zeigt die Fähigkeiten")
+                }
+            }
+            Button { onTip(unit.unit) } label: {
                 Image(systemName: "book.fill")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(course.onTint.opacity(0.5), lineWidth: 1.5))
             }
-            .foregroundStyle(course.onTint)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(course.tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Quill.paperInk.opacity(0.28))
-                    .offset(y: 4)
-            )
+            .buttonStyle(.plain)
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(course.onTint)
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, standing == nil ? 14 : 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(course.tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Quill.scrim)
+                .offset(y: 4)
+        )
         .padding(.top, 14)
         .padding(.bottom, 10)
         .background(Quill.bg)
-        .accessibilityLabel("Abschnitt \(unit.sectionNumber), Einheit \(unit.unit.number): \(unit.unit.title). Tipps lesen")
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: Steps
@@ -161,7 +225,7 @@ struct CoursePathView<Footer: View>: View {
         let offset = shift(position)
         let isCurrent = step.id == current?.id
         return ZStack {
-            PathNodeView(step: step, course: course, isCurrent: isCurrent) { onStep(step) }
+            PathNodeView(step: step, course: course, isCurrent: isCurrent, mastery: mastery?.node(step) ?? .none) { onStep(step) }
                 .offset(x: offset)
             if isCurrent {
                 PathPip()
@@ -185,57 +249,54 @@ struct CoursePathView<Footer: View>: View {
         }
     }
 
-    // MARK: Tiles and footer
+    // MARK: Quests line and footer
 
-    private var tilesRow: some View {
-        HStack(spacing: 10) {
-            tile(
-                symbol: "scroll.fill", title: "Quests",
-                value: "\(tiles.questsDone)/\(tiles.questsTotal)", caption: tiles.timeLeftText,
-                fraction: tiles.questsTotal == 0 ? 0 : Double(tiles.questsDone) / Double(tiles.questsTotal),
-                highlight: tiles.hasUnclaimed
-            )
-            tile(
-                symbol: "calendar", title: "Woche", value: tiles.weekText, caption: "Wochenziel",
-                fraction: tiles.weekFraction, highlight: false
-            )
-        }
-        .padding(.top, 6)
-    }
-
-    private func tile(symbol: String, title: String, value: String, caption: String, fraction: Double, highlight: Bool) -> some View {
+    /// Quests and the week in one quiet line; the page behind it has the rest.
+    private var questsLine: some View {
         Button(action: onQuests) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: symbol)
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(title.uppercased())
-                        .font(.mono(10.5, .semibold))
-                        .tracking(0.8)
-                    Spacer(minLength: 0)
-                    if highlight {
-                        StatusDot(color: Quill.warn, size: 8)
-                    }
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 2) { questsLineParts }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    questsLineRow
                 }
-                .foregroundStyle(Quill.muted)
-                Text(value.isEmpty ? " " : value)
-                    .font(.work(18, .bold))
-                    .foregroundStyle(Quill.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                QuillProgressBar(fraction: fraction)
-                Text(caption)
-                    .font(.work(12))
-                    .foregroundStyle(Quill.faint)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(highlight ? Quill.warn : Quill.line, lineWidth: highlight ? 2 : 1))
+            .padding(.horizontal, 4)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title): \(value), \(caption)")
+        .accessibilityLabel("Quests heute: \(tiles.questsDone) von \(tiles.questsTotal)" + (tiles.weekText.isEmpty ? "" : ", Woche: \(tiles.weekText)"))
+        .accessibilityHint("Öffnet die Quests")
+    }
+
+    private var questsLineRow: some View {
+        HStack(spacing: 8) {
+            questsLineParts
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Quill.faint)
+        }
+    }
+
+    @ViewBuilder
+    private var questsLineParts: some View {
+        HStack(spacing: 6) {
+            Text("Quests \(tiles.questsDone)/\(tiles.questsTotal)")
+                .font(.work(14, .medium))
+                .foregroundStyle(Quill.ink2)
+            if tiles.hasUnclaimed {
+                StatusDot(color: Quill.warn, size: 8)
+            }
+        }
+        if !tiles.weekText.isEmpty {
+            Text("Woche \(tiles.weekText)")
+                .font(.work(14))
+                .foregroundStyle(Quill.muted)
+        }
     }
 
     private var finished: some View {

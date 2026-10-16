@@ -231,4 +231,67 @@ final class LessonSessionTests: XCTestCase {
         XCTAssertEqual(lesson.result?.accuracy, 1)
         XCTAssertEqual(lesson.result?.cardsRightFirstTry, Set(cards.map(\.key)))
     }
+
+    func testTryingAgainOnTheSpotKeepsTheFirstAttemptAndSparesTheSecondRound() {
+        var lesson = session([exercise(.typeAnswer, "a")], cards: ["a"])
+        XCTAssertEqual(lesson.submit(.typed("Paris")), .wrong)
+        lesson.tryAgain()
+        XCTAssertEqual(lesson.phase, .answering)
+        XCTAssertEqual(lesson.progress, 0)
+        XCTAssertEqual(lesson.submit(.typed("Rom")), .wrong, "a wrong try settles nothing")
+        lesson.tryAgain()
+        XCTAssertEqual(lesson.submit(.typed("Berlin")), .right)
+        XCTAssertEqual(lesson.progress, 1)
+        lesson.advance()
+        XCTAssertEqual(lesson.phase, .finished, "it does not come back at the end")
+        XCTAssertEqual(lesson.result?.rightFirstTry, 0)
+        XCTAssertEqual(lesson.result?.rightOnRetry, 1)
+        XCTAssertEqual(lesson.result?.outcomes.count, 0, "no skill on this exercise")
+    }
+
+    func testGivingUpAfterWrongTriesStillBringsItBackOnce() {
+        var lesson = session([exercise(.typeAnswer, "a")], cards: ["a"])
+        lesson.submit(.typed("Paris"))
+        lesson.tryAgain()
+        lesson.submit(.typed("Rom"))
+        lesson.advance()
+        XCTAssertTrue(lesson.isRetry)
+        XCTAssertEqual(lesson.queue.count, 2)
+    }
+
+    func testOnlyTheFirstAttemptReachesTheSkills() {
+        var tagged = exercise(.typeAnswer, "a")
+        tagged.skill = "s.u01.main"
+        tagged.level = .recall
+        var lesson = session([tagged], cards: ["a"])
+        lesson.submit(.typed("Paris"))
+        lesson.tryAgain()
+        lesson.submit(.typed("Berlin"))
+        lesson.advance()
+        XCTAssertEqual(lesson.result?.outcomes, [ExerciseOutcome(exerciseID: tagged.id, skill: "s.u01.main", level: .recall, right: false, helped: false)])
+    }
+
+    func testOverrulingATryOnTheSpotDoesNotRewriteTheFirstAttempt() {
+        var tagged = exercise(.typeAnswer, "a")
+        tagged.skill = "s.u01.main"
+        tagged.level = .recall
+        var lesson = session([tagged], cards: ["a"])
+        lesson.submit(.typed("Paris"))
+        lesson.tryAgain()
+        lesson.submit(.typed("Berln"))
+        lesson.overrule()
+        lesson.advance()
+        XCTAssertEqual(lesson.result?.rightFirstTry, 0)
+        XCTAssertEqual(lesson.result?.rightOnRetry, 1)
+        XCTAssertEqual(lesson.result?.outcomes.first?.right, false)
+    }
+
+    func testTryAgainOnlyWorksAfterAWrongAnswer() {
+        var lesson = session([exercise(.typeAnswer, "a")], cards: ["a"])
+        lesson.tryAgain()
+        XCTAssertEqual(lesson.phase, .answering)
+        lesson.submit(.typed("Berlin"))
+        lesson.tryAgain()
+        XCTAssertEqual(lesson.phase, .feedback(.right))
+    }
 }

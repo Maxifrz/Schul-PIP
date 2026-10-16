@@ -31,9 +31,11 @@ struct PathNodeView: View {
     let step: PathStep
     let course: Course
     let isCurrent: Bool
+    var mastery: NodeMastery = .none
     let action: () -> Void
 
     @State private var bounce = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var symbol: String {
         switch step.node.kind {
@@ -55,7 +57,12 @@ struct PathNodeView: View {
 
     private var stateText: String {
         switch step.state {
-        case .done: return step.node.kind == .chest ? "geöffnet" : "geschafft"
+        case .done:
+            switch mastery {
+            case .sits: return "geschafft, sitzt"
+            case .due: return "geschafft, Wiederholung fällig"
+            case .none, .worked: return step.node.kind == .chest ? "geöffnet" : "geschafft"
+            }
         case .open: return step.node.kind == .chest ? "bereit zum Öffnen" : "offen"
         case .locked: return "gesperrt"
         }
@@ -85,6 +92,13 @@ struct PathNodeView: View {
                 Ellipse()
                     .fill(face)
                     .frame(width: 88, height: 70)
+                if mastery == .sits || mastery == .due {
+                    // Done is a filled coin; "sits" adds a ring around it, and a review that is due breaks the ring.
+                    Ellipse()
+                        .stroke(course.tint, style: StrokeStyle(lineWidth: 3, dash: mastery == .due ? [7, 6] : []))
+                        .frame(width: 102, height: 84)
+                        .offset(y: 3)
+                }
                 Image(systemName: symbol)
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(iconColor)
@@ -110,6 +124,7 @@ struct PathNodeView: View {
         .disabled(step.state == .locked)
         .onAppear {
             guard isCurrent else { return }
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { bounce = true }
         }
         .accessibilityElement(children: .ignore)
