@@ -178,6 +178,11 @@ export async function setRole(group: Group, user: string, role: 'mod' | 'member'
   await refreshMembers(group);
 }
 
+export async function removeMember(group: Group, user: string): Promise<void> {
+  await run((a) => a.call('remove_member', { p_group: group.id, p_user: user }), { busy: false });
+  await refreshMembers(group);
+}
+
 // Chat
 
 export async function refreshMessages(group: Group): Promise<void> {
@@ -205,7 +210,7 @@ export async function sendFile(group: Group, name: string, data: Uint8Array): Pr
 }
 
 export async function deleteMessage(group: Group, message: Message): Promise<void> {
-  await run((a) => a.deleteMessage(message.id), { busy: false });
+  await run((a) => a.deleteMessage(message.id, message.attachmentPath), { busy: false });
   social.set((s) => ({ ...s, messages: { ...s.messages, [group.id]: (s.messages[group.id] ?? []).filter((m) => m.id !== message.id) } }));
 }
 
@@ -235,7 +240,7 @@ export async function addResult(group: Group, title: string, name: string, data:
 }
 
 export async function deleteResult(group: Group, result: Result): Promise<void> {
-  await run((a) => a.deleteResult(result.id), { busy: false });
+  await run((a) => a.deleteResult(result.id, result.path), { busy: false });
   social.set((s) => ({ ...s, results: { ...s.results, [group.id]: (s.results[group.id] ?? []).filter((r) => r.id !== result.id) } }));
 }
 

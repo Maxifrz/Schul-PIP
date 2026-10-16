@@ -29,3 +29,14 @@ saves a version, so a moderator can step back. Closing freezes the board: no fun
 Limits, on purpose: the board refreshes every three seconds (no live cursor, no typing in one block at once; two people
 editing the same block get "somebody changed it, reload"), there is no free-form canvas with connecting lines yet, and
 "online" is not shown because the app does not track presence.
+
+## Moderation and updates
+
+`board.sql` also holds the moderation rules: moderators delete messages and results of others (the app removes the
+attached file first), read the reports (`select * from reports` in the SQL editor shows them; the apps do not list
+them yet) and remove members (`remove_member`). `schema.sql` limits wrong join codes to 10 per student in 10 minutes and
+draws new codes from a secure random source.
+
+If you set the project up earlier, run `schema.sql` and then `board.sql` again after updating the app. Both are safe to
+run again. `join_group` now answers a wrong code with no row instead of an error, so the app needs this version of the
+schema: an older app with the new schema, or the other way round, shows "Die Antwort des Servers ist unerwartet".

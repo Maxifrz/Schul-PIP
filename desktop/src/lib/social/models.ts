@@ -60,6 +60,8 @@ export class SocialError extends Error {
   constructor(
     public readonly kind: 'notConfigured' | 'signedOut' | 'confirmEmail' | 'tooLarge' | 'server' | 'offline',
     message: string,
+    /** The HTTP status of a server answer, when there was one. */
+    public readonly status?: number,
   ) {
     super(message);
   }
@@ -71,7 +73,7 @@ export const errors = {
   confirmEmail: () => new SocialError('confirmEmail', 'Fast geschafft: Bestätige die E-Mail, die du bekommen hast, und melde dich dann an.'),
   tooLarge: () => new SocialError('tooLarge', 'Die Datei ist größer als 20 MB.'),
   offline: () => new SocialError('offline', 'Keine Verbindung zum Server.'),
-  server: (message: string) => new SocialError('server', message),
+  server: (message: string, status?: number) => new SocialError('server', message, status),
 };
 
 /** PostgREST sends snake_case; the app works with camelCase. */

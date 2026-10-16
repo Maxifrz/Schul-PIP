@@ -71,10 +71,21 @@ export class SocialApi {
     return session;
   }
 
-  private async refreshIfNeeded(): Promise<void> {
+  /** The renewal that is running: requests that arrive meanwhile wait for it instead of spending the same single-use token twice. */
+  private renewing: Promise<void> | null = null;
+
+  private refreshIfNeeded(): Promise<void> {
     const session = this.session;
-    if (!session) throw errors.signedOut();
-    if (session.expiresAt - this.now() >= 60) return;
+    if (!session) return Promise.reject(errors.signedOut());
+    if (session.expiresAt - this.now() >= 60) return Promise.resolve();
+    this.renewing ??= this.renew(session).finally(() => {
+      this.renewing = null;
+    });
+    return this.renewing;
+  }
+
+  /** Only a server that refuses the token ends the session; no network or a server error leaves the student signed in. */
+  private async renew(session: Session): Promise<void> {
     try {
       const data = await this.send('POST', '/auth/v1/token', {
         query: [['grant_type', 'refresh_token']],
@@ -83,10 +94,13 @@ export class SocialApi {
       });
       const renewed = this.adopt(camelize<AuthResponse>(JSON.parse(new TextDecoder().decode(data))), session.name, session.email);
       this.onSession?.(renewed);
-    } catch {
-      this.session = null;
-      this.onSession?.(null);
-      throw errors.signedOut();
+    } catch (error) {
+      if (error instanceof SocialError && error.kind === 'server' && error.status !== undefined && error.status >= 400 && error.status < 500) {
+        this.session = null;
+        this.onSession?.(null);
+        throw errors.signedOut();
+      }
+      throw error instanceof SocialError ? error : errors.server('Die Antwort des Servers ist unerwartet.');
     }
   }
 
@@ -129,8 +143,11 @@ export class SocialApi {
     return this.rpc('create_group', params);
   }
 
-  joinGroup(code: string): Promise<Group> {
-    return this.rpc('join_group', { p_code: code });
+  /** A wrong code comes back as no row (the server counts the attempt), not as an error. */
+  async joinGroup(code: string): Promise<Group> {
+    const rows = await this.rpc<Group[]>('join_group', { p_code: code });
+    if (!rows[0]) throw errors.server('Diesen Code gibt es nicht.');
+    return rows[0];
   }
 
   joinSubgroup(group: string): Promise<Group> {
@@ -149,7 +166,9 @@ export class SocialApi {
     await this.authorized('POST', '/rest/v1/messages', { body: JSON.stringify(row) });
   }
 
-  async deleteMessage(id: string): Promise<void> {
+  /** The file goes first, while the row that names it still lets the author (or a moderator) remove it. */
+  async deleteMessage(id: string, attachmentPath?: string | null): Promise<void> {
+    if (attachmentPath) await this.removeFile(attachmentPath);
     await this.authorized('DELETE', '/rest/v1/messages', { query: [['id', `eq.${uuid(id)}`]] });
   }
 
@@ -158,7 +177,8 @@ export class SocialApi {
     await this.authorized('POST', '/rest/v1/results', { body: JSON.stringify({ group_id: uuid(group), user_id: uuid(user), title, path, file_name: fileName }) });
   }
 
-  async deleteResult(id: string): Promise<void> {
+  async deleteResult(id: string, path?: string | null): Promise<void> {
+    if (path) await this.removeFile(path);
     await this.authorized('DELETE', '/rest/v1/results', { query: [['id', `eq.${uuid(id)}`]] });
   }
 
@@ -168,6 +188,15 @@ export class SocialApi {
   }
 
   // Files
+
+  /** Best effort: a file that is already gone must not block deleting the row. */
+  async removeFile(path: string): Promise<void> {
+    try {
+      await this.authorized('DELETE', `/storage/v1/object/files/${path}`);
+    } catch {
+      // ignored on purpose
+    }
+  }
 
   async upload(data: Uint8Array, path: string, contentType: string): Promise<void> {
     if (data.byteLength > maxFileBytes) throw errors.tooLarge();
@@ -282,7 +311,7 @@ export class SocialApi {
     const data = await response.arrayBuffer();
     if (response.status < 200 || response.status >= 300) {
       if (response.status === 401 && options.authorized) throw errors.signedOut();
-      throw errors.server(german(errorMessage(data, response.status)));
+      throw errors.server(german(errorMessage(data, response.status)), response.status);
     }
     return data;
   }

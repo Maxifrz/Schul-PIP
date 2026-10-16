@@ -144,13 +144,23 @@ final class SocialTests: XCTestCase {
     }
 
     func testJoiningCallsTheFunctionWithTheCodeAndDecodesTheGroup() async throws {
-        let client = api([(200, #"{"id":"55555555-5555-5555-5555-555555555555","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"2026-10-06T12:00:00+00:00"}"#)], session: valid)
+        let client = api([(200, #"[{"id":"55555555-5555-5555-5555-555555555555","parent_id":null,"name":"Mathe LK","kind":"course","join_code":"K7M2QX","created_at":"2026-10-06T12:00:00+00:00"}]"#)], session: valid)
         let group = try await client.joinGroup(code: "K7M2QX")
         XCTAssertEqual(group.name, "Mathe LK")
         XCTAssertTrue(group.isCourse)
         XCTAssertNil(group.parentId)
         XCTAssertEqual(SocialProtocol.requests.first?.url, "https://abc.supabase.co/rest/v1/rpc/join_group")
         XCTAssertTrue(SocialProtocol.requests.first?.body.contains("K7M2QX") == true)
+    }
+
+    func testAWrongJoinCodeComesBackAsNoRowAndReadsAsAnError() async {
+        let client = api([(200, "[]")], session: valid)
+        do {
+            _ = try await client.joinGroup(code: "NOPE")
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(error as? SocialError, .server("Diesen Code gibt es nicht."))
+        }
     }
 
     func testServerRefusalCarriesItsOwnMessage() async {

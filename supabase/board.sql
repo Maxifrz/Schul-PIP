@@ -149,6 +149,8 @@ begin
     g := public.board_group(b.board_id);
     if not public.is_mod(g) then raise exception 'Nur Moderatoren übernehmen Beiträge.'; end if;
     if not public.board_is_open(b.board_id) then raise exception 'Das Tafelbild ist gesperrt.'; end if;
+    -- Accepting twice (a double tap) would move the block to the end and write another version.
+    if b.status = 'accepted' then return; end if;
     select coalesce(max(position), 0) + 1 into next_position
         from public.board_blocks where board_id = b.board_id and status = 'accepted';
     -- Only a block of the same board can be replaced.
@@ -388,3 +390,49 @@ grant execute on function public.vote(uuid, uuid) to authenticated;
 grant execute on function public.poll_counts(uuid) to authenticated;
 grant execute on function public.my_votes(uuid) to authenticated;
 grant execute on function public.close_poll(uuid) to authenticated;
+
+-- Moderation ----------------------------------------------------------------------------------------------------------
+
+-- Moderators remove messages and results of others, read the reports and remove members. A deleted message's file goes
+-- too: the app removes the file first, while the row still names it.
+drop policy if exists messages_delete on public.messages;
+create policy messages_delete on public.messages for delete to authenticated
+    using (user_id = auth.uid() or public.is_mod(group_id));
+drop policy if exists results_delete on public.results;
+create policy results_delete on public.results for delete to authenticated
+    using (user_id = auth.uid() or public.is_mod(group_id));
+
+drop policy if exists reports_read on public.reports;
+create policy reports_read on public.reports for select to authenticated
+    using (exists (select 1 from public.messages m where m.id = message_id and public.is_mod(m.group_id)));
+grant select on public.reports to authenticated;
+
+drop policy if exists files_delete on storage.objects;
+create policy files_delete on storage.objects for delete to authenticated
+    using (
+        bucket_id = 'files' and (
+            public.is_mod(((storage.foldername(name))[1])::uuid)
+            or exists (select 1 from public.messages m where m.attachment_path = name and m.user_id = auth.uid())
+            or exists (select 1 from public.results r where r.path = name and r.user_id = auth.uid())
+        )
+    );
+
+-- The founder removes anyone but a founder; a moderator removes plain members. A member removed from a course also
+-- leaves its work groups.
+create or replace function public.remove_member(p_group uuid, p_user uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+    mine text;
+    theirs text;
+begin
+    select role into mine from public.members where group_id = p_group and user_id = auth.uid();
+    select role into theirs from public.members where group_id = p_group and user_id = p_user;
+    if mine is null or mine = 'member' then raise exception 'Nur Moderatoren entfernen Mitglieder.'; end if;
+    if theirs is null then return; end if;
+    if theirs = 'owner' or (theirs = 'mod' and mine <> 'owner') then raise exception 'Diese Person kannst du nicht entfernen.'; end if;
+    delete from public.members where group_id = p_group and user_id = p_user;
+    delete from public.members m using public.groups g
+        where g.parent_id = p_group and m.group_id = g.id and m.user_id = p_user;
+end;
+$$;
+grant execute on function public.remove_member(uuid, uuid) to authenticated;

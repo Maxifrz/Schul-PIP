@@ -557,9 +557,10 @@ private struct ChatPane: View {
             .background(mine ? Quill.ink : Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(mine ? Color.clear : Quill.line2, lineWidth: 1))
             .contextMenu {
-                if mine {
+                if mine || store.isModerator(in: message.groupId) {
                     Button("Löschen", role: .destructive) { Task { await store.delete(message) } }
-                } else {
+                }
+                if !mine {
                     Button("Melden", role: .destructive) { Task { await store.report(message) } }
                 }
             }
@@ -699,7 +700,7 @@ private struct ResultsPane: View {
         .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Quill.line2, lineWidth: 1))
         .contextMenu {
-            if result.userId == store.me?.userId {
+            if result.userId == store.me?.userId || store.isModerator(in: result.groupId) {
                 Button("Löschen", role: .destructive) { Task { await store.delete(result) } }
             }
         }
@@ -799,13 +800,16 @@ private struct MembersPane: View {
                         } else if member.role == "mod" {
                             Text("MODERATOR").font(.mono(10.5, .medium)).tracking(0.6).foregroundStyle(Quill.link)
                         }
-                        if iAmOwner, member.role != "owner" {
+                        if member.role != "owner", iAmOwner || (store.isModerator(in: group.id) && member.role == "member") {
                             Menu {
-                                if member.role == "mod" {
-                                    Button("Moderation entziehen") { Task { await store.setRole("member", of: member.userId, in: group) } }
-                                } else {
-                                    Button("Zum Moderator machen") { Task { await store.setRole("mod", of: member.userId, in: group) } }
+                                if iAmOwner {
+                                    if member.role == "mod" {
+                                        Button("Moderation entziehen") { Task { await store.setRole("member", of: member.userId, in: group) } }
+                                    } else {
+                                        Button("Zum Moderator machen") { Task { await store.setRole("mod", of: member.userId, in: group) } }
+                                    }
                                 }
+                                Button("Aus der Gruppe entfernen", role: .destructive) { Task { await store.removeMember(member.userId, from: group) } }
                             } label: {
                                 Image(systemName: "ellipsis").foregroundStyle(Quill.faint).frame(width: 32, height: 24)
                             }

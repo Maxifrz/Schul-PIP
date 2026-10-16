@@ -160,8 +160,11 @@ actor SocialAPI {
         return try await rpc("create_group", params)
     }
 
+    /// The server answers a wrong code with no row (so that it can count the attempt), not with an error.
     func joinGroup(code: String) async throws -> SocialGroup {
-        try await rpc("join_group", ["p_code": code])
+        let rows: [SocialGroup] = try await rpc("join_group", ["p_code": code])
+        guard let group = rows.first else { throw SocialError.server("Diesen Code gibt es nicht.") }
+        return group
     }
 
     func joinSubgroup(_ group: UUID) async throws -> SocialGroup {
@@ -181,7 +184,9 @@ actor SocialAPI {
         _ = try await authorized("POST", "/rest/v1/messages", body: JSONSerialization.data(withJSONObject: row))
     }
 
-    func deleteMessage(_ id: UUID) async throws {
+    /// The file goes first, while the row that names it still lets the author (or a moderator) remove it.
+    func deleteMessage(_ id: UUID, attachmentPath: String? = nil) async throws {
+        if let attachmentPath { await removeFile(attachmentPath) }
         _ = try await authorized("DELETE", "/rest/v1/messages", query: [("id", "eq.\(id.uuidString.lowercased())")])
     }
 
@@ -194,7 +199,8 @@ actor SocialAPI {
         _ = try await authorized("POST", "/rest/v1/results", body: JSONSerialization.data(withJSONObject: row))
     }
 
-    func deleteResult(_ id: UUID) async throws {
+    func deleteResult(_ id: UUID, path: String? = nil) async throws {
+        if let path { await removeFile(path) }
         _ = try await authorized("DELETE", "/rest/v1/results", query: [("id", "eq.\(id.uuidString.lowercased())")])
     }
 
@@ -209,6 +215,11 @@ actor SocialAPI {
     func upload(_ data: Data, to path: String, contentType: String) async throws {
         guard data.count <= Social.maxFileBytes else { throw SocialError.tooLarge }
         _ = try await authorized("POST", "/storage/v1/object/files/\(path)", body: data, headers: ["Content-Type": contentType])
+    }
+
+    /// Best effort: a file that is already gone, or one the student may not remove, must not block deleting the row.
+    func removeFile(_ path: String) async {
+        _ = try? await authorized("DELETE", "/storage/v1/object/files/\(path)")
     }
 
     func download(_ path: String) async throws -> Data {
