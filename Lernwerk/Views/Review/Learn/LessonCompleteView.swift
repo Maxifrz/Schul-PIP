@@ -67,7 +67,7 @@ struct LessonCompleteView: View {
         if rewards.gems > 0 || !rewards.quests.isEmpty || rewards.freezesUsed > 0 || !rewards.notes.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 if rewards.gems > 0 {
-                    extraRow(symbol: "diamond.fill", text: "+\(rewards.gems) Gems", color: Quill.link)
+                    extraRow(symbol: "diamond.fill", text: "+\(rewards.gems) Gems", color: Quill.accent)
                 }
                 ForEach(rewards.quests, id: \.self) { title in
                     extraRow(symbol: "checkmark.seal.fill", text: "Quest geschafft: \(title)", color: Quill.accent)
@@ -79,7 +79,7 @@ struct LessonCompleteView: View {
                     extraRow(
                         symbol: "snowflake",
                         text: rewards.freezesUsed == 1 ? "Ein Streak-Schutz hat deine Serie gerettet" : "\(rewards.freezesUsed) Streak-Schütze haben deine Serie gerettet",
-                        color: Quill.warn
+                        color: Quill.accent
                     )
                 }
             }

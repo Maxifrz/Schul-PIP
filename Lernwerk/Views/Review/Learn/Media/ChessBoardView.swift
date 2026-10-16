@@ -51,7 +51,7 @@ struct ChessBoardView: View {
             return LearnTone.right.opacity(0.45)
         }
         if square == from || square == to {
-            return Quill.warn.opacity(0.6)
+            return Quill.ink.opacity(0.28)
         }
         return nil
     }
@@ -67,7 +67,7 @@ struct ChessBoardView: View {
                 if let tint = highlight(of: square) { tint }
                 if spec.marked.contains(square) {
                     Circle()
-                        .strokeBorder(Quill.warn, lineWidth: max(2, size * 0.09))
+                        .strokeBorder(Quill.ink, lineWidth: max(2, size * 0.09))
                         .padding(size * 0.1)
                 }
                 if let piece {

@@ -139,7 +139,7 @@ struct ReviewTypingView: View {
             Text(isCorrect ? "Richtig" : "Falsch")
                 .font(.work(52, .heavy))
                 .tracking(-1.5)
-                .foregroundStyle(isCorrect ? Quill.link : Color(QuillUIColor.hex(0xC46A55)))
+                .foregroundStyle(isCorrect ? Quill.link : Quill.wrong)
             if solutionShown {
                 VStack(spacing: 10) {
                     QuillDivider()

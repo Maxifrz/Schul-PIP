@@ -125,7 +125,7 @@ struct LessonView: View {
             HStack(spacing: 10) {
                 PixelCaption(text: caption(for: exercise.kind), color: Quill.accent)
                 if model.session.isRetry {
-                    PixelCaption(text: "Nochmal", color: Quill.warn)
+                    PixelCaption(text: "Nochmal", color: Quill.muted)
                 }
             }
             if exercise.kind != .matchPairs {
@@ -241,7 +241,7 @@ struct LessonView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "lightbulb.fill")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Quill.warn)
+                        .foregroundStyle(Quill.accent)
                         .frame(width: 20)
                     Text(text)
                         .font(.work(15.5))

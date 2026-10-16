@@ -180,7 +180,7 @@ struct SkillsView: View {
             if !row.waitingFor.isEmpty {
                 Text("Baut auf: " + row.waitingFor.joined(separator: ", "))
                     .font(.work(13))
-                    .foregroundStyle(Quill.warn)
+                    .foregroundStyle(Quill.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if row.status != .mastered, row.status != .notStarted {

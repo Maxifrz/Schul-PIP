@@ -140,10 +140,11 @@ struct QuestCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: "diamond.fill")
                         .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Quill.accent)
                     Text("\(quest.reward) Gems")
                         .font(.work(12.5, .medium))
+                        .foregroundStyle(Quill.muted)
                 }
-                .foregroundStyle(Quill.link)
             }
             if quest.claimed {
                 Image(systemName: "checkmark.circle.fill")
@@ -177,7 +178,7 @@ struct FreezeRow: View {
         HStack(spacing: 14) {
             Image(systemName: "snowflake")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Quill.link)
+                .foregroundStyle(Quill.accent)
                 .frame(width: 44, height: 44)
                 .background(Quill.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {

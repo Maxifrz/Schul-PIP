@@ -24,6 +24,7 @@ struct LearnHomeView: View {
     @StateObject private var fetcher = DistractorFetcher()
     @State private var run: LessonRun?
     @State private var showCourses = false
+    @State private var showStreak = false
     @State private var tipUnit: CourseUnit?
     @State private var notice: String?
 
@@ -89,6 +90,12 @@ struct LearnHomeView: View {
             lessonView(lesson)
                 .environmentObject(progress)
         }
+        .sheet(isPresented: $showStreak) {
+            StreakSheet(
+                days: progress.progress.currentStreak(now: Date(), calendar: .current), longest: progress.progress.longestStreak,
+                gems: progress.progress.gems, freezes: progress.progress.freezes, onBuyFreeze: { progress.buyFreeze() }
+            )
+        }
         .sheet(isPresented: $showCourses) { picker(library: library, selected: course?.id ?? "") }
         .sheet(item: $tipUnit) { unit in
             if let course { UnitTipSheet(unit: unit, course: course, onTestOut: testOut(unit, in: course)) }
@@ -122,7 +129,7 @@ struct LearnHomeView: View {
             xpToday: state.xpToday(now: now, calendar: .current),
             goal: state.dailyGoal,
             onCourse: { showCourses = true },
-            onStreak: { storedMode = Mode.quests.rawValue },
+            onStreak: { showStreak = true },
             onGoal: { progress.setDailyGoal($0) },
             haptics: $haptics
         )

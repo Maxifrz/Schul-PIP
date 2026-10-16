@@ -1,10 +1,10 @@
 import SwiftUI
 import UIKit
 
-/// The verdict colors: the link green for right, the red of the review screen's "Falsch".
+/// The verdict colors: the link green for right, Quill's red for wrong.
 enum LearnTone {
     static let right = Quill.link
-    static let wrong = Color(QuillUIColor.hex(0xC46A55))
+    static let wrong = Quill.wrong
 
     static func color(_ verdict: LearnVerdict) -> Color {
         verdict == .right ? right : wrong

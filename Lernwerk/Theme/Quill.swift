@@ -21,6 +21,8 @@ enum Quill {
     static let accent = Color(QuillUIColor.accent)
     static let warn = Color(QuillUIColor.warn)
     static let link = Color(QuillUIColor.link)
+    /// A wrong answer; the counterpart of `link`, which says right.
+    static let wrong = Color(QuillUIColor.wrong)
     static let canvas = Color(QuillUIColor.canvas)
     /// The second surface: table headers, segmented controls, hover rows.
     static let surface2 = Color(QuillUIColor.surface2)
@@ -56,6 +58,7 @@ enum QuillUIColor {
     static let accent = dynamic(0x7FA98C, 0x8FBE9C)
     static let warn = dynamic(0xC9974F, 0xD6A762)
     static let link = dynamic(0x4F7A63, 0x8FBE9C)
+    static let wrong = dynamic(0xC46A55, 0xD98873)
     /// The page backdrop behind PDFs: `hover` flattened onto `bg`, since PDFKit needs an opaque color.
     static let canvas = dynamic(0xEEEDE9, 0x25241F)
     static let surface2 = dynamic(0xF4F2EC, 0x1C1C18)

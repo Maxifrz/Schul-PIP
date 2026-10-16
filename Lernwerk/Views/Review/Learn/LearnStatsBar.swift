@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The numbers at the top of the Lernen tab: the course with its XP, the streak, the gems and the day's goal.
+/// The numbers at the top of the Lernen tab: the course with its XP, the streak and the day's goal.
 struct LearnStatsBar: View {
     let course: Course?
     let courseXP: Int
@@ -29,22 +29,28 @@ struct LearnStatsBar: View {
             .buttonStyle(.plain)
             .accessibilityLabel(course.map { "Kurs \($0.title), \(courseXP) XP. Kurs wechseln" } ?? "Kurs wählen")
             Spacer(minLength: 0)
-            item(symbol: "flame.fill", color: streak > 0 ? Quill.warn : Quill.hint, text: "\(streak) \(streak == 1 ? "Tag" : "Tage")", label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage"). Öffnet Quests und Streak-Schutz", action: onStreak)
+            item(
+                symbol: "flame.fill", color: streak > 0 ? Quill.accent : Quill.hint, word: "Serie", text: "\(streak)",
+                label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage"). Öffnet die Serie", action: onStreak
+            )
             Spacer(minLength: 0)
             goalMenu
         }
         .padding(.horizontal, 4)
     }
 
-    private func item(symbol: String, color: Color, text: String, label: String, action: @escaping () -> Void) -> some View {
+    private func item(symbol: String, color: Color, word: String, text: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: symbol)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(color)
+                Text(word)
+                    .font(.work(14))
+                    .foregroundStyle(Quill.muted)
                 Text(text)
                     .font(.work(16, .bold))
-                    .foregroundStyle(color)
+                    .foregroundStyle(Quill.ink)
             }
             .frame(minHeight: 44)
         }
@@ -68,6 +74,9 @@ struct LearnStatsBar: View {
                         .rotationEffect(.degrees(-90))
                 }
                 .frame(width: 22, height: 22)
+                Text("Heute")
+                    .font(.work(14))
+                    .foregroundStyle(Quill.muted)
                 Text("\(min(xpToday, 999))/\(goal)")
                     .font(.work(14, .bold))
                     .foregroundStyle(Quill.ink)
