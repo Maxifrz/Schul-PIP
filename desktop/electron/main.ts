@@ -3,10 +3,11 @@
 // the network calls of the renderer.
 
 import { BrowserWindow, Menu, WebContentsView, app, dialog, ipcMain, net, protocol, safeStorage, shell } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { isLocalHost } from '../src/lib/social/format';
+import { allowedUrl, followRedirect, Outgoing } from '../src/lib/httpPolicy';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'schulpip', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } },
@@ -132,7 +133,8 @@ const safeId = (id: unknown): string => {
 
 async function writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.${process.pid}.tmp`;
+  // A name of its own per write: two writes of the same file at once must not share one.
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(temporary, data);
   await fs.rename(temporary, file);
 }
@@ -194,18 +196,29 @@ function registerSecrets(): void {
       return null;
     }
   });
-  ipcMain.handle('secret:set', async (_event, name: unknown, value: unknown) => {
-    if (typeof value !== 'string' || !safeStorage.isEncryptionAvailable()) return false;
-    const all = await readSecrets();
-    all[account(name)] = safeStorage.encryptString(value).toString('base64');
-    await writeAtomic(secretsFile(), JSON.stringify(all));
-    return true;
-  });
-  ipcMain.handle('secret:delete', async (_event, name: unknown) => {
-    const all = await readSecrets();
-    delete all[account(name)];
-    await writeAtomic(secretsFile(), JSON.stringify(all));
-  });
+  // Reading and writing the whole file happens one change after the other, or two keys saved at once lose one.
+  let queue: Promise<unknown> = Promise.resolve();
+  const exclusively = <T>(work: () => Promise<T>): Promise<T> => {
+    const result = queue.then(work, work);
+    queue = result.catch(() => undefined);
+    return result;
+  };
+  ipcMain.handle('secret:set', (_event, name: unknown, value: unknown) =>
+    exclusively(async () => {
+      if (typeof value !== 'string' || !safeStorage.isEncryptionAvailable()) return false;
+      const all = await readSecrets();
+      all[account(name)] = safeStorage.encryptString(value).toString('base64');
+      await writeAtomic(secretsFile(), JSON.stringify(all));
+      return true;
+    }),
+  );
+  ipcMain.handle('secret:delete', (_event, name: unknown) =>
+    exclusively(async () => {
+      const all = await readSecrets();
+      delete all[account(name)];
+      await writeAtomic(secretsFile(), JSON.stringify(all));
+    }),
+  );
 }
 
 // Network
@@ -220,11 +233,20 @@ interface HttpRequest {
 function registerNetwork(): void {
   ipcMain.handle('http', async (_event, request: HttpRequest) => {
     const url = new URL(request.url);
-    const allowed = url.protocol === 'https:' || (url.protocol === 'http:' && isLocalHost(url.hostname));
-    if (!allowed) throw new Error('Only https (or http in the local network) is allowed.');
+    if (!allowedUrl(url)) throw new Error('Only https (or http in the local network) is allowed.');
     if (!/^(GET|POST|PUT|PATCH|DELETE)$/.test(request.method)) throw new Error('bad method');
-    const body = request.body === undefined ? undefined : typeof request.body === 'string' ? request.body : Buffer.from(request.body);
-    const response = await net.fetch(url.toString(), { method: request.method, headers: request.headers, body, redirect: 'follow' });
+    // Redirects are followed by hand: every hop is checked again and keys never go to another origin.
+    let outgoing: Outgoing = { url, method: request.method, headers: request.headers, body: request.body };
+    let response: Response | null = null;
+    for (let hop = 0; hop < 5 && !response; hop++) {
+      const body = outgoing.body === undefined ? undefined : typeof outgoing.body === 'string' ? outgoing.body : Buffer.from(outgoing.body);
+      const answer = await net.fetch(outgoing.url.toString(), { method: outgoing.method, headers: outgoing.headers, body, redirect: 'manual' });
+      if (answer.type === 'opaqueredirect') throw new Error('Redirects are not supported.');
+      const next = followRedirect(outgoing, answer.status, answer.headers.get('location'));
+      if (next) outgoing = next;
+      else response = answer;
+    }
+    if (!response) throw new Error('Too many redirects.');
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {
       headers[key] = value;
