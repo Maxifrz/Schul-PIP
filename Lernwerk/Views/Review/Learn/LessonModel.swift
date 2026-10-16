@@ -41,6 +41,8 @@ final class LessonModel: ObservableObject {
     @Published private(set) var lastMiss: PairMiss?
     /// Why the last wrong answer was wrong, when the course can tell; empty otherwise.
     @Published private(set) var coachNote = ""
+    /// The right answer was asked for after a wrong one; until then the verdict hides it.
+    @Published private(set) var solutionShown = false
     /// Asked for a wrong answer; set by whoever opened a lesson of a course.
     private let coach: ((LearnExercise, LearnAnswer) -> String?)?
     /// Pairs: the cards whose front was paired with a wrong back.
@@ -118,11 +120,40 @@ final class LessonModel: ObservableObject {
         session.overrule()
     }
 
+    /// What to say after a wrong answer: the course's reason, or a plain nudge when it has none.
+    var retryNote: String { coachNote.isEmpty ? "Schau noch einmal hin." : coachNote }
+
+    /// "Lösung zeigen" after a wrong answer.
+    func showSolution() {
+        guard verdict == .wrong else { return }
+        solutionShown = true
+    }
+
+    /// "Nochmal versuchen": the same exercise again. A typed answer stays to be corrected; in pairs only the wrong ones
+    /// are taken apart; everything else starts empty.
+    func tryAgain() {
+        guard verdict == .wrong, !solutionShown else { return }
+        let kept = typed
+        let wrongKeys = missed
+        session.tryAgain()
+        resetDrafts()
+        typed = kept
+        if let exercise = current, exercise.kind == .matchPairs {
+            // The pairs that went right stay together.
+            let right = Set(exercise.pairs.map(\.key)).subtracting(wrongKeys)
+            matched = right
+            matchedBacks = Set(exercise.options.indices.filter { index in
+                right.contains { exercise.isMatch(key: $0, back: exercise.options[index]) }
+            })
+        }
+    }
+
     func advance() {
         guard verdict != nil else { return }
         session.advance()
         resetDrafts()
         coachNote = ""
+        solutionShown = false
     }
 
     /// The result, handed out once: the first time it is asked for after the lesson finished.

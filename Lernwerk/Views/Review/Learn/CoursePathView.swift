@@ -31,6 +31,8 @@ struct CoursePathView<Footer: View>: View {
     let advice: Recommendation?
     let onAdvice: () -> Void
     let onSkills: () -> Void
+    /// Where the course's goals stand; nil for a course made of the student's own cards.
+    let mastery: PathMastery?
     private let footer: Footer
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -45,6 +47,7 @@ struct CoursePathView<Footer: View>: View {
         advice: Recommendation? = nil,
         onAdvice: @escaping () -> Void = {},
         onSkills: @escaping () -> Void = {},
+        mastery: PathMastery? = nil,
         @ViewBuilder footer: () -> Footer
     ) {
         self.course = course
@@ -56,6 +59,7 @@ struct CoursePathView<Footer: View>: View {
         self.advice = advice
         self.onAdvice = onAdvice
         self.onSkills = onSkills
+        self.mastery = mastery
         self.footer = footer()
     }
 
@@ -101,41 +105,74 @@ struct CoursePathView<Footer: View>: View {
     // MARK: Banner
 
     private func banner(_ unit: PathUnit) -> some View {
-        Button { onTip(unit.unit) } label: {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ABSCHNITT \(unit.sectionNumber), EINHEIT \(unit.unit.number)")
-                        .font(.mono(11, .semibold))
-                        .tracking(1)
-                        .opacity(0.8)
-                    Text(unit.unit.title)
-                        .font(.work(21, .bold))
-                        .tracking(-0.4)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
+        let standing = mastery.map { $0.unit(unit.unit) }.flatMap { $0.isEmpty ? nil : $0 }
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { onTip(unit.unit) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ABSCHNITT \(unit.sectionNumber), EINHEIT \(unit.unit.number)")
+                            .font(.mono(11, .semibold))
+                            .tracking(1)
+                            .opacity(0.8)
+                        Text(unit.unit.title)
+                            .font(.work(21, .bold))
+                            .tracking(-0.4)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                Spacer(minLength: 8)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Abschnitt \(unit.sectionNumber), Einheit \(unit.unit.number): \(unit.unit.title). Tipps lesen")
+                if let standing {
+                    Button(action: onSkills) {
+                        HStack(spacing: 8) {
+                            HStack(spacing: 4) {
+                                ForEach(0..<standing.total, id: \.self) { index in
+                                    Circle()
+                                        .fill(index < standing.reached ? course.onTint : Color.clear)
+                                        .overlay(Circle().stroke(course.onTint.opacity(0.7), lineWidth: 1.5))
+                                        .frame(width: 9, height: 9)
+                                }
+                            }
+                            Text(standing.text)
+                                .font(.work(13.5, .semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .opacity(0.8)
+                        }
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fähigkeiten: \(standing.text). Zeigt die Fähigkeiten")
+                }
+            }
+            Button { onTip(unit.unit) } label: {
                 Image(systemName: "book.fill")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(course.onTint.opacity(0.5), lineWidth: 1.5))
             }
-            .foregroundStyle(course.onTint)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(course.tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Quill.paperInk.opacity(0.28))
-                    .offset(y: 4)
-            )
+            .buttonStyle(.plain)
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(course.onTint)
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, standing == nil ? 14 : 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(course.tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Quill.paperInk.opacity(0.28))
+                .offset(y: 4)
+        )
         .padding(.top, 14)
         .padding(.bottom, 10)
         .background(Quill.bg)
-        .accessibilityLabel("Abschnitt \(unit.sectionNumber), Einheit \(unit.unit.number): \(unit.unit.title). Tipps lesen")
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: Steps
@@ -161,7 +198,7 @@ struct CoursePathView<Footer: View>: View {
         let offset = shift(position)
         let isCurrent = step.id == current?.id
         return ZStack {
-            PathNodeView(step: step, course: course, isCurrent: isCurrent) { onStep(step) }
+            PathNodeView(step: step, course: course, isCurrent: isCurrent, mastery: mastery?.node(step) ?? .none) { onStep(step) }
                 .offset(x: offset)
             if isCurrent {
                 PathPip()

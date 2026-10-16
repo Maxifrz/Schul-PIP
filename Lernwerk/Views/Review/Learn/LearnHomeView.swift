@@ -25,9 +25,6 @@ struct LearnHomeView: View {
     @State private var run: LessonRun?
     @State private var showCourses = false
     @State private var showShop = false
-    @State private var showSkills = false
-    /// Goals the student chose to practise in the skills sheet; the round starts once the sheet is gone.
-    @State private var pendingPractice: [String]?
     @State private var tipUnit: CourseUnit?
     @State private var notice: String?
 
@@ -35,11 +32,12 @@ struct LearnHomeView: View {
     private static let shipped = CourseCatalog.courses
 
     enum Mode: String, CaseIterable {
-        case path, quests, practice
+        case path, skills, quests, practice
 
         var title: String {
             switch self {
             case .path: return "Pfad"
+            case .skills: return "Fähigkeiten"
             case .quests: return "Quests"
             case .practice: return "Wiederholen"
             }
@@ -102,14 +100,6 @@ struct LearnHomeView: View {
         .sheet(item: $tipUnit) { unit in
             if let course { UnitTipSheet(unit: unit, course: course, onTestOut: testOut(unit, in: course)) }
         }
-        .sheet(isPresented: $showSkills, onDismiss: { runPending(course: course) }) {
-            if let course, let provider = shippedProvider(course) {
-                SkillsSheet(courseTitle: course.title, rows: skillRows(provider: provider)) { row in
-                    pendingPractice = [row.skill.id]
-                    showSkills = false
-                }
-            }
-        }
         .sheet(isPresented: $showShop) {
             ShopSheet(gems: progress.progress.gems, freezes: progress.progress.freezes, onBuyFreeze: { progress.buyFreeze() })
         }
@@ -157,6 +147,14 @@ struct LearnHomeView: View {
         switch mode {
         case .practice:
             ReviewTypingView()
+        case .skills:
+            if let course {
+                SkillsView(courseTitle: course.title, rows: shippedProvider(course).map { skillRows(provider: $0) } ?? []) { row in
+                    startPractice([row.skill.id], in: course)
+                }
+            } else {
+                noCourse
+            }
         case .quests:
             let now = Date()
             QuestsView(
@@ -180,7 +178,8 @@ struct LearnHomeView: View {
                     onQuests: { storedMode = Mode.quests.rawValue },
                     advice: suggestion,
                     onAdvice: { if let suggestion { follow(suggestion, in: course, library: library) } },
-                    onSkills: { showSkills = true },
+                    onSkills: { storedMode = Mode.skills.rawValue },
+                    mastery: shippedProvider(course).map { pathMastery(for: $0) },
                     footer: {
                         Button("Anderen Kurs wählen") { showCourses = true }
                             .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 14, weight: .medium))
@@ -326,6 +325,13 @@ struct LearnHomeView: View {
         )
     }
 
+    private func pathMastery(for provider: any CourseProvider) -> PathMastery {
+        PathMastery(
+            map: SkillMaps.map(for: provider), records: skills.records, completed: progress.progress.completedLessons,
+            now: Date(), calendar: .current
+        )
+    }
+
     private func skillRows(provider: any CourseProvider) -> [SkillRow] {
         let map = SkillMaps.map(for: provider)
         let now = Date()
@@ -357,12 +363,6 @@ struct LearnHomeView: View {
         case .finished:
             break
         }
-    }
-
-    private func runPending(course: Course?) {
-        guard let targets = pendingPractice, let course else { return }
-        pendingPractice = nil
-        startPractice(targets, in: course)
     }
 
     /// A round of exercises that fit what the chosen goals still need.
