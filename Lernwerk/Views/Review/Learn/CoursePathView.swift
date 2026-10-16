@@ -1,21 +1,11 @@
 import SwiftUI
 
-/// The two small tiles above the path: today's quests and the week's challenge.
+/// What the one line above the path says: today's quests and the week's challenge.
 struct PathTiles: Equatable {
     var questsDone = 0
     var questsTotal = 0
-    /// Until midnight.
-    var secondsLeft: TimeInterval = 0
     var weekText = ""
-    var weekFraction = 0.0
     var hasUnclaimed = false
-
-    /// "noch 15 Std" or "noch 42 Min".
-    var timeLeftText: String {
-        let minutes = Int(secondsLeft / 60)
-        if minutes >= 60 { return "noch \(minutes / 60) Std" }
-        return "noch \(max(1, minutes)) Min"
-    }
 }
 
 /// The path of a course: a banner per unit that stays at the top while its steps scroll by, and below it the steps in
@@ -74,8 +64,7 @@ struct CoursePathView<Footer: View>: View {
                         AdviceCard(advice: advice, onGo: onAdvice, onSkills: onSkills)
                             .padding(.top, 6)
                     }
-                    tilesRow
-                        .padding(.bottom, 6)
+                    questsLine
                     ForEach(Array(units.enumerated()), id: \.element.id) { unitIndex, unit in
                         Section {
                             steps(of: unit, before: units.prefix(unitIndex).reduce(0) { $0 + $1.steps.count })
@@ -222,57 +211,37 @@ struct CoursePathView<Footer: View>: View {
         }
     }
 
-    // MARK: Tiles and footer
+    // MARK: Quests line and footer
 
-    private var tilesRow: some View {
-        HStack(spacing: 10) {
-            tile(
-                symbol: "scroll.fill", title: "Quests",
-                value: "\(tiles.questsDone)/\(tiles.questsTotal)", caption: tiles.timeLeftText,
-                fraction: tiles.questsTotal == 0 ? 0 : Double(tiles.questsDone) / Double(tiles.questsTotal),
-                highlight: tiles.hasUnclaimed
-            )
-            tile(
-                symbol: "calendar", title: "Woche", value: tiles.weekText, caption: "Wochenziel",
-                fraction: tiles.weekFraction, highlight: false
-            )
-        }
-        .padding(.top, 6)
-    }
-
-    private func tile(symbol: String, title: String, value: String, caption: String, fraction: Double, highlight: Bool) -> some View {
+    /// Quests and the week in one quiet line; the page behind it has the rest.
+    private var questsLine: some View {
         Button(action: onQuests) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: symbol)
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(title.uppercased())
-                        .font(.mono(10.5, .semibold))
-                        .tracking(0.8)
-                    Spacer(minLength: 0)
-                    if highlight {
-                        StatusDot(color: Quill.warn, size: 8)
-                    }
+            HStack(spacing: 8) {
+                Text("Quests \(tiles.questsDone)/\(tiles.questsTotal)")
+                    .font(.work(14, .medium))
+                    .foregroundStyle(Quill.ink2)
+                if tiles.hasUnclaimed {
+                    StatusDot(color: Quill.warn, size: 8)
                 }
-                .foregroundStyle(Quill.muted)
-                Text(value.isEmpty ? " " : value)
-                    .font(.work(18, .bold))
-                    .foregroundStyle(Quill.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                QuillProgressBar(fraction: fraction)
-                Text(caption)
-                    .font(.work(12))
+                if !tiles.weekText.isEmpty {
+                    Text("·").foregroundStyle(Quill.faint)
+                    Text("Woche \(tiles.weekText)")
+                        .font(.work(14))
+                        .foregroundStyle(Quill.muted)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Quill.faint)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Quill.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(highlight ? Quill.warn : Quill.line, lineWidth: highlight ? 2 : 1))
+            .padding(.horizontal, 4)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title): \(value), \(caption)")
+        .accessibilityLabel("Quests heute: \(tiles.questsDone) von \(tiles.questsTotal)" + (tiles.weekText.isEmpty ? "" : ", Woche: \(tiles.weekText)"))
+        .accessibilityHint("Öffnet die Quests")
     }
 
     private var finished: some View {

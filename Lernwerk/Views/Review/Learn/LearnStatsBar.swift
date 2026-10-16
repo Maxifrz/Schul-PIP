@@ -5,12 +5,10 @@ struct LearnStatsBar: View {
     let course: Course?
     let courseXP: Int
     let streak: Int
-    let gems: Int
     let xpToday: Int
     let goal: Int
     let onCourse: () -> Void
     let onStreak: () -> Void
-    let onGems: () -> Void
     let onGoal: (Int) -> Void
     @Binding var haptics: Bool
 
@@ -23,7 +21,7 @@ struct LearnStatsBar: View {
                         .foregroundStyle(course?.onTint ?? Quill.onAccent)
                         .frame(width: 30, height: 30)
                         .background(course?.tint ?? Quill.accent, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                    Text("\(courseXP)")
+                    Text("\(courseXP) XP")
                         .font(.work(16, .bold))
                         .foregroundStyle(Quill.ink)
                 }
@@ -31,9 +29,7 @@ struct LearnStatsBar: View {
             .buttonStyle(.plain)
             .accessibilityLabel(course.map { "Kurs \($0.title), \(courseXP) XP. Kurs wechseln" } ?? "Kurs wählen")
             Spacer(minLength: 0)
-            item(symbol: "flame.fill", color: streak > 0 ? Quill.warn : Quill.hint, text: "\(streak)", label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage")", action: onStreak)
-            Spacer(minLength: 0)
-            item(symbol: "diamond.fill", color: Quill.link, text: "\(gems)", label: "\(gems) Gems. Zum Streak-Schutz", action: onGems)
+            item(symbol: "flame.fill", color: streak > 0 ? Quill.warn : Quill.hint, text: "\(streak) \(streak == 1 ? "Tag" : "Tage")", label: "Serie: \(streak) \(streak == 1 ? "Tag" : "Tage"). Öffnet Quests und Streak-Schutz", action: onStreak)
             Spacer(minLength: 0)
             goalMenu
         }
