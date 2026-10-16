@@ -7,6 +7,8 @@ struct PianoKeyView: View {
     let correct: [Int]
     @Binding var choice: String?
     var verdict: LearnVerdict? = nil
+    /// After a wrong answer the right key stays unmarked until the student asks for the solution.
+    var showsSolution = true
 
     private var range: ClosedRange<Int> { PianoLayout.range(covering: correct) }
 
@@ -37,7 +39,7 @@ struct PianoKeyView: View {
     private func fill(for midi: Int, black: Bool) -> Color {
         let text = String(midi)
         if let verdict {
-            if correct.contains(midi) { return verdict == .right || choice == text ? LearnTone.right : LearnTone.right.opacity(0.6) }
+            if correct.contains(midi), showsSolution || verdict == .right { return verdict == .right || choice == text ? LearnTone.right : LearnTone.right.opacity(0.6) }
             if choice == text { return LearnTone.wrong }
         } else if choice == text {
             return Quill.accent

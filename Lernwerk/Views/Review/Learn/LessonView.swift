@@ -153,13 +153,16 @@ struct LessonView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// A wrong answer keeps the right one hidden until the student asks for it.
+    private var revealsSolution: Bool { model.verdict != .wrong || model.solutionShown }
+
     @ViewBuilder
     private func exerciseView(_ exercise: LearnExercise) -> some View {
         switch exercise.kind {
         case .multipleChoice:
             MultipleChoiceView(
                 options: exercise.options,
-                correct: exercise.correctAnswers.first ?? "",
+                correct: revealsSolution ? exercise.correctAnswers.first ?? "" : "",
                 choice: $model.choice,
                 verdict: model.verdict,
                 onPick: { LearnHaptics.selection(haptics) }
@@ -195,7 +198,7 @@ struct LessonView: View {
         case .chessMove:
             if case let .board(spec)? = exercise.media {
                 ChessMoveView(
-                    spec: spec, from: model.moveFrom, to: model.moveTo, correctMoves: exercise.correctAnswers,
+                    spec: spec, from: model.moveFrom, to: model.moveTo, correctMoves: revealsSolution ? exercise.correctAnswers : [],
                     verdict: model.verdict, onTap: { square in
                         LearnHaptics.selection(haptics)
                         model.tapSquare(square)
@@ -203,7 +206,10 @@ struct LessonView: View {
                 )
             }
         case .pianoKey:
-            PianoKeyView(correct: exercise.correctAnswers.compactMap { Int($0) }, choice: $model.choice, verdict: model.verdict)
+            PianoKeyView(
+                correct: exercise.correctAnswers.compactMap { Int($0) }, choice: $model.choice, verdict: model.verdict,
+                showsSolution: revealsSolution
+            )
         }
     }
 
