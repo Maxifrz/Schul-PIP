@@ -16,7 +16,7 @@ enum MaterialStore {
         directory.appendingPathComponent(fileName)
     }
 
-    private static func drawingsURL(for fileName: String) -> URL {
+    static func drawingsURL(for fileName: String) -> URL {
         directory.appendingPathComponent(fileName + ".drawings")
     }
 
@@ -200,20 +200,33 @@ enum MaterialStore {
 
     // Notes besides ink: typed text, pictures, stickers, bookmarks
 
-    private static func notesURL(for fileName: String) -> URL {
+    static func notesURL(for fileName: String) -> URL {
         directory.appendingPathComponent(fileName + ".notes.json")
     }
 
     static func loadNotes(for fileName: String) -> DocumentNotes {
-        guard let data = try? Data(contentsOf: notesURL(for: fileName)),
-              let notes = try? JSONDecoder().decode(DocumentNotes.self, from: data)
-        else { return DocumentNotes() }
+        let url = notesURL(for: fileName)
+        guard let data = try? Data(contentsOf: url) else { return DocumentNotes() }
+        guard let notes = try? JSONDecoder().decode(DocumentNotes.self, from: data) else {
+            // A file that exists but cannot be read is not "no notes": keep it, or the next save would replace it.
+            setAside(url)
+            return DocumentNotes()
+        }
         return notes
     }
 
-    static func saveNotes(_ notes: DocumentNotes, for fileName: String) {
-        guard let data = try? JSONEncoder().encode(notes) else { return }
-        try? data.write(to: notesURL(for: fileName), options: .atomic)
+    /// False when the notes could not be written, so the editor can say so instead of losing them silently.
+    @discardableResult
+    static func saveNotes(_ notes: DocumentNotes, for fileName: String) -> Bool {
+        guard let data = try? JSONEncoder().encode(notes) else { return false }
+        return (try? data.write(to: notesURL(for: fileName), options: .atomic)) != nil
+    }
+
+    /// Renames an unreadable file to "<name>.unreadable-<time>", so it stays on the device for a repair.
+    static func setAside(_ url: URL) {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let target = url.deletingLastPathComponent().appendingPathComponent(url.lastPathComponent + ".unreadable-\(stamp)")
+        try? FileManager.default.moveItem(at: url, to: target)
     }
 
     private static var noteImagesDirectory: URL {
@@ -379,27 +392,45 @@ enum MaterialStore {
         return true
     }
 
+    /// Pages whose ink could not be read (made by a newer version, say): kept as raw data and written back with
+    /// the others, so a save does not delete them.
+    private static var unreadableInk: [String: [String: Data]] = [:]
+    private static let unreadableLock = NSLock()
+
     static func loadDrawings(for fileName: String) -> [Int: PKDrawing] {
-        guard let data = try? Data(contentsOf: drawingsURL(for: fileName)),
-              let raw = try? PropertyListDecoder().decode([String: Data].self, from: data)
-        else {
+        let url = drawingsURL(for: fileName)
+        guard let data = try? Data(contentsOf: url) else { return [:] }
+        guard let raw = try? PropertyListDecoder().decode([String: Data].self, from: data) else {
+            setAside(url)
             return [:]
         }
         var drawings: [Int: PKDrawing] = [:]
+        var unreadable: [String: Data] = [:]
         for (key, value) in raw {
             if let index = Int(key), let drawing = try? PKDrawing(data: value) {
                 drawings[index] = drawing
+            } else {
+                unreadable[key] = value
             }
         }
+        unreadableLock.lock()
+        unreadableInk[fileName] = unreadable
+        unreadableLock.unlock()
         return drawings
     }
 
-    static func saveDrawings(_ drawings: [Int: PKDrawing], for fileName: String) {
+    /// False when the ink could not be written, so the editor can say so instead of losing it silently.
+    @discardableResult
+    static func saveDrawings(_ drawings: [Int: PKDrawing], for fileName: String) -> Bool {
         var raw: [String: Data] = [:]
+        unreadableLock.lock()
+        let carried = unreadableInk[fileName] ?? [:]
+        unreadableLock.unlock()
+        for (key, value) in carried where Int(key).map({ drawings[$0] == nil }) ?? true { raw[key] = value }
         for (index, drawing) in drawings where !drawing.strokes.isEmpty {
             raw[String(index)] = drawing.dataRepresentation()
         }
-        guard let data = try? PropertyListEncoder().encode(raw) else { return }
-        try? data.write(to: drawingsURL(for: fileName), options: .atomic)
+        guard let data = try? PropertyListEncoder().encode(raw) else { return false }
+        return (try? data.write(to: drawingsURL(for: fileName), options: .atomic)) != nil
     }
 }

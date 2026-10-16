@@ -107,6 +107,11 @@ struct DocumentScreen: View {
             )
             .presentationDetents([.medium, .large])
         }
+        .alert("Speichern fehlgeschlagen", isPresented: $editor.saveFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Deine Notizen und Zeichnungen konnten nicht gespeichert werden. Prüfe, ob auf dem Gerät noch Platz frei ist.")
+        }
         .alert("Umbenennen", isPresented: $isRenaming) {
             TextField("Titel", text: $draftTitle)
             Button("Abbrechen", role: .cancel) {}

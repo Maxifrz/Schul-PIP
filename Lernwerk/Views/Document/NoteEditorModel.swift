@@ -32,6 +32,8 @@ final class NoteEditorModel: ObservableObject {
     @Published private(set) var bookmarks: Set<Int> = []
     @Published private(set) var isEditingText = false
     @Published private(set) var loadFailed = false
+    /// Set when a save did not reach the disk; the screen says so.
+    @Published var saveFailed = false
 
     let material: StudyMaterial
     var onMark: ((MarkedRegion) -> Void)?
@@ -73,6 +75,9 @@ final class NoteEditorModel: ObservableObject {
         }
         controller.onMark = { [weak self] region in
             MainActor.assumeIsolated { self?.onMark?(region) }
+        }
+        controller.onSaveFailed = { [weak self] in
+            MainActor.assumeIsolated { self?.saveFailed = true }
         }
         controller.onNotesChange = { [weak self] notes in
             MainActor.assumeIsolated { self?.bookmarks = notes.bookmarks }

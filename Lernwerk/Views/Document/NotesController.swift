@@ -70,6 +70,8 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     var onMark: ((MarkedRegion) -> Void)?
     var onNotesChange: ((DocumentNotes) -> Void)?
     var onEditingChange: ((Bool) -> Void)?
+    /// The ink or the notes could not be written (the device is full, say).
+    var onSaveFailed: (() -> Void)?
     var onZoomClosed: (() -> Void)?
     /// A written "=" wants its line calculated.
     var onMathLine: ((MathLineRequest) -> Void)?
@@ -987,8 +989,9 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         for (index, overlay) in overlays {
             drawings[index] = overlay.canvas.drawing
         }
-        MaterialStore.saveDrawings(drawings, for: fileName)
-        MaterialStore.saveNotes(notes, for: fileName)
+        let inkSaved = MaterialStore.saveDrawings(drawings, for: fileName)
+        let notesSaved = MaterialStore.saveNotes(notes, for: fileName)
+        if !(inkSaved && notesSaved) { onSaveFailed?() }
     }
 }
 
