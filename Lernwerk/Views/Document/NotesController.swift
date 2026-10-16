@@ -33,6 +33,28 @@ private struct LassoState {
 
 /// Runs the document canvas: PDFKit shows the pages, each page gets an overlay with its texts, pictures, stickers
 /// and a PencilKit canvas. Ink and notes are saved shortly after every change.
+/// The ink of the open document by page, and which pages changed since the last save.
+struct InkPages {
+    private(set) var pages: [Int: PKDrawing]
+    private(set) var changed: Set<Int> = []
+
+    init(_ pages: [Int: PKDrawing]) {
+        self.pages = pages
+    }
+
+    subscript(page: Int) -> PKDrawing? {
+        get { pages[page] }
+        set {
+            pages[page] = newValue
+            changed.insert(page)
+        }
+    }
+
+    mutating func markSaved() {
+        changed = []
+    }
+}
+
 final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewDelegate {
     let container = NotesContainerView()
     let document: PDFDocument
@@ -40,7 +62,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     private(set) var tool: NoteTool = .read
     private(set) var settings = InkSettings()
     private(set) var notes: DocumentNotes
-    private var drawings: [Int: PKDrawing]
+    private var drawings: InkPages
     private var overlays: [Int: PageOverlayView] = [:]
     private var strokeCounts: [Int: Int] = [:]
     private var pendingSave: DispatchWorkItem?
@@ -83,7 +105,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
     init(document: PDFDocument, fileName: String, startPage: Int) {
         self.document = document
         self.fileName = fileName
-        drawings = MaterialStore.loadDrawings(for: fileName)
+        drawings = InkPages(MaterialStore.loadDrawings(for: fileName))
         notes = MaterialStore.loadNotes(for: fileName)
         super.init()
         // The overlay provider has to be set before the document is assigned.
@@ -127,7 +149,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
 
     /// Every page's ink as it is now, including what is still on a visible canvas.
     var currentDrawings: [Int: PKDrawing] {
-        var result = drawings
+        var result = drawings.pages
         for (index, overlay) in overlays {
             result[index] = overlay.canvas.drawing
         }
@@ -989,7 +1011,8 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         for (index, overlay) in overlays {
             drawings[index] = overlay.canvas.drawing
         }
-        let inkSaved = MaterialStore.saveDrawings(drawings, for: fileName)
+        let inkSaved = MaterialStore.saveDrawings(drawings.pages, for: fileName, changed: drawings.changed)
+        if inkSaved { drawings.markSaved() }
         let notesSaved = MaterialStore.saveNotes(notes, for: fileName)
         if !(inkSaved && notesSaved) { onSaveFailed?() }
     }
