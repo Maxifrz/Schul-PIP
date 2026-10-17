@@ -255,7 +255,8 @@ struct LibraryView: View {
     @ViewBuilder
     private var content: some View {
         PageHeader(caption: caption, title: path.last?.name ?? "Bibliothek") {
-            HStack(spacing: 10) {
+            ScrollView(.horizontal) {
+              HStack(spacing: 10) {
                 if selecting {
                     Button("Fertig", action: endSelection)
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
@@ -297,7 +298,11 @@ struct LibraryView: View {
                         .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
                     importMenu(height: 44, fontSize: 15)
                 }
+              }
+              .lineLimit(1)
+              .fixedSize(horizontal: true, vertical: false)
             }
+            .scrollIndicators(.hidden)
         }
         .padding(.bottom, 18)
         toolbar
@@ -794,7 +799,7 @@ struct LibraryView: View {
                 .foregroundStyle(Quill.muted)
                 .padding(.top, 14)
                 .padding(.bottom, 30)
-            HStack(spacing: 20) {
+            ActionRow(spacing: 20) {
                 importMenu(height: 48, fontSize: 15.5)
                 photosButton
                     .buttonStyle(QuillOutlineButtonStyle(height: 48, fontSize: 15.5, weight: .medium))
