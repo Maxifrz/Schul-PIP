@@ -25,20 +25,24 @@ struct CalendarScreen: View {
     }
 
     private var header: some View {
-        HStack(alignment: .bottom, spacing: 16) {
+        let layout = sizeClass == .compact
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            : AnyLayout(HStackLayout(alignment: .bottom, spacing: 16))
+        return layout {
             VStack(alignment: .leading, spacing: 10) {
                 PixelCaption(text: "Schulkalender")
                 Text("Kalender")
                     .font(.work(sizeClass == .regular ? 40 : 30, .light))
                     .tracking(-1.1)
                     .foregroundStyle(Quill.ink)
+                    .lineLimit(1)
             }
-            Spacer(minLength: 0)
+            if sizeClass != .compact { Spacer(minLength: 0) }
             Picker("Ansicht", selection: $mode) {
                 ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 260)
+            .frame(maxWidth: sizeClass == .compact ? .infinity : 260)
             .padding(.bottom, 4)
         }
         .padding(.horizontal, sizeClass == .regular ? 40 : 16)

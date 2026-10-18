@@ -20,17 +20,34 @@ struct PageHeader<Trailing: View>: View {
     let title: String
     @ViewBuilder var trailing: Trailing
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PixelCaption(text: caption)
+            Text(title)
+                .font(.work(36, .heavy))
+                .tracking(-1.08)
+                .foregroundStyle(Quill.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
     var body: some View {
-        HStack(alignment: .bottom, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                PixelCaption(text: caption)
-                Text(title)
-                    .font(.work(36, .heavy))
-                    .tracking(-1.08)
-                    .foregroundStyle(Quill.ink)
+        if sizeClass == .compact {
+            // Phone: the action goes under the title so neither gets squeezed.
+            VStack(alignment: .leading, spacing: 16) {
+                titleBlock
+                trailing
             }
-            Spacer(minLength: 0)
-            trailing
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(alignment: .bottom, spacing: 20) {
+                titleBlock
+                Spacer(minLength: 0)
+                trailing
+            }
         }
     }
 }
@@ -38,6 +55,19 @@ struct PageHeader<Trailing: View>: View {
 extension PageHeader where Trailing == EmptyView {
     init(caption: String, title: String) {
         self.init(caption: caption, title: title) { EmptyView() }
+    }
+}
+
+/// Buttons side by side when they fit on one line, stacked when they do not (phone width).
+struct ActionRow<Content: View>: View {
+    var spacing: CGFloat = 14
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing) { content }.lineLimit(1).fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 10) { content }
+        }
     }
 }
 

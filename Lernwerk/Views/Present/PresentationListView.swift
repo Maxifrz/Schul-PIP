@@ -20,7 +20,7 @@ struct PresentationListView: View {
                     emptyState
                 } else {
                     PageHeader(caption: countLabel, title: "Präsentation") {
-                        HStack(spacing: 10) {
+                        ActionRow(spacing: 10) {
                             Button("Importieren") { isImporting = true }
                                 .buttonStyle(QuillOutlineButtonStyle(height: 44, fontSize: 15, weight: .medium))
                                 .disabled(importing)
@@ -118,7 +118,7 @@ struct PresentationListView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 14)
                 .padding(.bottom, 30)
-            HStack(spacing: 14) {
+            ActionRow {
                 Button("Mit KI erstellen") { isCreating = true }
                     .buttonStyle(QuillPrimaryButtonStyle(height: 48, fontSize: 15.5))
                 Button("Leere Präsentation", action: createBlank)
