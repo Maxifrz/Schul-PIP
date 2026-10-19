@@ -34,6 +34,9 @@ struct QuestsView: View {
                 header(title: "Streak-Schutz", detail: "\(freezes) von \(LearnProgress.maxFreezes)")
                     .padding(.top, 10)
                 FreezeRow(gems: gems, freezes: freezes, onBuy: onBuyFreeze)
+                header(title: "Pip-Skins", detail: "\(gems) Gems")
+                    .padding(.top, 10)
+                PipSkinsSection()
             }
             .frame(maxWidth: 560)
             .padding(.horizontal, sizeClass == .compact ? 16 : 28)

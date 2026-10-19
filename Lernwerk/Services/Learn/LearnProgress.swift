@@ -85,6 +85,9 @@ struct LearnProgress: Codable, Equatable {
     /// The gems practice rounds paid out on `practiceGemsDay`.
     private(set) var practiceGemsDay: LearnDay?
     private(set) var practiceGemsToday = 0
+    /// Bought Pip skins; the default skin is always owned and not listed.
+    private(set) var ownedSkins: Set<String> = []
+    private(set) var selectedSkin = PipSkin.defaultID
 
     init() {}
 
@@ -149,6 +152,30 @@ struct LearnProgress: Codable, Equatable {
         guard gems >= LearnProgress.freezePrice, freezes < LearnProgress.maxFreezes else { return false }
         gems -= LearnProgress.freezePrice
         freezes += 1
+        return true
+    }
+
+    func owns(skin id: String) -> Bool {
+        id == PipSkin.defaultID || ownedSkins.contains(id)
+    }
+
+    /// The skin Pip wears; the default if the saved one is gone from the catalog.
+    var currentSkin: PipSkin { PipSkin.skin(selectedSkin) ?? PipSkin.standard }
+
+    /// Buys a skin with gems; owning it does not select it.
+    mutating func buySkin(_ id: String) -> PipSkinPurchase {
+        guard let skin = PipSkin.skin(id) else { return .unknownSkin }
+        guard !owns(skin: id) else { return .alreadyOwned }
+        guard gems >= skin.price else { return .notEnoughGems }
+        gems -= skin.price
+        ownedSkins.insert(id)
+        return .bought
+    }
+
+    /// Puts a skin on Pip; false unless it is owned.
+    mutating func selectSkin(_ id: String) -> Bool {
+        guard PipSkin.skin(id) != nil, owns(skin: id) else { return false }
+        selectedSkin = id
         return true
     }
 
@@ -227,7 +254,7 @@ struct LearnProgress: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case dailyGoal, totalXP, xpOfDay, xpDay, goalReachedDay, streak, longestStreak, lastLessonDay, completedLessons, recentRuns
-        case gems, freezes, courseXP, practiceGemsDay, practiceGemsToday
+        case gems, freezes, courseXP, practiceGemsDay, practiceGemsToday, ownedSkins, selectedSkin
     }
 
     init(from decoder: Decoder) throws {
@@ -251,6 +278,9 @@ struct LearnProgress: Codable, Equatable {
         courseXP = value(.courseXP, [String: Int]())
         practiceGemsDay = value(.practiceGemsDay, nil as LearnDay?)
         practiceGemsToday = max(0, value(.practiceGemsToday, 0))
+        ownedSkins = value(.ownedSkins, Set<String>()).filter { $0 != PipSkin.defaultID && PipSkin.skin($0) != nil }
+        let chosen = value(.selectedSkin, PipSkin.defaultID)
+        selectedSkin = owns(skin: chosen) && PipSkin.skin(chosen) != nil ? chosen : PipSkin.defaultID
     }
 }
 
@@ -311,6 +341,25 @@ final class LearnProgressStore: ObservableObject {
     func buyFreeze() -> Bool {
         var updated = progress
         guard updated.buyFreeze() else { return false }
+        progress = updated
+        save()
+        return true
+    }
+
+    @discardableResult
+    func buySkin(_ id: String) -> PipSkinPurchase {
+        var updated = progress
+        let result = updated.buySkin(id)
+        guard result == .bought else { return result }
+        progress = updated
+        save()
+        return result
+    }
+
+    @discardableResult
+    func selectSkin(_ id: String) -> Bool {
+        var updated = progress
+        guard updated.selectSkin(id), updated != progress else { return false }
         progress = updated
         save()
         return true

@@ -35,6 +35,7 @@ struct LernwerkApp: App {
                     .environmentObject(learnProgress)
                     .environmentObject(quests)
                     .environmentObject(skills)
+                    .environment(\.pipSkin, learnProgress.progress.currentSkin)
                     .modelContainer(container)
             } else {
                 StoreRecoveryView {

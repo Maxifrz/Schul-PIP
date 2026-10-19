@@ -1,11 +1,37 @@
 import SwiftUI
 
+private struct PipSkinKey: EnvironmentKey {
+    static let defaultValue = PipSkin.standard
+}
+
+extension EnvironmentValues {
+    /// The skin Pip wears everywhere; set once at the root from the Lernpfad progress.
+    var pipSkin: PipSkin {
+        get { self[PipSkinKey.self] }
+        set { self[PipSkinKey.self] = newValue }
+    }
+}
+
+extension PipSkin {
+    /// Grid characters to colors for the cat's pixel grid.
+    func palette(outline: Color) -> [Character: Color] {
+        [
+            "o": outline,
+            "e": outline,
+            "f": Color(QuillUIColor.hex(fur)),
+            "p": Color(QuillUIColor.hex(inner)),
+            "w": Color(QuillUIColor.hex(paws)),
+        ]
+    }
+}
+
 /// Pip, the pixel cat from Quill, walking on the tutor's input bar. Thinks while the tutor waits,
 /// meows when poked and can be picked up and dropped.
 struct PipView: View {
     let isThinking: Bool
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.pipSkin) private var skin
     @State private var pip = PipSimulation()
 
     var body: some View {
@@ -15,7 +41,7 @@ struct PipView: View {
                 let _ = pip.advance(to: timeline.date, lane: lane, thinking: isThinking)
                 ZStack(alignment: .bottomLeading) {
                     Canvas { context, _ in
-                        pip.draw(in: context, dark: colorScheme == .dark, showsThinkingDots: isThinking)
+                        pip.draw(in: context, dark: colorScheme == .dark, skin: skin, showsThinkingDots: isThinking)
                     }
                     .frame(width: PipSimulation.size.width, height: PipSimulation.size.height)
                     .offset(x: pip.x, y: pip.y)
@@ -184,15 +210,9 @@ final class PipSimulation {
         }
     }
 
-    func draw(in context: GraphicsContext, dark: Bool, showsThinkingDots: Bool) {
+    func draw(in context: GraphicsContext, dark: Bool, skin: PipSkin, showsThinkingDots: Bool) {
         let outline = Color(QuillUIColor.hex(dark ? 0x0A0A08 : 0x23231F))
-        let palette: [Character: Color] = [
-            "o": outline,
-            "e": outline,
-            "f": Color(QuillUIColor.hex(0x7FA98C)),
-            "p": Color(QuillUIColor.hex(0xE5A8A2)),
-            "w": Color(QuillUIColor.hex(0xFFFDF6)),
-        ]
+        let palette = skin.palette(outline: outline)
 
         var grid = Self.cat
         func set(_ x: Int, _ y: Int, _ value: Character) {
@@ -268,17 +288,12 @@ final class PipSimulation {
 struct PipLogo: View {
     var pixel: CGFloat = 2.5
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.pipSkin) private var skin
 
     var body: some View {
         Canvas { context, _ in
             let outline = Color(QuillUIColor.hex(colorScheme == .dark ? 0x0A0A08 : 0x23231F))
-            let palette: [Character: Color] = [
-                "o": outline,
-                "e": outline,
-                "f": Color(QuillUIColor.hex(0x7FA98C)),
-                "p": Color(QuillUIColor.hex(0xE5A8A2)),
-                "w": Color(QuillUIColor.hex(0xFFFDF6)),
-            ]
+            let palette = skin.palette(outline: outline)
             func fill(_ x: Int, _ y: Int, _ color: Color) {
                 context.fill(Path(CGRect(x: CGFloat(x) * pixel, y: CGFloat(y) * pixel, width: pixel, height: pixel)), with: .color(color))
             }

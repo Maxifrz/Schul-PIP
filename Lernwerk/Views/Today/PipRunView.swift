@@ -53,6 +53,7 @@ final class PipRunModel: ObservableObject {
 /// keyboard; arrows, space and escape work with one.
 struct PipRunView: View {
     @ObservedObject var model: PipRunModel
+    @Environment(\.pipSkin) private var skin
 
     var body: some View {
         ZStack {
@@ -172,12 +173,7 @@ struct PipRunView: View {
 
     private func drawPip(_ run: PipRun, in context: inout GraphicsContext, rect: CGRect) {
         let outline = Color(QuillUIColor.hex(0x0A0A08))
-        let palette: [Character: Color] = [
-            "o": outline, "e": outline,
-            "f": Color(QuillUIColor.hex(0x7FA98C)),
-            "p": Color(QuillUIColor.hex(0xE5A8A2)),
-            "w": Color(QuillUIColor.hex(0xFFFDF6)),
-        ]
+        let palette = skin.palette(outline: outline)
         let grid = PipSimulation.cat
         let cellWidth = rect.width / CGFloat(grid[0].count)
         let cellHeight = rect.height / CGFloat(grid.count)
