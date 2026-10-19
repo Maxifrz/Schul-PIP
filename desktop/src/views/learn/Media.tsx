@@ -1,6 +1,7 @@
 import { LearnExercise } from '../../lib/learn/exercise';
 import { LessonModel } from '../../lib/learn/lessonModel';
 import { Glyph } from '../../ui/glyph';
+import { ChessBoard, ChessMoveView } from './ChessBoard';
 
 /** Speaks a word or sentence in the language of the course; no voice for it, no button. */
 function SpeakButton({ text, language }: { text: string; language: string }) {
@@ -22,11 +23,15 @@ export function MediaView({ exercise }: { exercise: LearnExercise }) {
   if (!media) return null;
   switch (media.kind) {
     case 'speech': return <div><SpeakButton text={media.text} language={media.language} /></div>;
+    case 'board': return exercise.kind === 'chessMove' ? null : <div className="ln-center"><ChessBoard spec={media.board} /></div>;
     default: return null;
   }
 }
 
 /** The kinds that need their own pictures (the chess board, the piano). */
-export function SpecialExercise(_props: { model: LessonModel; exercise: LearnExercise; revealsSolution: boolean }) {
+export function SpecialExercise({ model, exercise, revealsSolution }: { model: LessonModel; exercise: LearnExercise; revealsSolution: boolean }) {
+  if (exercise.kind === 'chessMove' && exercise.media?.kind === 'board') {
+    return <ChessMoveView model={model} spec={exercise.media.board} correctMoves={exercise.correctAnswers} revealsSolution={revealsSolution} />;
+  }
   return <p className="muted">Diese Aufgabe gibt es auf dem PC noch nicht.</p>;
 }

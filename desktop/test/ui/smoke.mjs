@@ -182,6 +182,24 @@ await page.getByRole('button', { name: 'Quests', exact: true }).click();
 await page.waitForSelector('text=Streak-Schutz');
 await shot('03f-quests');
 check('three quests for the day', (await page.locator('.ln-quest').count()) >= 4);
+await page.getByRole('button', { name: 'Pfad', exact: true }).click();
+await page.getByRole('button', { name: /Kurs wechseln$/ }).click();
+await page.waitForSelector('.dialog >> text=Schach');
+await page.locator('.dialog .ln-course:has-text("Schach")').click();
+await page.waitForSelector('.ln-node.current');
+await shot('03g-schach-pfad');
+await page.locator('.ln-node.current').click();
+await page.waitForSelector('.ln-lesson');
+for (let i = 0; i < 30 && (await page.locator('.ln-board').count()) === 0; i++) {
+  if ((await page.locator('.ln-feedback').count()) > 0) { await page.locator('.ln-feedback .btn').last().click(); continue; }
+  if ((await page.locator('.ln-option').count()) > 0) { await page.locator('.ln-option').first().click(); await page.getByRole('button', { name: 'Prüfen', exact: true }).click(); continue; }
+  break;
+}
+check('the chess lesson shows a board', (await page.locator('.ln-board .ln-sq').count()) === 64);
+check('the board has pieces or marked squares', (await page.locator('.ln-board .ln-piece, .ln-board .ln-sq-ring').count()) > 0);
+await shot('03h-schach-brett');
+await page.locator('.ln-x').click();
+await page.getByRole('button', { name: 'Lektion abbrechen', exact: true }).last().click();
 await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
 
 // Bibliothek with a generated PDF
