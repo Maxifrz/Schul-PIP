@@ -2,6 +2,7 @@
 import { registerCourse } from './catalog';
 import { french, germanForeign, germanSchool, latin, spanish } from './languages/courses';
 import { mathMiddle } from './math/middle/course';
+import { mathUpper } from './math/upper/course';
 
-[spanish, french, latin, germanForeign, germanSchool, mathMiddle].forEach(registerCourse);
+[spanish, french, latin, germanForeign, germanSchool, mathMiddle, mathUpper].forEach(registerCourse);
 export { courses, providerFor, providerForNode, providers } from './catalog';
