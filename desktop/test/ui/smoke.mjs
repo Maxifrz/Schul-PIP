@@ -111,8 +111,9 @@ check('game canvas is drawn', await page.evaluate(() => { const c = document.que
 await page.keyboard.press('Escape');
 check('escape leaves the game', (await page.locator('.hero canvas').count()) === 0 || (await page.locator('.hero .ghost').count()) === 0);
 
-// Karten
-await page.click('text=Karten >> nth=0');
+// Lernen: review by typing
+await page.click('.nav:has-text("Lernen")');
+await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
 await page.getByRole('button', { name: 'Neue Karte', exact: true }).click();
 await page.fill('input[placeholder="Frage"]', 'Hauptstadt von Deutschland?');
 await page.fill('textarea[placeholder="Antwort"]', 'Berlin');
@@ -124,6 +125,64 @@ check('right answer says Richtig', (await page.locator('.verdict').innerText()) 
 await shot('03-karten');
 await page.getByRole('button', { name: 'Weiter', exact: true }).click();
 check('cards are done afterwards', (await page.locator('text=Alles wiederholt').count()) === 1);
+
+// Lernen: a path made of the student's own cards
+const capitals = { 'Hauptstadt von Frankreich?': 'Paris', 'Hauptstadt von Italien?': 'Rom', 'Hauptstadt von Spanien?': 'Madrid', 'Hauptstadt von Österreich?': 'Wien' };
+for (const [front, back] of Object.entries(capitals)) {
+  await page.fill('input[placeholder="Frage"]', front);
+  await page.fill('textarea[placeholder="Antwort"]', back);
+  await page.getByRole('button', { name: 'Karte speichern', exact: true }).click();
+}
+const answers = { 'Hauptstadt von Deutschland?': 'Berlin', ...capitals };
+await page.getByRole('button', { name: 'Pfad', exact: true }).click();
+await page.locator('.ln-content').getByRole('button', { name: 'Kurs wählen', exact: true }).click();
+await page.waitForSelector('.dialog >> text=Mein Material');
+await shot('03a-kurse');
+await page.locator('.dialog').getByRole('button', { name: 'Öffnen', exact: true }).first().click();
+await page.waitForSelector('.ln-node.current');
+await shot('03b-pfad');
+check('the path has a lesson to start', (await page.locator('.ln-node.current').count()) === 1);
+await page.locator('.ln-node.current').click();
+await page.waitForSelector('.ln-lesson');
+for (let i = 0; i < 60; i++) {
+  if ((await page.locator('.ln-complete').count()) > 0) break;
+  if ((await page.locator('.ln-feedback').count()) > 0) {
+    await page.locator('.ln-feedback .btn').last().click();
+    continue;
+  }
+  if ((await page.locator('.ln-pairs').count()) > 0) {
+    const fronts = await page.locator('.ln-pairs > div:first-child .ln-tile').allInnerTexts();
+    for (const front of fronts) {
+      await page.locator('.ln-pairs > div:first-child .ln-tile').filter({ hasText: front }).first().click();
+      await page.locator('.ln-pairs > div:last-child .ln-tile').filter({ hasText: new RegExp(`^${answers[front]}$`) }).click();
+    }
+    await page.waitForSelector('.ln-feedback');
+    if (i === 0) await shot('03c-paare');
+    continue;
+  }
+  const prompt = await page.locator('.ln-prompt').innerText();
+  const back = answers[prompt];
+  if ((await page.locator('.ln-option').count()) > 0) {
+    await page.locator('.ln-option').filter({ hasText: back }).first().click();
+    await page.getByRole('button', { name: 'Prüfen', exact: true }).click();
+  } else if ((await page.locator('.ln-input').count()) > 0) {
+    await page.fill('.ln-input', back);
+    await page.keyboard.press('Enter');
+  } else {
+    throw new Error(`unknown exercise for ${prompt}`);
+  }
+  if (i === 1) await shot('03d-aufgabe');
+}
+await page.waitForSelector('.ln-complete');
+await shot('03e-fertig');
+check('a lesson without mistakes says so', (await page.locator('.ln-headline').innerText()) === 'Fehlerfrei!');
+await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+check('the next lesson is open or the course is done', (await page.locator('.ln-node.done, .ln-node').count()) > 0);
+await page.getByRole('button', { name: 'Quests', exact: true }).click();
+await page.waitForSelector('text=Streak-Schutz');
+await shot('03f-quests');
+check('three quests for the day', (await page.locator('.ln-quest').count()) >= 4);
+await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
 
 // Bibliothek with a generated PDF
 const pdf = Buffer.from(`%PDF-1.4
@@ -216,7 +275,7 @@ await page.locator('.dialog').getByRole('button', { name: 'Abschließen', exact:
 await page.waitForSelector('text=KI prüft das Ergebnis', { timeout: 8000 });
 await shot('09-final');
 await page.getByRole('button', { name: 'Karteikarten erzeugen', exact: true }).click();
-await page.click('.nav:has-text("Karten")');
+await page.click('.nav:has-text("Lernen")');
 check('flashcards from the board arrive', (await page.locator('.card:has-text("Definition: Bestimmtes Integral")').count()) === 1);
 
 // Einstellungen with the model search

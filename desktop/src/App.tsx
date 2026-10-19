@@ -1,20 +1,21 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Tab, cardStore, libraryStore, startStores, ui } from './store/app';
 import { startSocial } from './store/social';
+import { startLearn } from './store/learn';
 import { dueCards } from './lib/review';
 import { Spring, smooth } from './lib/spring';
 import { Banner, Icon } from './ui/kit';
 import { Calculator } from './views/Calculator';
 import { Courses } from './views/Courses';
 import { Library } from './views/Library';
-import { Review } from './views/Review';
+import { Learn } from './views/learn/Learn';
 import { Settings } from './views/Settings';
 import { Today } from './views/Today';
 
 const items: Array<{ id: Tab; label: string; icon: 'today' | 'library' | 'review' | 'courses' | 'calculator' | 'settings' }> = [
   { id: 'today', label: 'Heute', icon: 'today' },
   { id: 'library', label: 'Bibliothek', icon: 'library' },
-  { id: 'review', label: 'Karten', icon: 'review' },
+  { id: 'review', label: 'Lernen', icon: 'review' },
   { id: 'courses', label: 'Kurse', icon: 'courses' },
   { id: 'calculator', label: 'Rechner', icon: 'calculator' },
   { id: 'settings', label: 'Einstellungen', icon: 'settings' },
@@ -48,6 +49,7 @@ export function App() {
   useEffect(() => {
     void startStores();
     void startSocial();
+    void startLearn();
   }, []);
 
   // The main process forwards Ctrl+1 to Ctrl+6 while the calculator has the keyboard.
@@ -85,7 +87,7 @@ export function App() {
       <main className="main">
         {tab === 'today' && <Today />}
         {tab === 'library' && <Library />}
-        {tab === 'review' && <Review />}
+        {tab === 'review' && <Learn />}
         {tab === 'courses' && <Courses />}
         {tab === 'calculator' && <Calculator />}
         {tab === 'settings' && <Settings />}

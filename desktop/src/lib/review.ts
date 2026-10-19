@@ -11,6 +11,9 @@ export interface Card extends SchedulingState {
   createdAt: number;
   /** Milliseconds since 1970. */
   dueAt: number;
+  /** The library material the card was made from, and its page. */
+  materialID?: string;
+  page?: number;
 }
 
 export function newCard(front: string, back: string, now = Date.now(), id: string = crypto.randomUUID()): Card {

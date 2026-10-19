@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { cat, palette } from '../lib/pipArt';
 import { PipRun, isBird, obstacleHeight, obstacleLift, obstacleWidth, pipWidth, pipX, world } from '../lib/pipRun';
 import { dueCards } from '../lib/review';
 import { cardStore, libraryStore, ui } from '../store/app';
@@ -14,13 +15,6 @@ export function dateCaption(date: Date): string {
 }
 
 const greeting = (hour: number) => (hour < 11 ? 'Guten Morgen.' : hour < 17 ? 'Guten Tag.' : 'Guten Abend.');
-
-// Pip, drawn the way the iOS app draws it (13 by 13 pixels).
-const cat = [
-  '.............', '.oo.......oo.', '.opo.....opo.', '.offo...offo.', '.offfffffffo.', 'offfffffffffo', 'offeefffeeffo',
-  'offeefffeeffo', 'offfffpfffffo', 'offfffffffffo', '.offfffffffo.', '.offwwfffwwo.', '..ooooooooo..',
-];
-const palette: Record<string, string> = { o: '#0a0a08', e: '#0a0a08', f: '#7fa98c', p: '#e5a8a2', w: '#fffdf6' };
 
 function drawCat(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, step: boolean): void {
   const cw = width / cat[0].length;

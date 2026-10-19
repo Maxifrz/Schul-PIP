@@ -54,7 +54,8 @@ check('bad names are refused', await page.evaluate(async () => { try { await win
 check('data landed in the user data folder', existsSync(join(userData, 'data', 'probe.json')));
 
 // A card survives a restart: add it, wait for the debounce, restart.
-await page.click('.nav:has-text("Karten")');
+await page.click('.nav:has-text("Lernen")');
+await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();
 await page.getByRole('button', { name: 'Neue Karte', exact: true }).click();
 await page.fill('input[placeholder="Frage"]', 'Persistenz?');
 await page.fill('textarea[placeholder="Antwort"]', 'Ja');
@@ -108,7 +109,8 @@ local.close();
 const again = await electron.launch({ executablePath: electronPath, args: ['--no-sandbox', `--user-data-dir=${userData}`, ...appArgs] });
 const second = await again.firstWindow();
 await second.waitForSelector('.sidebar', { timeout: 20000 });
-await second.click('.nav:has-text("Karten")');
+await second.click('.nav:has-text("Lernen")');
+await second.getByRole('button', { name: 'Wiederholen', exact: true }).click();
 await second.waitForSelector('text=Persistenz?', { timeout: 5000 }).catch(() => {});
 check('the card is still there after a restart', (await second.locator('text=Persistenz?').count()) > 0);
 await again.close();
