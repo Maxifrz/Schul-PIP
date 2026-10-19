@@ -4,8 +4,8 @@ import Foundation
 /// (finding the move). A student who can say what a fork is has not yet shown that he finds one.
 extension ChessProvider {
     func skillFacets(of unit: CourseUnit) -> [SkillFacet] {
-        // Unit 4 asks about check and mate by choosing and by finding moves; nothing in it is typed.
-        let typed = unit.number != 4
+        // Units 4 and 8 ask by choosing, by pairs, by tiles and by finding moves; nothing in them is typed.
+        let typed = unit.number != 4 && unit.number != 8
         return [
             SkillFacet(
                 key: "know", title: "Wissen", goal: "Du kennst und erkennst: " + unit.summary,

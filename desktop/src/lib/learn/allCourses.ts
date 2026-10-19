@@ -3,6 +3,7 @@ import { registerCourse } from './catalog';
 import { french, germanForeign, germanSchool, latin, spanish } from './languages/courses';
 import { mathMiddle } from './math/middle/course';
 import { mathUpper } from './math/upper/course';
+import { chess } from './chess/course';
 
-[spanish, french, latin, germanForeign, germanSchool, mathMiddle, mathUpper].forEach(registerCourse);
+[spanish, french, latin, germanForeign, germanSchool, mathMiddle, mathUpper, chess].forEach(registerCourse);
 export { courses, providerFor, providerForNode, providers } from './catalog';
