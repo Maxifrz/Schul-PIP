@@ -1,6 +1,6 @@
-// Every course the app ships with registers itself here; the catalog is read by the Lernen tab and the tests.
+// Every course the app ships with registers itself here, in the order the course picker lists them.
 import { registerCourse } from './catalog';
+import { french, germanForeign, germanSchool, latin, spanish } from './languages/courses';
 
-export const shipped: Array<Parameters<typeof registerCourse>[0]> = [];
-shipped.forEach(registerCourse);
+[spanish, french, latin, germanForeign, germanSchool].forEach(registerCourse);
 export { courses, providerFor, providerForNode, providers } from './catalog';

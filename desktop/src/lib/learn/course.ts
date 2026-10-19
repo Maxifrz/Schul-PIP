@@ -213,7 +213,7 @@ const defaultFacets = (unit: CourseUnit): SkillFacet[] => [
   { key: 'main', title: unit.title, goal: `Du beherrschst: ${unit.summary}`, levels: ['recognise', 'recall'], after: 'main' },
 ];
 
-export const facetsOf = (provider: CourseProvider, unit: CourseUnit): SkillFacet[] => (provider.skillFacets ?? defaultFacets)(unit);
+export const facetsOf = (provider: CourseProvider, unit: CourseUnit): SkillFacet[] => (provider.skillFacets ? provider.skillFacets(unit) : defaultFacets(unit));
 
 export const tagOf = (provider: CourseProvider, item: LearnExercise, node: CourseNode): SkillTag =>
   provider.skillTag ? provider.skillTag(item, node) : { facet: 'main', level: standardLevel(item.kind) };
