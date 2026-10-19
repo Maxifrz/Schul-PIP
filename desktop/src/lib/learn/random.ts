@@ -14,7 +14,8 @@ export class LearnRandom {
 
   /** 0 up to, not including, `upper`. */
   int(upper: number): number {
-    if (upper <= 1) return 0;
+    if (upper <= 0) return 0;
+    // One number is drawn even for a range of one value, so a template draws the same numbers as on every other platform.
     return Number(this.mix.next() % BigInt(upper));
   }
 
