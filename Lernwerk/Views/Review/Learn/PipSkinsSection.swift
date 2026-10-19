@@ -5,7 +5,7 @@ struct PipSkinsSection: View {
     @EnvironmentObject private var progress: LearnProgressStore
 
     var body: some View {
-        VStack(spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10, alignment: .top)], spacing: 10) {
             ForEach(PipSkin.all) { skin in
                 PipSkinRow(
                     skin: skin,
@@ -29,23 +29,26 @@ private struct PipSkinRow: View {
     let onSelect: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            PipLogo(pixel: 3)
+        VStack(spacing: 8) {
+            PipLogo(pixel: 5)
                 .environment(\.pipSkin, skin)
-                .frame(width: 56, height: 44)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 20)
+                .frame(height: 96)
                 .background(Quill.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(spacing: 2) {
                 Text(skin.name)
                     .font(.work(16, .semibold))
                     .foregroundStyle(Quill.ink)
-                Text(selected ? "Pip trägt das gerade" : owned ? "Gehört dir" : "Noch nicht freigeschaltet")
-                    .font(.work(13.5))
+                Text(selected ? "Pip trägt das gerade" : skin.note)
+                    .font(.work(12.5))
                     .foregroundStyle(Quill.muted)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3, reservesSpace: true)
             }
-            Spacer(minLength: 8)
             action
         }
-        .padding(14)
+        .padding(12)
         .background(Quill.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -59,14 +62,14 @@ private struct PipSkinRow: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Quill.accent)
-                .frame(width: 44, height: 44)
+                .frame(height: 44)
                 .accessibilityLabel("Ausgewählt")
         } else if owned {
             Button(action: onSelect) {
                 Text("Auswählen")
                     .font(.work(14, .bold))
                     .foregroundStyle(Quill.accent)
-                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .overlay(Capsule().stroke(Quill.accent, lineWidth: 1.5))
             }
@@ -85,7 +88,7 @@ private struct PipSkinRow: View {
                     }
                 }
                 .foregroundStyle(Quill.onAccent)
-                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(Quill.accent, in: Capsule())
                 .opacity(canAfford ? 1 : 0.4)

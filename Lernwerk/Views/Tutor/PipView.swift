@@ -12,16 +12,12 @@ extension EnvironmentValues {
     }
 }
 
-extension PipSkin {
-    /// Grid characters to colors for the cat's pixel grid.
-    func palette(outline: Color) -> [Character: Color] {
-        [
-            "o": outline,
-            "e": outline,
-            "f": Color(QuillUIColor.hex(fur)),
-            "p": Color(QuillUIColor.hex(inner)),
-            "w": Color(QuillUIColor.hex(paws)),
-        ]
+extension GraphicsContext {
+    /// Paints a skin's cells; `cell` turns one cell of the cat grid into its rectangle.
+    func paint(_ pixels: [PipPixel], cell: (PipPixel) -> CGRect) {
+        for pixel in pixels {
+            fill(Path(cell(pixel)), with: .color(Color(QuillUIColor.hex(pixel.rgb, alpha: pixel.alpha))))
+        }
     }
 }
 
@@ -94,7 +90,7 @@ final class PipSimulation {
         ".offwwfffwwo.",
         "..ooooooooo..",
     ].map(Array.init)
-    fileprivate static let tails: [[(Int, Int)]] = [
+    static let tails: [[(Int, Int)]] = [
         [(12, 10), (13, 10), (14, 9), (14, 8)],
         [(12, 10), (13, 9), (14, 8), (14, 7)],
         [(12, 11), (13, 10), (14, 10), (15, 9)],
@@ -211,9 +207,6 @@ final class PipSimulation {
     }
 
     func draw(in context: GraphicsContext, dark: Bool, skin: PipSkin, showsThinkingDots: Bool) {
-        let outline = Color(QuillUIColor.hex(dark ? 0x0A0A08 : 0x23231F))
-        let palette = skin.palette(outline: outline)
-
         var grid = Self.cat
         func set(_ x: Int, _ y: Int, _ value: Character) {
             guard grid.indices.contains(y), grid[y].indices.contains(x) else { return }
@@ -241,30 +234,11 @@ final class PipSimulation {
         let s = Self.pixel
         let height = Self.size.height
 
-        func fill(_ gx: Int, _ gy: Int, _ color: Color, offsetY: Int = PipSimulation.bodyY) {
-            let top = CGFloat(gy + offsetY + bob) * s
+        let pixels = skin.pixels(grid: grid, tail: tail, outline: skin.outlineColor(dark: dark))
+        context.paint(pixels) { pixel in
+            let top = CGFloat(pixel.y + Self.bodyY + bob) * s
             let squashedTop = height - (height - top) * squashScale
-            let rect = CGRect(x: CGFloat(gx) * s, y: squashedTop, width: s, height: s * squashScale)
-            context.fill(Path(rect), with: .color(color))
-        }
-
-        var occupied = Set<Int>()
-        for (gy, row) in grid.enumerated() {
-            for (gx, value) in row.enumerated() where value != "." {
-                occupied.insert(gy * 100 + gx)
-            }
-        }
-        tail.forEach { occupied.insert($0.1 * 100 + $0.0) }
-        for (tx, ty) in tail {
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] where !occupied.contains((ty + dy) * 100 + tx + dx) {
-                fill(tx + dx, ty + dy, outline)
-            }
-        }
-        tail.forEach { fill($0.0, $0.1, palette["f"] ?? outline) }
-        for (gy, row) in grid.enumerated() {
-            for (gx, value) in row.enumerated() where value != "." {
-                fill(gx, gy, palette[value] ?? outline)
-            }
+            return CGRect(x: CGFloat(pixel.x) * s, y: squashedTop, width: s, height: s * squashScale)
         }
 
         if showsThinkingDots {
@@ -291,30 +265,19 @@ struct PipLogo: View {
     @Environment(\.pipSkin) private var skin
 
     var body: some View {
-        Canvas { context, _ in
-            let outline = Color(QuillUIColor.hex(colorScheme == .dark ? 0x0A0A08 : 0x23231F))
-            let palette = skin.palette(outline: outline)
-            func fill(_ x: Int, _ y: Int, _ color: Color) {
-                context.fill(Path(CGRect(x: CGFloat(x) * pixel, y: CGFloat(y) * pixel, width: pixel, height: pixel)), with: .color(color))
-            }
-            let grid = PipSimulation.cat
-            let tail = PipSimulation.tails[0]
-            var occupied = Set<Int>()
-            for (y, row) in grid.enumerated() {
-                for (x, value) in row.enumerated() where value != "." { occupied.insert(y * 100 + x) }
-            }
-            tail.forEach { occupied.insert($0.1 * 100 + $0.0) }
-            for (x, y) in tail {
-                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] where !occupied.contains((y + dy) * 100 + x + dx) {
-                    fill(x + dx, y + dy, outline)
-                }
-            }
-            tail.forEach { fill($0.0, $0.1, palette["f"] ?? outline) }
-            for (y, row) in grid.enumerated() {
-                for (x, value) in row.enumerated() where value != "." { fill(x, y, palette[value] ?? outline) }
+        // Hats rise three cells above the head: draw there and pull the layout back down.
+        let pixelSize = pixel
+        return Canvas { context, _ in
+            let pixels = skin.pixels(
+                grid: PipSimulation.cat, tail: PipSimulation.tails[0], outline: skin.outlineColor(dark: colorScheme == .dark)
+            )
+            context.paint(pixels) { pixel in
+                CGRect(x: CGFloat(pixel.x) * pixelSize, y: CGFloat(pixel.y + 3) * pixelSize, width: pixelSize, height: pixelSize)
             }
         }
-        .frame(width: 16 * pixel, height: 13 * pixel)
+        .frame(width: 16 * pixel, height: 16 * pixel)
+        .padding(.top, -3 * pixel)
+        .frame(width: 16 * pixel, height: 13 * pixel, alignment: .bottom)
         .accessibilityHidden(true)
     }
 }

@@ -172,21 +172,19 @@ struct PipRunView: View {
     }
 
     private func drawPip(_ run: PipRun, in context: inout GraphicsContext, rect: CGRect) {
-        let outline = Color(QuillUIColor.hex(0x0A0A08))
-        let palette = skin.palette(outline: outline)
         let grid = PipSimulation.cat
         let cellWidth = rect.width / CGFloat(grid[0].count)
         let cellHeight = rect.height / CGFloat(grid.count)
         // Legs swap while running on the ground: the bottom rows shift by a cell.
         let step = !run.isAirborne && run.phase == .running && Int(run.distance / 14) % 2 == 0
-        for (y, row) in grid.enumerated() {
-            for (x, value) in row.enumerated() where value != "." {
-                let dx: CGFloat = (step && y >= grid.count - 2) ? cellWidth * 0.6 : 0
-                let left: CGFloat = rect.minX + CGFloat(x) * cellWidth + dx
-                let top: CGFloat = rect.minY + CGFloat(y) * cellHeight
-                let cell = CGRect(x: left, y: top, width: cellWidth + 0.5, height: cellHeight + 0.5)
-                context.fill(Path(cell), with: .color(palette[value] ?? outline))
-            }
+        // The run has no tail; the cat's own grid is all it needs.
+        let pixels = skin.pixels(grid: grid, tail: [], outline: skin.outlineColor(dark: true))
+        context.paint(pixels) { pixel in
+            let dx: CGFloat = (step && pixel.y >= grid.count - 2) ? cellWidth * 0.6 : 0
+            return CGRect(
+                x: rect.minX + CGFloat(pixel.x) * cellWidth + dx, y: rect.minY + CGFloat(pixel.y) * cellHeight,
+                width: cellWidth + 0.5, height: cellHeight + 0.5
+            )
         }
     }
 }
