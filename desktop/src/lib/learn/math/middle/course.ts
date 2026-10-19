@@ -5,9 +5,10 @@ import type { Template } from './core';
 import { unit01 } from './unit01';
 import { unit02 } from './unit02';
 import { unit03 } from './unit03';
+import { unit04 } from './unit04';
 
 /** Every template of the course, by unit. */
-export const catalog: Template[][] = [unit01, unit02, unit03];
+export const catalog: Template[][] = [unit01, unit02, unit03, unit04];
 
 const COURSE_ID = 'mathm';
 
