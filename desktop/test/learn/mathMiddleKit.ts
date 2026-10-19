@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { MathGen, Problem, Template, problemOptions } from '../../src/lib/learn/math/middle/core';
 import { catalog } from '../../src/lib/learn/math/middle/course';
+import { NumberCheck } from '../../src/lib/learn/rational';
 
 /**
  * Independent checks for the middle-school maths course. The kit re-reads the prompts the student sees and recomputes the
@@ -114,6 +115,9 @@ export function bruteLCM(a: number, b: number): number {
 export const typedAnswer = (p: Problem): number | null => (p.typed ? p.typed.answer.value : null);
 
 export const optionsOf = problemOptions;
+
+/** A number the answer check accepts, written the way a student might: the value of the typed answer. */
+export const accepts = (p: Problem, text: string): boolean => (p.typed ? NumberCheck.matches(text, p.typed.answer.fractionText) : false);
 
 const sup: Record<string, number> = { '⁰': 0, '¹': 1, '²': 2, '³': 3, '⁴': 4, '⁵': 5, '⁶': 6, '⁷': 7, '⁸': 8, '⁹': 9 };
 const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
