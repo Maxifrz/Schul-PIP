@@ -10,6 +10,7 @@ the Tafelbild logic and the Pip game, with the same test cases as the Swift test
 |---|---|
 | **Heute** | Date, the cards due, Pip. **Right arrow** starts the dinosaur-style game with Pip (up or space jumps, down ducks, Esc leaves); a click on Pip does the same. |
 | **Bibliothek** | PDFs on this PC: import (several at once), search, rename, delete, read with zoom, the last page is remembered. |
+| **Lernen** | The path of short lessons with the same courses as on iOS: Spanisch, Französisch, Latein, Deutsch als Fremdsprache, Deutsch, Mathe Mittelstufe and Oberstufe, Schach (a rules engine proven with perft counts decides every answer) and Musik (staff, keyboard, played tones). XP, streak, gems, quests, skills with a spaced review, hints and a chess coach. Everything is ported from the Swift code with its tests (`src/lib/learn/`, `test/learn/`); progress lives on this PC. |
 | **Karten** | Flashcards with a typed answer ("Richtig" / "Falsch", no AI), SM-2 scheduling, optional "repeat when wrong", "War doch richtig". |
 | **Kurse** | Courses and work groups by join code, chat (files by drag and drop), files of a group, members and moderators, and the **Tafelbild**: proposals, accept / edit / reject, corrections, polls, versions, closing; from the closed result a PDF, flashcards, or an AI check. |
 | **Rechner** | The same calculator page as the mobile apps (CAS, graphics, geometry, 3D, tables, statistics, chemistry), shown in its own view. |
