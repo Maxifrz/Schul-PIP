@@ -9,7 +9,7 @@ data class CoverageGap(val unit: Int, val sentence: String, val words: List<Stri
 }
 
 object LanguageCoverage {
-    private val spaces = Regex("\\p{IsWhite_Space}+")
+    private val spaces = Regex("[\\s\\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+")
     private val digitsOnly = Regex("^\\p{N}+$")
 
     /** The tokens of a text as they are compared: lower case, no accents, no punctuation, no digits-only tokens. */

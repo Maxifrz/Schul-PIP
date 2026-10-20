@@ -83,7 +83,9 @@ class MathMiddleGen(seed: ULong) {
     /** A number from the range, every value about equally likely (`next() % span`, not Lemire). */
     fun int(range: IntRange): Int {
         val span = (range.last.toLong() - range.first.toLong() + 1L).toULong()
-        return range.first + (random.next() % span).toInt()
+        val r = range.first + (random.next() % span).toInt()
+        if (System.getProperty("mmdebug") != null) System.err.println("DBG ${range.first}..${range.last}=$r")
+        return r
     }
 
     /** A number from the range that is not zero. */

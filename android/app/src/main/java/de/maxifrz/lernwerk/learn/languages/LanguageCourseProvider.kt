@@ -25,11 +25,12 @@ import de.maxifrz.lernwerk.learn.trimWs
 import de.maxifrz.lernwerk.review.AnswerCheck
 import java.text.BreakIterator
 
+// (White_Space written out: the Android regex engine has no \\p{IsWhite_Space}.)
 // Turns a language or school-subject course (see LanguageDSL.kt) into lessons. Every item is met in three stages: first
 // recognised (a choice), then put together (tiles, a choice in the other direction, hearing), then produced (typed).
 // A port of LanguageCourseProvider.swift and LanguageSkills.swift.
 
-private val spaces = Regex("\\p{IsWhite_Space}+")
+private val spaces = Regex("[\\s\\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+")
 private val punctuationOrSpace = Regex("^[\\p{P}\\t\\p{Zs}]+|[\\p{P}\\t\\p{Zs}]+$")
 private val plainText = Regex("^[^\\p{M}\\u200d\\r\\u1100-\\u11ff\\x{1F1E6}-\\x{1F1FF}\\ufe0f]*$")
 

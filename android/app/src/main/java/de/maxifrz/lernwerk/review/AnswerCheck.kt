@@ -50,8 +50,14 @@ object AnswerCheck {
         return result
     }
 
+    /** Swift's `Character.isNumber`: any Unicode number (Nd, Nl, No), so superscript digits like "⁴" count too. */
+    private fun isNumber(c: Char): Boolean {
+        val type = Character.getType(c)
+        return type == Character.DECIMAL_DIGIT_NUMBER.toInt() || type == Character.LETTER_NUMBER.toInt() || type == Character.OTHER_NUMBER.toInt()
+    }
+
     /** Letters and digits only: "2 x" and "2x", "x^2" and "x2" are the same formula. */
-    fun compact(normalized: String): String = normalized.filter { it.isLetterOrDigit() }
+    fun compact(normalized: String): String = normalized.filter { it.isLetter() || isNumber(it) }
 
     fun tokens(normalized: String): List<String> {
         val result = mutableListOf<String>()
@@ -62,7 +68,7 @@ object AnswerCheck {
             current.setLength(0)
         }
         for (character in normalized) {
-            if (character.isLetterOrDigit() || (character == '.' && current.isNotEmpty() && current.last().isDigit())) {
+            if (character.isLetter() || isNumber(character) || (character == '.' && current.isNotEmpty() && isNumber(current.last()))) {
                 current.append(character)
             } else {
                 flush()
