@@ -29,7 +29,7 @@ export const sideToMoveOf = (fen: string): string | null => {
   return side === 'w' ? 'Weiß' : side === 'b' ? 'Schwarz' : null;
 };
 
-const pieceName = (piece: string) => `${piece === piece.toUpperCase() ? 'weißer' : 'schwarzer'} ${germanNames[piece.toLowerCase()] ?? 'Stein'}`;
+const pieceName = (piece: string) => `${piece === piece.toUpperCase() ? 'weiß' : 'schwarz'}${piece.toLowerCase() === 'q' ? 'e' : 'er'} ${germanNames[piece.toLowerCase()] ?? 'Stein'}`;
 
 /** A chess board with the pieces of a position. With `onTap` its squares can be tapped (to find a move); without it it only shows the position, with the squares in `spec.marked` ringed. */
 export function ChessBoard({ spec, from = null, to = null, correctMoves = [], verdict = null, onTap }: {

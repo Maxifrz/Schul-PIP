@@ -4,6 +4,7 @@ import { french, germanForeign, germanSchool, latin, spanish } from './languages
 import { mathMiddle } from './math/middle/course';
 import { mathUpper } from './math/upper/course';
 import { chess } from './chess/course';
+import { music } from './music/course';
 
-[spanish, french, latin, germanForeign, germanSchool, mathMiddle, mathUpper, chess].forEach(registerCourse);
+[spanish, french, latin, germanForeign, germanSchool, mathMiddle, mathUpper, chess, music].forEach(registerCourse);
 export { courses, providerFor, providerForNode, providers } from './catalog';

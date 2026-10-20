@@ -190,14 +190,46 @@ await page.waitForSelector('.ln-node.current');
 await shot('03g-schach-pfad');
 await page.locator('.ln-node.current').click();
 await page.waitForSelector('.ln-lesson');
-for (let i = 0; i < 30 && (await page.locator('.ln-board').count()) === 0; i++) {
-  if ((await page.locator('.ln-feedback').count()) > 0) { await page.locator('.ln-feedback .btn').last().click(); continue; }
-  if ((await page.locator('.ln-option').count()) > 0) { await page.locator('.ln-option').first().click(); await page.getByRole('button', { name: 'Prüfen', exact: true }).click(); continue; }
-  break;
+for (let i = 0; i < 40 && (await page.locator('.ln-board').count()) === 0; i++) {
+  await page.waitForSelector('.ln-feedback, .ln-option, .ln-board', { timeout: 5000 });
+  if ((await page.locator('.ln-board').count()) > 0) break;
+  if ((await page.locator('.ln-feedback').count()) > 0) { await page.locator('.ln-feedback .btn').last().click(); await page.waitForTimeout(150); continue; }
+  // Try the options one after the other until the answer is right; a wrong one offers another try.
+  for (let option = 0; option < 4; option++) {
+    await page.locator('.ln-option').nth(option).click();
+    await page.getByRole('button', { name: 'Prüfen', exact: true }).click();
+    await page.waitForSelector('.ln-feedback');
+    if ((await page.locator('.ln-feedback.right').count()) > 0) break;
+    await page.getByRole('button', { name: 'Nochmal versuchen', exact: true }).click();
+  }
 }
 check('the chess lesson shows a board', (await page.locator('.ln-board .ln-sq').count()) === 64);
 check('the board has pieces or marked squares', (await page.locator('.ln-board .ln-piece, .ln-board .ln-sq-ring').count()) > 0);
 await shot('03h-schach-brett');
+await page.locator('.ln-x').click();
+await page.getByRole('button', { name: 'Lektion abbrechen', exact: true }).last().click();
+await page.getByRole('button', { name: /Kurs wechseln$/ }).click();
+await page.waitForSelector('.dialog >> text=Musik');
+await page.locator('.dialog .ln-course:has-text("Musik")').click();
+await page.waitForSelector('.ln-node.current');
+await page.locator('.ln-node.current').click();
+await page.waitForSelector('.ln-lesson');
+for (let i = 0; i < 150 && (await page.locator('.ln-staff').count()) === 0; i++) {
+  await page.waitForSelector('.ln-feedback, .ln-option, .ln-staff', { timeout: 5000 });
+  if ((await page.locator('.ln-staff').count()) > 0) break;
+  if ((await page.locator('.ln-feedback').count()) > 0) { await page.locator('.ln-feedback .btn').last().click(); await page.waitForTimeout(150); continue; }
+  // Try the options one after the other until the answer is right; a wrong one offers another try.
+  for (let option = 0; option < 4; option++) {
+    await page.locator('.ln-option').nth(option).click();
+    await page.getByRole('button', { name: 'Prüfen', exact: true }).click();
+    await page.waitForSelector('.ln-feedback');
+    if ((await page.locator('.ln-feedback.right').count()) > 0) break;
+    await page.getByRole('button', { name: 'Nochmal versuchen', exact: true }).click();
+  }
+}
+await page.waitForTimeout(600);
+check('the music lesson shows a staff with a note', (await page.locator('.ln-staff ellipse').count()) >= 1);
+await shot('03i-musik-noten');
 await page.locator('.ln-x').click();
 await page.getByRole('button', { name: 'Lektion abbrechen', exact: true }).last().click();
 await page.getByRole('button', { name: 'Wiederholen', exact: true }).click();

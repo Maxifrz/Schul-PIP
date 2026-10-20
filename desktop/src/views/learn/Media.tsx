@@ -2,6 +2,7 @@ import { LearnExercise } from '../../lib/learn/exercise';
 import { LessonModel } from '../../lib/learn/lessonModel';
 import { Glyph } from '../../ui/glyph';
 import { ChessBoard, ChessMoveView } from './ChessBoard';
+import { PianoView, StaffView, TonePlayButton } from './Music';
 
 /** Speaks a word or sentence in the language of the course; no voice for it, no button. */
 function SpeakButton({ text, language }: { text: string; language: string }) {
@@ -24,6 +25,8 @@ export function MediaView({ exercise }: { exercise: LearnExercise }) {
   switch (media.kind) {
     case 'speech': return <div><SpeakButton text={media.text} language={media.language} /></div>;
     case 'board': return exercise.kind === 'chessMove' ? null : <div className="ln-center"><ChessBoard spec={media.board} /></div>;
+    case 'staff': return <div className="ln-center"><StaffView spec={media.staff} /></div>;
+    case 'tones': return <div className="ln-center"><TonePlayButton spec={media.tones} /></div>;
     default: return null;
   }
 }
@@ -33,5 +36,6 @@ export function SpecialExercise({ model, exercise, revealsSolution }: { model: L
   if (exercise.kind === 'chessMove' && exercise.media?.kind === 'board') {
     return <ChessMoveView model={model} spec={exercise.media.board} correctMoves={exercise.correctAnswers} revealsSolution={revealsSolution} />;
   }
+  if (exercise.kind === 'pianoKey') return <PianoView model={model} correct={exercise.correctAnswers.map(Number)} revealsSolution={revealsSolution} />;
   return <p className="muted">Diese Aufgabe gibt es auf dem PC noch nicht.</p>;
 }
