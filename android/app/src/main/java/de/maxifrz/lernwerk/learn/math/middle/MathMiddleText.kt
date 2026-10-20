@@ -133,8 +133,10 @@ object MathMiddleText {
     fun bracketed(n: Int): String = if (n < 0) "(" + int(n) + ")" else n.toString()
 
     /** A whole number with a thin space between the thousands: 50 000. */
-    fun grouped(n: Int): String {
-        val digits = Math.abs(n.toLong()).toString()
+    fun grouped(n: Int): String = grouped(n.toLong())
+
+    fun grouped(n: Long): String {
+        val digits = if (n == Long.MIN_VALUE) n.toString().drop(1) else Math.abs(n).toString()
         val result = StringBuilder(if (n < 0) minus else "")
         digits.forEachIndexed { index, character ->
             if (index > 0 && (digits.length - index) % 3 == 0) result.append(' ')

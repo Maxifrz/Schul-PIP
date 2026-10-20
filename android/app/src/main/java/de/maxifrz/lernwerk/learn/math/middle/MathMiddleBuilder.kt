@@ -141,7 +141,6 @@ object MathMiddleBuilder {
         if (form == MathMiddleForm.PAIRS) return pairs(template, wish.level, id, gen, seen)
         repeat(24) {
             val problem = template.make(wish.level, gen)
-            if (System.getProperty("mmdebug") != null) System.err.println("DBG attempt ${template.id} level ${wish.level} -> ${problem?.prompt?.replace('\n',' ')} ${problem?.options} seen=${problem?.key?.let { seen.contains(it) }}")
             if (problem == null || seen.contains(problem.key)) return@repeat
             val exercise = exerciseFrom(problem, id, form, gen)
             if (exercise != null) {

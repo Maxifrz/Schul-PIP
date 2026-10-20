@@ -486,7 +486,7 @@ object MathMiddleUnit07 {
         if (!value.ok) return null
         val shown: String
         if (exponent >= 0) {
-            val whole = value.int ?: return null
+            val whole = value.long ?: return null
             shown = T.grouped(whole)
         } else {
             val places = -exponent + (if (hasDecimal) 1 else 0)

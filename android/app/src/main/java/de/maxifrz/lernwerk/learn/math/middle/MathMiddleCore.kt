@@ -24,15 +24,19 @@ class MathMiddleQ(rational: Rational?) : Comparable<MathMiddleQ> {
 
     constructor(numerator: Int, denominator: Int = 1) : this(Rational.make(numerator.toLong(), denominator.toLong()))
 
-    val numerator: Int get() = value.numerator.toInt()
-    val denominator: Int get() = value.denominator.toInt()
+    // Swift's Int is 64 bits, Kotlin's Int 32: these throw instead of wrapping around when a value does not fit.
+    val numerator: Int get() = Math.toIntExact(value.numerator)
+    val denominator: Int get() = Math.toIntExact(value.denominator)
     val isWhole: Boolean get() = value.isWhole
     val double: Double get() = value.doubleValue
     val isZero: Boolean get() = value.numerator == 0L
     val isNegative: Boolean get() = value.numerator < 0L
 
-    /** The value as a whole number, null for a fraction. */
-    val int: Int? get() = if (value.isWhole) value.numerator.toInt() else null
+    /** The value as a whole number, null for a fraction (or a whole number beyond Int). */
+    val int: Int? get() = if (value.isWhole && value.numerator in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) value.numerator.toInt() else null
+
+    /** The value as a 64-bit whole number (Swift's `Int`), null for a fraction. */
+    val long: Long? get() = if (value.isWhole) value.numerator else null
 
     val reciprocal: MathMiddleQ get() = MathMiddleQ(1) / this
     val negated: MathMiddleQ get() = MathMiddleQ(-numerator, denominator)
@@ -83,9 +87,7 @@ class MathMiddleGen(seed: ULong) {
     /** A number from the range, every value about equally likely (`next() % span`, not Lemire). */
     fun int(range: IntRange): Int {
         val span = (range.last.toLong() - range.first.toLong() + 1L).toULong()
-        val r = range.first + (random.next() % span).toInt()
-        if (System.getProperty("mmdebug") != null) System.err.println("DBG ${range.first}..${range.last}=$r")
-        return r
+        return range.first + (random.next() % span).toInt()
     }
 
     /** A number from the range that is not zero. */

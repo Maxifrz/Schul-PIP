@@ -16,6 +16,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The Kotlin course against what the Swift engines build: content/fixtures/courses/mathm.json. */
@@ -95,6 +96,7 @@ class MathMiddleFixtureTest {
     }
 
     private fun compareUnits(vararg units: String) {
+        var compared = 0
         for (entry in fixture["nodes"]!!.jsonArray) {
             val id = entry.jsonObject["id"]!!.jsonPrimitive.content
             if (units.none { id.startsWith("mathm.$it.") }) continue
@@ -105,8 +107,11 @@ class MathMiddleFixtureTest {
                 val expected = run.jsonObject["exercises"]!!.jsonArray.map { it.jsonObject }
                 assertEquals("$id seed $seed: count", expected.size, made.size)
                 for (i in expected.indices) assertEquals("$id seed $seed exercise $i", expected[i], made[i])
+                assertTrue("$id seed $seed has exercises", expected.isNotEmpty())
+                compared += 1
             }
         }
+        assertEquals("runs compared for $units", units.size * 5 * 2, compared)
     }
 
     @Test fun unit01MatchesSwift() = compareUnits("u01")
