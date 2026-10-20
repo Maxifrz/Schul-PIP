@@ -413,3 +413,24 @@ val UAmpKind.swiftName: String
         UAmpKind.MINIMUM -> "minimum"
         UAmpKind.MIDLINE -> "midline"
     }
+
+val UUrn.swiftName: String
+    get() = when (this) {
+        UUrn.ONE_RED -> "oneRed"
+        UUrn.TWO_RED_WITH -> "twoRedWith"
+        UUrn.TWO_RED_WITHOUT -> "twoRedWithout"
+        UUrn.DIFFERENT_WITHOUT -> "differentWithout"
+    }
+
+val UAsk.swiftName: String
+    get() = when (this) {
+        UAsk.P_A -> "pA"
+        UAsk.P_B -> "pB"
+        UAsk.P_A_AND_B -> "pAandB"
+        UAsk.P_A_OR_B -> "pAorB"
+        UAsk.P_NOT_A_AND_B -> "pNotAandB"
+        UAsk.P_NOT_A_AND_NOT_B -> "pNotAandNotB"
+        UAsk.P_A_GIVEN_B -> "pAgivenB"
+        UAsk.P_B_GIVEN_A -> "pBgivenA"
+        UAsk.P_NOT_B_GIVEN_A -> "pNotBgivenA"
+    }
