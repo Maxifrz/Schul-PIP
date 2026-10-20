@@ -40,6 +40,8 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir("../../cas/web")
+            // The shared course texts (content/courses/*.txt) as assets/courses/*.txt, copied by copyCourseTexts.
+            assets.srcDir(layout.buildDirectory.dir("generated/courseAssets"))
         }
     }
 
@@ -68,6 +70,12 @@ android {
         }
     }
 }
+
+val copyCourseTexts by tasks.registering(Copy::class) {
+    from("../../content/courses") { include("*.txt") }
+    into(layout.buildDirectory.dir("generated/courseAssets/courses"))
+}
+tasks.named("preBuild") { dependsOn(copyCourseTexts) }
 
 kotlin {
     compilerOptions {
