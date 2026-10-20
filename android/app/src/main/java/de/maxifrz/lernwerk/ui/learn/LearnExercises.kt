@@ -119,6 +119,7 @@ fun MultipleChoiceView(options: List<String>, correct: String, choice: String?, 
 
 /** Pairing: the fronts left, the backs right; the state of the pairing lives in the [model]. */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun MatchPairsView(exercise: LearnExercise, model: LessonModel, version: Int, onChange: (PairOutcome?) -> Unit) {
     val matched = model.matched.toSet()
     val matchedBacks = model.matchedBacks.toSet()
@@ -154,8 +155,6 @@ fun MatchPairsView(exercise: LearnExercise, model: LessonModel, version: Int, on
             }
         }
     }
-    // The version makes the pairs read the model again after every tap.
-    check(version >= 0)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

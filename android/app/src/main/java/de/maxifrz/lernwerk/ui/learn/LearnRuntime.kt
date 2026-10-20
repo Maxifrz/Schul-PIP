@@ -131,7 +131,7 @@ class LearnUi(
         save()
     }
 
-    fun setMode(next: LearnMode) {
+    fun showMode(next: LearnMode) {
         mode = next
         save()
     }

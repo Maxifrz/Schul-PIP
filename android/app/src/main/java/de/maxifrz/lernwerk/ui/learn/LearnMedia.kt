@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.input.pointer.pointerInput
@@ -124,7 +125,7 @@ private fun DrawScope.drawPiece(piece: Char, origin: Offset, cell: Float, light:
     val edge = if (white) dark else light.copy(alpha = 0.55f)
     val unit = cell / 100f
     val shapes = pieceShapes[piece.lowercaseChar()] ?: return
-    androidx.compose.ui.graphics.drawscope.withTransform({
+    withTransform({
         translate(origin.x, origin.y)
         scale(unit, unit, pivot = Offset.Zero)
     }) {

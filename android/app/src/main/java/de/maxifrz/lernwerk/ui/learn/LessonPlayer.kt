@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -162,8 +163,6 @@ private fun LessonTop(progress: Float, onClose: () -> Unit) {
     }
 }
 
-private fun Modifier.clip(shape: androidx.compose.ui.graphics.Shape) = androidx.compose.ui.draw.clip(shape)
-
 /** The media above a question: a word to hear, a staff, notes to hear, a position. */
 @Composable
 fun ExerciseMediaView(exercise: LearnExercise, speech: SpeechEngine) {
@@ -177,9 +176,6 @@ fun ExerciseMediaView(exercise: LearnExercise, speech: SpeechEngine) {
         is ExerciseMedia.Board -> if (exercise.kind != ExerciseKind.CHESS_MOVE) ChessBoardView(media.board, Modifier.widthIn(max = 360.dp).fillMaxWidth())
     }
 }
-
-@Composable
-private fun ColumnScopeSpacer(height: Int) = Spacer(Modifier.height(height.dp))
 
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.ExerciseScreen(

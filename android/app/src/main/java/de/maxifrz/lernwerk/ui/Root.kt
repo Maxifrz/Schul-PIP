@@ -79,6 +79,7 @@ enum class AppTab(val title: String) {
     CALC("Rechner"),
     CALENDAR("Kalender"),
     REVIEW("Wiederholen"),
+    LEARN("Lernen"),
     SETTINGS("Einstellungen"),
 }
 
@@ -210,7 +211,7 @@ fun RootScreen(
             when (route) {
                 null -> Column(Modifier.fillMaxSize()) {
                     val now = System.currentTimeMillis()
-                    if (exam) ExamBar() else TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
+                    if (exam) ExamBar() else if (!de.maxifrz.lernwerk.ui.learn.LearnHost.lessonOpen || tab != AppTab.LEARN) TopTabBar(tab, repository.cards.count { it.dueAt <= now }) { tab = it }
                     AnimatedContent(if (exam) AppTab.CALC else tab, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) }, label = "tab") {
                         Box(Modifier.fillMaxSize()) {
                             when (it) {
@@ -220,6 +221,7 @@ fun RootScreen(
                                 AppTab.CALC -> CalculatorScreen(app)
                                 AppTab.CALENDAR -> CalendarScreen(app)
                                 AppTab.REVIEW -> ReviewScreen(app)
+                                AppTab.LEARN -> de.maxifrz.lernwerk.ui.learn.LearnScreen(app)
                                 AppTab.SETTINGS -> SettingsScreen(app)
                             }
                         }
