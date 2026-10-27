@@ -183,6 +183,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         overlay.isUserInteractionEnabled = tool.usesCanvas || tool.editsAnnotations || showsInstrument
         overlay.canvas.isUserInteractionEnabled = tool.usesCanvas && !ownLasso
         overlay.lassoLayer.isHidden = !ownLasso
+        overlay.canvas.drawingPolicy = settings.input.drawingPolicy
         if let pkTool = settings.pkTool(for: tool) { overlay.canvas.tool = pkTool }
         overlay.tap.isEnabled = tool == .typing || tool == .textBox
         overlay.updateHandles()
@@ -896,6 +897,7 @@ final class NotesController: NSObject, PDFPageOverlayViewProvider, PKCanvasViewD
         let visible = zoomActive && tool.writesInZoom
         container.setZoomPanel(visible: visible)
         guard visible else { return }
+        container.zoomPanel.canvas.drawingPolicy = settings.input.drawingPolicy
         if let pkTool = settings.pkTool(for: tool) { container.zoomPanel.canvas.tool = pkTool }
         if zoomTarget == nil { placeZoomTarget() }
         updateZoomBackground()

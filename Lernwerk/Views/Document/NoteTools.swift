@@ -51,6 +51,49 @@ enum PenKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// Which touches write on the canvas: set in the toolbar, kept across launches.
+enum InkInput: String, CaseIterable, Identifiable {
+    /// Follows the iPadOS setting "Only Draw with Apple Pencil".
+    case automatic, fingerAndPencil, pencilOnly
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .automatic: return "Automatisch (iPadOS)"
+        case .fingerAndPencil: return "Finger und Stift"
+        case .pencilOnly: return "Nur Apple Pencil"
+        }
+    }
+
+    var drawingPolicy: PKCanvasViewDrawingPolicy {
+        switch self {
+        case .automatic: return .default
+        case .fingerAndPencil: return .anyInput
+        case .pencilOnly: return .pencilOnly
+        }
+    }
+
+    /// Whether a touch of this type may draw; the instruments use it, as they do not go through PencilKit.
+    func allows(_ touchType: UITouch.TouchType) -> Bool {
+        switch self {
+        case .automatic: return touchType == .pencil || !UIPencilInteraction.prefersPencilOnlyDrawing
+        case .fingerAndPencil: return true
+        case .pencilOnly: return touchType == .pencil
+        }
+    }
+
+    private static let key = "notes.inkInput"
+
+    static var stored: InkInput {
+        UserDefaults.standard.string(forKey: key).flatMap(InkInput.init(rawValue:)) ?? .automatic
+    }
+
+    static func store(_ value: InkInput) {
+        UserDefaults.standard.set(value.rawValue, forKey: key)
+    }
+}
+
 /// Everything the toolbar sets for the tools.
 struct InkSettings: Equatable {
     static let penColors: [UInt32] = [0x16150F, 0x1F4E9C, 0xC23B3B, 0x2E7D4F, 0xE0892B, 0x7B4BB7]
@@ -61,6 +104,10 @@ struct InkSettings: Equatable {
     static let highlighterWidths: [CGFloat] = [12, 20, 30]
     static let eraserWidths: [CGFloat] = [8, 20, 40]
 
+    /// Finger, pencil or both write; stored on change.
+    var input: InkInput = InkInput.stored {
+        didSet { InkInput.store(input) }
+    }
     var penKind: PenKind = .ballpoint
     var penColor: UInt32 = 0x16150F
     var penWidth: CGFloat = 1.2

@@ -114,7 +114,7 @@ final class PageOverlayView: UIView {
         canvas.isOpaque = false
         canvas.isScrollEnabled = false
         canvas.overrideUserInterfaceStyle = .light
-        canvas.drawingPolicy = .default
+        canvas.drawingPolicy = InkInput.stored.drawingPolicy
         addSubview(canvas)
         lassoLayer.controller = controller
         lassoLayer.pageIndex = pageIndex
@@ -771,7 +771,7 @@ final class ZoomPanelView: UIView {
         canvas.isOpaque = false
         canvas.isScrollEnabled = false
         canvas.overrideUserInterfaceStyle = .light
-        canvas.drawingPolicy = .default
+        canvas.drawingPolicy = InkInput.stored.drawingPolicy
         addSubview(canvas)
         buttons.axis = .vertical
         buttons.distribution = .fillEqually

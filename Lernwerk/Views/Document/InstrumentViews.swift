@@ -133,7 +133,7 @@ final class InstrumentLayerView: UIView {
 
     private func canDraw(with touch: UITouch) -> Bool {
         guard controller?.instrumentInk != nil else { return false }
-        return touch.type == .pencil || !UIPencilInteraction.prefersPencilOnlyDrawing
+        return (controller?.settings.input ?? .automatic).allows(touch.type)
     }
 
     // Touches, from the recognizer

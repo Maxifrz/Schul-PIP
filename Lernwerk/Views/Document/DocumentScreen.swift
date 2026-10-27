@@ -699,6 +699,7 @@ private struct ToolOptions: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            if editor.tool.usesCanvas && editor.tool != .lasso { inputMenu }
             switch editor.tool {
             case .pen, .shapes:
                 penKindMenu
@@ -765,6 +766,23 @@ private struct ToolOptions: View {
         }
         .frame(height: 36)
         .animation(.easeInOut(duration: 0.15), value: editor.tool)
+    }
+
+    /// Finger or pencil: shown with every tool that writes on the page.
+    private var inputMenu: some View {
+        Menu {
+            Picker("Eingabe", selection: $editor.settings.input) {
+                ForEach(InkInput.allCases) { input in
+                    Text(input.label).tag(input)
+                }
+            }
+        } label: {
+            Label(editor.settings.input.label, systemImage: editor.settings.input == .pencilOnly ? "pencil.tip" : "hand.point.up.left")
+                .font(.work(13, .medium))
+                .foregroundStyle(Quill.ink2)
+        }
+        .accessibilityLabel("Eingabe")
+        .accessibilityHint("Legt fest, ob du mit dem Finger, dem Apple Pencil oder beidem schreibst.")
     }
 
     private var penKindMenu: some View {
